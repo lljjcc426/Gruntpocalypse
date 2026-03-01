@@ -1,6 +1,6 @@
 [versions]
-kotlin = "2.2.21"
-kotlinDSL = "6.4.2"
+kotlin = "2.3.10"
+kotlinDSL = "6.5.3"
 
 compose = "1.9.1"
 compose-fluent = "v0.1.0"
@@ -30,7 +30,10 @@ asm-util = { group = "org.ow2.asm", name = "asm-util", version.ref = "asm" }
 asm-commons = { group = "org.ow2.asm", name = "asm-commons", version.ref = "asm" }
 asm-analysis = { group = "org.ow2.asm", name = "asm-analysis", version.ref = "asm" }
 
+# Utils
 fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 
 [bundles]
 asm = ["asm", "asm-tree", "asm-util", "asm-commons", "asm-analysis"]
+utils = ["fastutil", "gson"]

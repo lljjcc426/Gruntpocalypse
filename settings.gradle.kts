@@ -12,9 +12,3 @@ pluginManagement {
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
-
-includeBuild("../Genesis") {
-    dependencySubstitution {
-        substitute(module("net.spartanb312:genesis-kotlin")).using(project(":genesis-kotlin"))
-    }
-}
