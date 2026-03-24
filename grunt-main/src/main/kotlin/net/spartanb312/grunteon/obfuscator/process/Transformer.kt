@@ -6,7 +6,6 @@ import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.Languages
 import net.spartanb312.grunteon.obfuscator.lang.MultiText
-import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -26,6 +25,11 @@ abstract class Transformer<T : TransformerConfig>(
         val result = config::class.java.isAssignableFrom(confType)
         if (debug && !result) Logger.error("Config type mismatch! Except ${confType::class.qualifiedName} but get ${config::class.qualifiedName}")
         return result
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun execute(instance: Grunteon, res: WorkResources, jar: JarResources, config: TransformerConfig) {
+        context(instance, res, jar) { transform(config as T) }
     }
 
     context(instance: Grunteon, res: WorkResources, jar: JarResources)

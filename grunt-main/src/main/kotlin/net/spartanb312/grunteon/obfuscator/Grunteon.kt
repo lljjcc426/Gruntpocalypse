@@ -1,7 +1,13 @@
 package net.spartanb312.grunteon.obfuscator
 
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
+import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
+import net.spartanb312.grunteon.obfuscator.process.Transformer
+import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
+import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
+import net.spartanb312.grunteon.obfuscator.process.transformers.TestTransformer
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import java.io.File
 
 /**
  * Grunteon
@@ -36,18 +42,40 @@ fun main() {
     // TODO: Plugin scan
     // TODO: Plugin initialize
 
+    val dummyConfig = ConfigGroup()
+    val instance = dummyConfig.runConfig(
+        TestTransformer(),
+        TestTransformer(),
+        TestTransformer(),
+    )
+    instance.execute()
 }
 
-fun runConfig(configGroup: ConfigGroup) {
-
+fun ConfigGroup.runConfig(vararg transformers: Transformer<*>): Grunteon {
+    return Grunteon(this, ProcessPipeline(*transformers))
 }
 
 // Grunteon process instance
-class Grunteon() {
+class Grunteon(
+    val configGroup: ConfigGroup,
+    val pipeline: ProcessPipeline
+) {
 
     fun execute() {
         Logger.info("Executing obfuscating job...")
-    }
 
+        // Reading input jar
+        val inputJar = JarResources(File(configGroup.input))
+        // Reading working res
+        val res = WorkResources(inputJar)
+        res.readLibs(configGroup.libs)
+
+        // TODO: Profiler
+        context(res, inputJar) {
+            contextOf<Grunteon>().pipeline.execute()
+        }
+
+        // TODO: Output
+    }
 
 }

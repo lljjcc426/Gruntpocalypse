@@ -1,8 +1,11 @@
 package net.spartanb312.grunteon.obfuscator.pipeline
 
+import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
+import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
+import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 
 class ProcessPipeline(
     vararg transformers: Transformer<*>
@@ -18,9 +21,10 @@ class ProcessPipeline(
         }
     }
 
+    context(instance: Grunteon, res: WorkResources, jar: JarResources)
     fun execute() {
         transformer2Config.forEach { (transformer, config) ->
-            // TODO: pipeline execution
+            transformer.execute(instance, res, jar, config)
         }
     }
 
