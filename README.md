@@ -20,7 +20,9 @@ Feel free to join our Discord server for suggestions: https://discord.gg/ysB2fMf
 
 ## License
 
-Grunteon is a free and open source software licensed under PolyForm Strict License 1.0.0
+Grunteon is a free and open source obfuscator framework licensed under Apache License 2.0
+
+Yapyap is a grunt extension pack licensed under PolyForm Strict License 1.0.0
 
 The license of each Grunt version：
 
@@ -28,7 +30,7 @@ The license of each Grunt version：
 |----------------|-------------|-------------------------------|---------|----------------|
 | Grunt          | 1.0.0-1.5.x | Lightweight and stability     | MIT     | Allowed        |
 | Gruntpocalypse | 2.0.0-2.5.x | Diversity and intensity       | LGPL3   | Restricted     |
-| Grunteon       | 3.0.0-      | Programmable and controllable | PFSL1   | Prohibited     |
+| Grunteon       | 3.0.0-      | Programmable and controllable | Apache2 | Allowed        |
 
 ## Stargazers over time
 

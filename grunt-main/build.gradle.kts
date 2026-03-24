@@ -1,6 +1,5 @@
 plugins {
     id("buildsrc.convention.kotlin-jvm")
-    id("com.github.johnrengelman.shadow") version "8.1.1"
     //alias(libs.plugins.compose)
     //alias(libs.plugins.compose.compiler)
     //alias(libs.plugins.compose.hotReload)
@@ -14,9 +13,13 @@ repositories {
     maven("https://maven.noblesix.net/")
 }
 
+val coroutineVersion: String = libs.versions.coroutine.get()
+
 dependencies {
     projectLib(project(":grunt-bootstrap"))
     projectLib("net.spartanb312:genesis-kotlin:1.0.0")
+
+    library("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutineVersion")
 
     // libraries
     library(libs.bundles.asm)
