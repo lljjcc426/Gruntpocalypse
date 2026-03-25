@@ -28,6 +28,7 @@ class JarResources(val jar: Path) {
                         ClassReader(it).apply {
                             val classNode = ClassNode()
                             accept(classNode, ClassReader.EXPAND_FRAMES)
+                            if (classNode.name == "module-info") return@apply
                             classes[classNode.name] = classNode
                         }
                     }
