@@ -15,39 +15,42 @@ class ClassHierarchy {
     var children = emptyArray<IntArray>(); private set
     var ancestors = emptyArray<IntArray>(); private set
     var descendants = emptyArray<IntArray>(); private set
+    var broken = BooleanArray(0); private set
+    var missingDependencies = BooleanArray(0); private set
     var realClassCount = 0; private set
     var classCount = 0; private set
 
     @OptIn(ExperimentalStdlibApi::class)
     @Suppress("UNCHECKED_CAST", "EmptyRange")
     fun init(instance: Grunteon) {
-        classNodes = instance.allClasses.toTypedArray()
-        realClassCount = classNodes.size
+        val classNodesTemp = ObjectArrayList(instance.allClasses)
+        realClassCount = classNodesTemp.size
         classCount = realClassCount
 
         val parentsTemp = arrayOfNulls<IntArray>(classCount) as Array<IntArray>
         val classNamesTemp = ObjectArrayList<String>(classCount)
 
         for (i in 0..<realClassCount) {
-            val myName = classNodes[i].name
+            val myName = classNodesTemp[i].name
             classNameLookUp[myName] = i
             assert(classNamesTemp.size == i)
             classNamesTemp.add(myName)
         }
-        assert(classCount == classNodes.size)
-        assert(realClassCount == classNodes.size)
-        assert(classNamesTemp.size == classNodes.size)
-        assert(classNameLookUp.size == classNodes.size)
+        assert(classCount == classNodesTemp.size)
+        assert(realClassCount == classNodesTemp.size)
+        assert(classNamesTemp.size == classNodesTemp.size)
+        assert(classNameLookUp.size == classNodesTemp.size)
 
         val phantomClassHandle = ToIntFunction<String> {
             val newIdx = classCount++
             assert(newIdx == classNamesTemp.size)
+            classNodesTemp.add(MISSING_CLASSNODE)
             classNamesTemp.add(it)
             newIdx
         }
 
         for (i in 0..<realClassCount) {
-            val classNode = classNodes[i]
+            val classNode = classNodesTemp[i]
             if (classNode.name == JAVA_OBJECT) {
                 parentsTemp[i] = IntArray(0)
                 continue
@@ -102,14 +105,20 @@ class ClassHierarchy {
             }
         }
 
+        broken = BooleanArray(classCount)
+        missingDependencies = BooleanArray(classCount)
+
         for (i in 0..<classCount) {
             children[i] = childrenTemp[i].distinct().toIntArray()
             ancestors[i] = ancestorsTemp[i].distinct().toIntArray()
             descendants[i] = descendantsTemp[i].distinct().toIntArray()
+            broken[i] = classNodesTemp[i] == MISSING_CLASSNODE
+            missingDependencies[i] = broken[i] || ancestors[i].any { broken[it] }
         }
     }
 
     companion object {
         const val JAVA_OBJECT = "java/lang/Object"
+        val MISSING_CLASSNODE = ClassNode()
     }
 }
