@@ -56,6 +56,7 @@ fun main() {
             ClassRenameTransformer(),
             TestTransformer(),
         )
+        instance.init()
         instance.execute()
     }.also { println("$it ms") }
 }
@@ -80,15 +81,15 @@ class Grunteon(
     inline val libraries get() = workRes.libraries
     inline val allClasses get() = workRes.allClasses
 
-    fun execute() {
+    fun init() {
         Logger.info("Executing obfuscating job...")
 
         // Reading input jar
-        input = JarResources(Path("run/AT260127/engine/boar-main.jar"))
+        input = JarResources(Path("I:/code/obf/Grunteon/run/AT260127/engine/boar-main.jar"))
         input.readInput()
         // Reading working res
         workRes = WorkResources(input)
-        workRes.readLibs(listOf("run/AT260127/libs"))//configGroup.libs)
+        workRes.readLibs(listOf("I:/code/obf/Grunteon/run/AT260127/libs"))//configGroup.libs)
         // Output dumper
         output = JarDumper(
             jarResources = input,
@@ -103,7 +104,9 @@ class Grunteon(
             fileRemovePrefix = configGroup.fileRemovePrefix,
             fileRemoveSuffix = configGroup.fileRemoveSuffix,
         )
+    }
 
+    fun execute() {
         // TODO: Profiler
         context(workRes, input) {
             contextOf<Grunteon>().pipeline.execute()
