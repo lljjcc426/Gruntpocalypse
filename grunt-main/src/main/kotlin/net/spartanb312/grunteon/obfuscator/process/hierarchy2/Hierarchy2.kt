@@ -2,12 +2,14 @@ package net.spartanb312.grunteon.obfuscator.process.hierarchy2
 
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import org.objectweb.asm.tree.ClassNode
 import java.util.function.ToIntFunction
 
 class ClassHierarchy {
     var classNodes = emptyArray<ClassNode>(); private set
+    var classNames = emptyArray<String>(); private set
     val classNameLookUp = Object2IntOpenHashMap<String>()
     var parents = emptyArray<IntArray>(); private set
     var children = emptyArray<IntArray>(); private set
@@ -24,9 +26,24 @@ class ClassHierarchy {
         classCount = realClassCount
 
         val parentsTemp = arrayOfNulls<IntArray>(classCount) as Array<IntArray>
+        val classNamesTemp = ObjectArrayList<String>(classCount)
 
         for (i in 0..<realClassCount) {
-            classNameLookUp[classNodes[i].name] = i
+            val myName = classNodes[i].name
+            classNameLookUp[myName] = i
+            assert(classNamesTemp.size == i)
+            classNamesTemp.add(myName)
+        }
+        assert(classCount == classNodes.size)
+        assert(realClassCount == classNodes.size)
+        assert(classNamesTemp.size == classNodes.size)
+        assert(classNameLookUp.size == classNodes.size)
+
+        val phantomClassHandle = ToIntFunction<String> {
+            val newIdx = classCount++
+            assert(newIdx == classNamesTemp.size)
+            classNamesTemp.add(it)
+            newIdx
         }
 
         for (i in 0..<realClassCount) {
@@ -34,16 +51,17 @@ class ClassHierarchy {
             val interfaces = classNode.interfaces ?: emptyList()
             val parentCount = 1 + interfaces.size
             val parentArray = IntArray(parentCount)
-            parentArray[0] = classNameLookUp.computeIfAbsent(classNode.superName ?: JAVA_OBJECT, ToIntFunction {
-                classCount++
-            })
+            parentArray[0] = classNameLookUp.computeIfAbsent(classNode.superName ?: JAVA_OBJECT, phantomClassHandle)
             for (j in 0 until interfaces.size) {
-                parentArray[j + 1] = classNameLookUp.computeIfAbsent(interfaces[j], ToIntFunction {
-                    classCount++
-                })
+                parentArray[j + 1] = classNameLookUp.computeIfAbsent(interfaces[j], phantomClassHandle)
             }
             parentsTemp[i] = parentArray.distinct().toIntArray()
         }
+
+        classNames = classNamesTemp.toTypedArray()
+
+        assert(realClassCount >= classCount)
+        assert(classNames.size == realClassCount)
 
         val emptyIntArray = IntArray(0)
         parents = parentsTemp.copyOf(classCount) { emptyIntArray }
