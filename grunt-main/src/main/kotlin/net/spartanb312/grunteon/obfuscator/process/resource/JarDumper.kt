@@ -6,7 +6,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.HeavyHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.util.ClearClassNode
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
@@ -17,6 +19,8 @@ import java.io.File
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.time.DurationUnit
+import kotlin.time.measureTime
 
 class JarDumper(
     val jarResources: JarResources,
@@ -58,10 +62,17 @@ class JarDumper(
             Logger.info("Building hierarchies...")
             println("Classes = ${instance.allClasses.size}")
             val hierarchy = Hierarchy(instance)
-            val start = System.nanoTime()
-            hierarchy.buildClass()
-            val end = System.nanoTime() - start
-            println("Took ${end / 1_000} μs")
+            measureTime {
+                hierarchy.buildClass()
+            }.also { println("Old Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
+            val heavyHierarchy = HeavyHierarchy(instance)
+            measureTime {
+                heavyHierarchy.buildAll()
+            }.also { println("Old heavy Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
+            measureTime {
+                val hierarchy = ClassHierarchy()
+                hierarchy.init(instance)
+            }.also { println("New Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
             // Writing class
             Logger.info("Writing classes...")
             val mutex = Mutex()
