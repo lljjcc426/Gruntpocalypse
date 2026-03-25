@@ -65,7 +65,7 @@ class JarDumper(
                 Hierarchy(instance).buildClass()
             }
             repeat(200) {
-                ClassHierarchy().init(instance)
+                ClassHierarchy.build(instance)
             }
 
 
@@ -76,7 +76,7 @@ class JarDumper(
             }.also { println("Old light Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 10.0)) }
             measureTime {
                 repeat(10) {
-                    ClassHierarchy().init(instance)
+                    ClassHierarchy.build(instance)
                 }
             }.also { println("New light Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 10.0)) }
 
