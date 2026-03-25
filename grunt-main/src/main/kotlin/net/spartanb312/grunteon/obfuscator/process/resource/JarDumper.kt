@@ -60,18 +60,30 @@ class JarDumper(
             // Build hierarchy
             Logger.info("Building hierarchies...")
             println("Classes = ${instance.allClasses.size}")
+
+            repeat(200) {
+                Hierarchy(instance).buildClass()
+            }
+            repeat(200) {
+                ClassHierarchy().init(instance)
+            }
+
+
+            measureTime {
+                repeat(10) {
+                    Hierarchy(instance).buildClass()
+                }
+            }.also { println("Old light Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 10.0)) }
+            measureTime {
+                repeat(10) {
+                    ClassHierarchy().init(instance)
+                }
+            }.also { println("New light Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 10.0)) }
+
             val hierarchy = Hierarchy(instance)
-            measureTime {
-                hierarchy.buildClass()
-            }.also { println("Old Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
-//            val heavyHierarchy = HeavyHierarchy(instance)
-//            measureTime {
-//                heavyHierarchy.buildAll()
-//            }.also { println("Old heavy Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
-            measureTime {
-                val hierarchy = ClassHierarchy()
-                hierarchy.init(instance)
-            }.also { println("New Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
+            hierarchy.buildClass()
+
+
             // Writing class
             Logger.info("Writing classes...")
             val mutex = Mutex()

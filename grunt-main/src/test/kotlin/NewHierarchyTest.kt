@@ -3,6 +3,7 @@ import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -16,6 +17,26 @@ class NewHierarchyTest {
         light.buildClass()
         val newLight = ClassHierarchy()
         newLight.init(instance)
+        checkLight(light, newLight)
+    }
+
+    @Test
+    fun lightShuffle() {
+        val emptyConfig = ConfigGroup()
+        val instance = Grunteon(emptyConfig, ProcessPipeline())
+        instance.init()
+        val light = Hierarchy(instance)
+        light.buildClass()
+        instance.allClasses.shuffle(Random(1145141919810L))
+        val newLight = ClassHierarchy()
+        newLight.init(instance)
+        checkLight(light, newLight)
+    }
+
+    private fun checkLight(
+        light: Hierarchy,
+        newLight: ClassHierarchy
+    ) {
         light.classInfos.values.forEach { info ->
             val newIdx = newLight.classNameLookUp.getInt(info.name)
             assertEquals(info.name, newLight.classNames[newIdx], "Class name mismatch for ${info.name}")
