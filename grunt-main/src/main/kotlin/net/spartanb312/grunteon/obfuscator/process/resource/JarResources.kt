@@ -11,10 +11,10 @@ class JarResources(val jar: File) {
 
     val classes = mutableMapOf<String, ClassNode>()
     val resources = mutableMapOf<String, ByteArray>()
-    val generatedClasses = mutableMapOf<String, ClassNode>()
+    val generatedClasses = mutableMapOf<String, ClassNode>() // also included in classes
 
-    fun readInput() {
-        Logger.info("Reading ${jar.path}")
+    fun readInput(lisLib: Boolean = false) {
+        if (lisLib) Logger.info(" - ${jar.path}") else Logger.info("Reading ${jar.path}")
         JarFile(jar).apply {
             entries().asSequence()
                 .filter { !it.isDirectory }
@@ -27,7 +27,7 @@ class JarResources(val jar: File) {
                                 classes[classNode.name] = classNode
                             }
                         }
-                    } else resources[it.name] = getInputStream(it).readBytes()
+                    } else if (!lisLib) resources[it.name] = getInputStream(it).readBytes()
                 }
         }
     }

@@ -8,3 +8,7 @@ hs_err_pid*.log
 build/
 /release
 /run
+/obftest
+/libs
+input.jar
+output.jar

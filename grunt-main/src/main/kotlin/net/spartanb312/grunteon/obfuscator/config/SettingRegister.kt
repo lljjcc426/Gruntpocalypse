@@ -12,68 +12,68 @@ import net.spartanb312.grunteon.obfuscator.lang.MultiText
 interface SettingRegister<T> {
 
     fun T.setting(
-        nameMulti: MultiText,
+        name: MultiText,
         value: Double,
         range: ClosedFloatingPointRange<Double> = Double.MIN_VALUE..Double.MAX_VALUE,
         step: Double = 0.1,
-        description: MultiText,
+        desc: MultiText,
         visibility: () -> Boolean = { true },
-    ) = setting(DoubleSetting(nameMulti, value, range, step, description, visibility))
+    ) = setting(DoubleSetting(name, value, range, step, desc, visibility))
 
     fun T.setting(
-        nameMulti: MultiText,
+        name: MultiText,
         value: Float,
         range: ClosedFloatingPointRange<Float> = Float.MIN_VALUE..Float.MAX_VALUE,
         step: Float = 0.1F,
-        description: MultiText,
+        desc: MultiText,
         visibility: () -> Boolean = { true },
-    ) = setting(FloatSetting(nameMulti, value, range, step, description, visibility))
+    ) = setting(FloatSetting(name, value, range, step, desc, visibility))
 
     fun T.setting(
-        nameMulti: MultiText,
+        name: MultiText,
         value: Int,
         range: IntRange = Int.MIN_VALUE..Int.MAX_VALUE,
         step: Int = 1,
-        description: MultiText,
+        desc: MultiText,
         visibility: () -> Boolean = { true },
-    ) = setting(IntegerSetting(nameMulti, value, range, step, description, visibility))
+    ) = setting(IntegerSetting(name, value, range, step, desc, visibility))
 
     fun T.setting(
-        nameMulti: MultiText,
+        name: MultiText,
         value: Long,
         range: LongRange = Long.MIN_VALUE..Long.MAX_VALUE,
         step: Long = 1L,
-        description: MultiText,
+        desc: MultiText,
         visibility: () -> Boolean = { true },
-    ) = setting(LongSetting(nameMulti, value, range, step, description, visibility))
+    ) = setting(LongSetting(name, value, range, step, desc, visibility))
 
     fun T.setting(
-        nameMulti: MultiText,
+        name: MultiText,
         value: Boolean,
-        description: MultiText,
+        desc: MultiText,
         visibility: () -> Boolean = { true },
-    ) = setting(BooleanSetting(nameMulti, value, description, visibility))
+    ) = setting(BooleanSetting(name, value, desc, visibility))
 
     fun <E : Enum<E>> T.setting(
-        nameMulti: MultiText,
+        name: MultiText,
         value: E,
-        description: MultiText,
+        desc: MultiText,
         visibility: () -> Boolean = { true },
-    ) = setting(EnumSetting(nameMulti, value, description, visibility))
+    ) = setting(EnumSetting(name, value, desc, visibility))
 
     fun T.setting(
-        nameMulti: MultiText,
+        name: MultiText,
         value: String,
-        description: MultiText,
+        desc: MultiText,
         visibility: () -> Boolean = { true },
-    ) = setting(StringSetting(nameMulti, value, description, visibility))
+    ) = setting(StringSetting(name, value, desc, visibility))
 
     fun T.setting(
-        nameMulti: MultiText,
+        name: MultiText,
         value: List<String>,
-        description: MultiText,
+        desc: MultiText,
         visibility: () -> Boolean = { true },
-    ) = setting(ListSetting(nameMulti, value, description, visibility))
+    ) = setting(ListSetting(name, value, desc, visibility))
 
     fun <S : AbstractSetting<*>> T.setting(setting: S): S
 

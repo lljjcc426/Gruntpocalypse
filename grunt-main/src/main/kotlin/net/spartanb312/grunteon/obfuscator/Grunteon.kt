@@ -3,10 +3,16 @@ package net.spartanb312.grunteon.obfuscator
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.Transformer
+import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.TestTransformer
+import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberXorEncrypt
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
+import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
+import org.objectweb.asm.tree.ClassNode
 import java.io.File
 
 /**
@@ -42,17 +48,17 @@ fun main() {
     // TODO: Plugin scan
     // TODO: Plugin initialize
 
-    val dummyConfig = ConfigGroup()
-    val instance = dummyConfig.runConfig(
+    val emptyConfig = ConfigGroup()
+    val instance = emptyConfig.runPipeline(
         TestTransformer(),
-        TestTransformer(),
+        NumberXorEncrypt(),
         TestTransformer(),
     )
     instance.execute()
 }
 
-fun ConfigGroup.runConfig(vararg transformers: Transformer<*>): Grunteon {
-    return Grunteon(this, ProcessPipeline(*transformers))
+fun ConfigGroup.runPipeline(vararg transformers: Transformer<*>): Grunteon {
+    return Grunteon(this, ProcessPipeline(*transformers).apply { parseConfig(this@runPipeline) })
 }
 
 // Grunteon process instance
@@ -61,21 +67,49 @@ class Grunteon(
     val pipeline: ProcessPipeline
 ) {
 
+    /**
+     * Resources
+     */
+    lateinit var input: JarResources
+    lateinit var output: JarDumper
+    lateinit var workRes: WorkResources
+    inline val classes get() = input.classes
+    inline val libraries get() = workRes.libraries
+    inline val allClasses get() = workRes.allClasses
+
     fun execute() {
         Logger.info("Executing obfuscating job...")
 
         // Reading input jar
-        val inputJar = JarResources(File(configGroup.input))
+        input = JarResources(File(configGroup.input))
+        input.readInput()
         // Reading working res
-        val res = WorkResources(inputJar)
-        res.readLibs(configGroup.libs)
+        workRes = WorkResources(input)
+        workRes.readLibs(listOf("libs/"))//configGroup.libs)
+        // Output dumper
+        output = JarDumper(
+            jarResources = input,
+            outputFile = File(configGroup.output),
+            forceComputeMax = configGroup.forceComputeMax,
+            missingCheck = configGroup.missingCheck,
+            corruptHeader = configGroup.corruptHeaders,
+            corruptCRC32 = configGroup.corruptCRC32,
+            removeTimestamps = configGroup.removeTimeStamps,
+            compressionLevel = configGroup.compressionLevel,
+            archiveComment = configGroup.archiveComment,
+            fileRemovePrefix = configGroup.fileRemovePrefix,
+            fileRemoveSuffix = configGroup.fileRemoveSuffix,
+        )
 
         // TODO: Profiler
-        context(res, inputJar) {
+        context(workRes, input) {
             contextOf<Grunteon>().pipeline.execute()
         }
 
-        // TODO: Output
+        output.dumpJar()
     }
+
+    val mixinExPredicate = buildClassNamePredicates(configGroup.mixinExclusions)
+    val globalExPredicate = buildClassNamePredicates(configGroup.exclusions)
 
 }

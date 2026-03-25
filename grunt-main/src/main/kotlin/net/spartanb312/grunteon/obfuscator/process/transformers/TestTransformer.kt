@@ -10,8 +10,9 @@ import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import org.objectweb.asm.tree.ClassNode
 
 class TestTransformer : Transformer<TestTransformer.Config>(
-    enText("process.misc.test_transformer", "TestTransformer"),
-    Category.Other
+    name = enText("process.misc.test_transformer", "TestTransformer"),
+    category = Category.Other,
+    parallel = true
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -19,33 +20,31 @@ class TestTransformer : Transformer<TestTransformer.Config>(
 
     class Config : TransformerConfig() {
         val boolean by setting(
-            enText("process.misc.test_transformer.config.boolean", "Boolean"),
-            true,
-            enText("process.misc.test_transformer.config.boolean", "Boolean desc"),
+            name = enText("process.misc.test_transformer.config.boolean", "Boolean"),
+            value = true,
+            desc = enText("process.misc.test_transformer.config.boolean", "Boolean desc"),
         )
         val integer by setting(
-            enText("process.misc.test_transformer.config.integer", "Integer"),
-            1,
-            0..100,
-            1,
-            enText("process.misc.test_transformer.config.integer", "Integer desc"),
+            name = enText("process.misc.test_transformer.config.integer", "Integer"),
+            value = 1,
+            range = 0..100,
+            desc = enText("process.misc.test_transformer.config.integer", "Integer desc"),
         )
         val float by setting(
-            enText("process.misc.test_transformer.config.float", "Float"),
-            1f,
-            0f..100f,
-            1f,
-            enText("process.misc.test_transformer.config.float", "Float desc"),
+            name = enText("process.misc.test_transformer.config.float", "Float"),
+            value = 1f,
+            range = 0f..100f,
+            desc = enText("process.misc.test_transformer.config.float", "Float desc"),
         )
         val list by setting(
-            enText("process.misc.test_transformer.config.list", "List"),
-            listOf("a", "b", "c"),
-            enText("process.misc.test_transformer.config.list", "List desc"),
+            name = enText("process.misc.test_transformer.config.list", "List"),
+            value = listOf("a", "b", "c"),
+            desc = enText("process.misc.test_transformer.config.list", "List desc"),
         )
         val string by setting(
-            enText("process.misc.test_transformer.config.string", "String"),
-            "default",
-            enText("process.misc.test_transformer.config.string", "String desc"),
+            name = enText("process.misc.test_transformer.config.string", "String"),
+            value = "default",
+            desc = enText("process.misc.test_transformer.config.string", "String desc"),
         )
     }
 
@@ -59,6 +58,7 @@ class TestTransformer : Transformer<TestTransformer.Config>(
         config.float
         config.list
         config.string
+        // println(classNode.name)
     }
 
 }
