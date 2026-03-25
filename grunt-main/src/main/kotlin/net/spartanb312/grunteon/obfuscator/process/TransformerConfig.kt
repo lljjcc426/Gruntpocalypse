@@ -6,7 +6,7 @@ import net.spartanb312.grunteon.obfuscator.lang.enText
 abstract class TransformerConfig : Configurable() {
 
     val excludeStrategy by setting(
-        enText("process.common.config.exclude_strategy", "Exclude Strategy"),
+        enText("process.common.config.exclude_strategy", "Exclude strategy"),
         listOf(
             "net/dummy/**", // Exclude package
             "net/dummy/Class", // Exclude class
@@ -16,7 +16,7 @@ abstract class TransformerConfig : Configurable() {
     )
 
     val includeStrategy by setting(
-        enText("process.common.config.exclude_strategy", "Exclude Strategy"),
+        enText("process.common.config.exclude_strategy", "Exclude strategy"),
         listOf(
             "**" // Include all
         ),

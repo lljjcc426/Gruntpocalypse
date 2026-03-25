@@ -56,12 +56,8 @@ class JarDumper(
             }
             // Build hierarchy
             Logger.info("Building hierarchies...")
-            println("Classes = ${instance.allClasses.size}")
             val hierarchy = Hierarchy(instance)
-            val start = System.nanoTime()
             hierarchy.buildClass()
-            val end = System.nanoTime() - start
-            println("Took ${end / 1_000} μs")
             // Writing class
             Logger.info("Writing classes...")
             val mutex = Mutex()

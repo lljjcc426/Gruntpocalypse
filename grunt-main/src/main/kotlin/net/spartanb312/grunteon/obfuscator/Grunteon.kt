@@ -8,7 +8,8 @@ import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.TestTransformer
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
-import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenameTransformer
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import java.io.File
@@ -53,7 +54,7 @@ fun main() {
         val instance = emptyConfig.runPipeline(
             TestTransformer(),
             NumberBasicEncrypt(),
-            ClassRenameTransformer(),
+            LocalVarRenamer(),
             TestTransformer(),
         )
         instance.execute()
@@ -84,11 +85,11 @@ class Grunteon(
         Logger.info("Executing obfuscating job...")
 
         // Reading input jar
-        input = JarResources(Path("run/AT260127/engine/boar-main.jar"))
+        input = JarResources(Path("input.jar"))
         input.readInput()
         // Reading working res
         workRes = WorkResources(input)
-        workRes.readLibs(listOf("run/AT260127/libs"))//configGroup.libs)
+        workRes.readLibs(listOf("libs/"))//configGroup.libs)
         // Output dumper
         output = JarDumper(
             jarResources = input,

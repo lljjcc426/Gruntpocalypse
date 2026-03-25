@@ -20,31 +20,31 @@ class TestTransformer : Transformer<TestTransformer.Config>(
 
     class Config : TransformerConfig() {
         val boolean by setting(
-            name = enText("process.misc.test_transformer.config.boolean", "Boolean"),
+            name = enText("process.misc.test_transformer.boolean", "Boolean"),
             value = true,
-            desc = enText("process.misc.test_transformer.config.boolean", "Boolean desc"),
+            desc = enText("process.misc.test_transformer.boolean", "Boolean desc"),
         )
         val integer by setting(
-            name = enText("process.misc.test_transformer.config.integer", "Integer"),
+            name = enText("process.misc.test_transformer.integer", "Integer"),
             value = 1,
             range = 0..100,
-            desc = enText("process.misc.test_transformer.config.integer", "Integer desc"),
+            desc = enText("process.misc.test_transformer.integer", "Integer desc"),
         )
         val float by setting(
-            name = enText("process.misc.test_transformer.config.float", "Float"),
+            name = enText("process.misc.test_transformer.float", "Float"),
             value = 1f,
             range = 0f..100f,
-            desc = enText("process.misc.test_transformer.config.float", "Float desc"),
+            desc = enText("process.misc.test_transformer.float", "Float desc"),
         )
         val list by setting(
-            name = enText("process.misc.test_transformer.config.list", "List"),
+            name = enText("process.misc.test_transformer.list", "List"),
             value = listOf("a", "b", "c"),
-            desc = enText("process.misc.test_transformer.config.list", "List desc"),
+            desc = enText("process.misc.test_transformer.list", "List desc"),
         )
         val string by setting(
-            name = enText("process.misc.test_transformer.config.string", "String"),
+            name = enText("process.misc.test_transformer.string", "String"),
             value = "default",
-            desc = enText("process.misc.test_transformer.config.string", "String desc"),
+            desc = enText("process.misc.test_transformer.string", "String desc"),
         )
     }
 
