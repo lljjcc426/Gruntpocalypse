@@ -1,15 +1,18 @@
 package net.spartanb312.grunteon.obfuscator.process.resource
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.tree.ClassNode
-import java.io.File
+import kotlin.io.path.*
 
 class WorkResources(
     val inputJar: JarResources
 ) {
-
     val libJars = Object2ObjectOpenHashMap<String, JarResources>()
     val libraries = Object2ObjectOpenHashMap<String, ClassNode>()
 
@@ -25,27 +28,24 @@ class WorkResources(
      */
     fun readLibs(libs: List<String>) {
         Logger.info("Reading Libraries...")
-        libs.map { File(it) }.forEach { file ->
-            if (file.isDirectory) {
-                readDirectory(file)
-            } else {
-                val jar = JarResources(file)
-                jar.readInput(true)
-                libJars[file.name] = jar
-                libraries.putAll(jar.classes) // save lib classes
-            }
-        }
-    }
+        runBlocking {
+            val jars = libs.asSequence()
+                .map { Path(it) }
+                .flatMap { it.walk() }
+                .filterNot { it.isDirectory() }
+                .filter { it.extension == "jar" }
+                .map { JarResources(it) }
+                .toList()
 
-    private fun readDirectory(directory: File) {
-        directory.listFiles()?.forEach { file ->
-            if (file.isDirectory) {
-                readDirectory(file)
-            } else {
-                val jar = JarResources(file)
-                jar.readInput(true)
-                libJars[file.name] = jar
-                libraries.putAll(jar.classes) // save lib classes
+            coroutineScope {
+                jars.forEach {
+                    launch(Dispatchers.Default) { it.readInput(true) }
+                }
+            }
+
+            jars.forEach {
+                libJars[it.jar.name] = it
+                libraries.putAll(it.classes) // save lib classes
             }
         }
     }

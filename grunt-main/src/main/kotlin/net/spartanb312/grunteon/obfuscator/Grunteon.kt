@@ -12,6 +12,8 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRena
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import java.io.File
+import kotlin.io.path.Path
+import kotlin.system.measureTimeMillis
 
 /**
  * Grunteon
@@ -46,14 +48,16 @@ fun main() {
     // TODO: Plugin scan
     // TODO: Plugin initialize
 
-    val emptyConfig = ConfigGroup()
-    val instance = emptyConfig.runPipeline(
-        TestTransformer(),
-        NumberBasicEncrypt(),
-        ClassRenameTransformer(),
-        TestTransformer(),
-    )
-    instance.execute()
+    measureTimeMillis {
+        val emptyConfig = ConfigGroup()
+        val instance = emptyConfig.runPipeline(
+            TestTransformer(),
+            NumberBasicEncrypt(),
+            ClassRenameTransformer(),
+            TestTransformer(),
+        )
+        instance.execute()
+    }.also { println("$it ms") }
 }
 
 fun ConfigGroup.runPipeline(vararg transformers: Transformer<*>): Grunteon {
@@ -80,11 +84,11 @@ class Grunteon(
         Logger.info("Executing obfuscating job...")
 
         // Reading input jar
-        input = JarResources(File(configGroup.input))
+        input = JarResources(Path("run/AT260127/engine/boar-main.jar"))
         input.readInput()
         // Reading working res
         workRes = WorkResources(input)
-        workRes.readLibs(listOf("libs/"))//configGroup.libs)
+        workRes.readLibs(listOf("run/AT260127/libs"))//configGroup.libs)
         // Output dumper
         output = JarDumper(
             jarResources = input,
