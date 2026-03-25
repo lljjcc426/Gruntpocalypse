@@ -48,6 +48,10 @@ class ClassHierarchy {
 
         for (i in 0..<realClassCount) {
             val classNode = classNodes[i]
+            if (classNode.name == JAVA_OBJECT) {
+                parentsTemp[i] = IntArray(0)
+                continue
+            }
             val interfaces = classNode.interfaces ?: emptyList()
             val parentCount = 1 + interfaces.size
             val parentArray = IntArray(parentCount)

@@ -24,6 +24,8 @@ dependencies {
     // libraries
     library(libs.bundles.asm)
     library(libs.bundles.utils)
+
+    testImplementation(kotlin("test"))
 }
 
 tasks {
@@ -39,4 +41,8 @@ tasks {
         }
         dependsOn(":grunt-bootstrap:jar")
     }
+}
+
+tasks.withType<Test> {
+    maxHeapSize = "4G"
 }

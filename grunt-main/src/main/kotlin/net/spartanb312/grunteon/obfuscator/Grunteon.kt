@@ -11,7 +11,10 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.N
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenameTransformer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.io.path.Path
 import kotlin.system.measureTimeMillis
 
@@ -25,7 +28,10 @@ const val SUBTITLE = "build 260324"
 const val GITHUB = "https://github.com/SpartanB312/Grunt"
 
 fun main() {
-
+    Logger = SimpleLogger(
+        "Grunteon",
+        "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
+    )
     println(
         """
              ________  __________   ____ ___   _______    ___________

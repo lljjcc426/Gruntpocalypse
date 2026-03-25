@@ -6,7 +6,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.process.hierarchy.HeavyHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.util.ClearClassNode
@@ -65,10 +64,10 @@ class JarDumper(
             measureTime {
                 hierarchy.buildClass()
             }.also { println("Old Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
-            val heavyHierarchy = HeavyHierarchy(instance)
-            measureTime {
-                heavyHierarchy.buildAll()
-            }.also { println("Old heavy Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
+//            val heavyHierarchy = HeavyHierarchy(instance)
+//            measureTime {
+//                heavyHierarchy.buildAll()
+//            }.also { println("Old heavy Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
             measureTime {
                 val hierarchy = ClassHierarchy()
                 hierarchy.init(instance)
