@@ -56,8 +56,12 @@ class JarDumper(
             }
             // Build hierarchy
             Logger.info("Building hierarchies...")
+            println("Classes = ${instance.allClasses.size}")
             val hierarchy = Hierarchy(instance)
+            val start = System.nanoTime()
             hierarchy.buildClass()
+            val end = System.nanoTime() - start
+            println("Took ${end / 1_000} μs")
             // Writing class
             Logger.info("Writing classes...")
             val mutex = Mutex()
@@ -65,9 +69,10 @@ class JarDumper(
                 for (classNode in jarResources.classes.values) {
                     // File remove
                     if (classNode.name == "module-info" || classNode.name.shouldRemove) continue
+                    val missingList = hierarchy.checkMissing(classNode)
+                    val classInfo = hierarchy.getClassInfo(classNode)
                     launch(Dispatchers.IO) {
                         // Dependency check
-                        val missingList = hierarchy.checkMissing(classNode)
                         val missingRef = missingList.isNotEmpty()
                         if (missingRef && missingCheck) {
                             Logger.error("Class ${classNode.name} missing reference:")
@@ -75,7 +80,6 @@ class JarDumper(
                                 Logger.error(" - ${missing.name}")
                             }
                         }
-                        val classInfo = hierarchy.getClassInfo(classNode)
                         val missingAny = (classInfo.missingDependencies || missingRef) && missingCheck
                         val useComputeMax = forceComputeMax || missingAny || classNode.isExcluded
                         val missing = missingAny && !forceComputeMax && !classNode.isExcluded

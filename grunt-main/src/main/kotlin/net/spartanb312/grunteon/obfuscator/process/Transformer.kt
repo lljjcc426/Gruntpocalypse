@@ -38,7 +38,7 @@ abstract class Transformer<T : TransformerConfig>(
             jar.classes.asSequence()
                 .filter { true } // TODO : class filter
                 .forEach { clazz ->
-                    MainScope.launch(Dispatchers.IO) {
+                    launch(Dispatchers.IO) {
                         transformClass(clazz.value, config)
                     }
                 }
@@ -53,8 +53,6 @@ abstract class Transformer<T : TransformerConfig>(
     open fun transformClass(
         classNode: ClassNode,
         config: T,
-    ) {
-
-    }
+    ) { }
 
 }

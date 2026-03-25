@@ -7,12 +7,10 @@ import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.TestTransformer
-import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberXorEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenameTransformer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
-import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
-import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
-import org.objectweb.asm.tree.ClassNode
 import java.io.File
 
 /**
@@ -51,7 +49,8 @@ fun main() {
     val emptyConfig = ConfigGroup()
     val instance = emptyConfig.runPipeline(
         TestTransformer(),
-        NumberXorEncrypt(),
+        NumberBasicEncrypt(),
+        ClassRenameTransformer(),
         TestTransformer(),
     )
     instance.execute()
@@ -89,7 +88,7 @@ class Grunteon(
         // Output dumper
         output = JarDumper(
             jarResources = input,
-            outputFile = File(configGroup.output),
+            outputFile = File("obftest/AT/engine/boar-main.jar"),
             forceComputeMax = configGroup.forceComputeMax,
             missingCheck = configGroup.missingCheck,
             corruptHeader = configGroup.corruptHeaders,
