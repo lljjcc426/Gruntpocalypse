@@ -18,6 +18,7 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import net.spartanb312.grunteon.obfuscator.util.numerical.asInt
 import net.spartanb312.grunteon.obfuscator.util.numerical.asLong
@@ -147,6 +148,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     context(instance: Grunteon, res: WorkResources, jar: JarResources)
     override fun transform(config: Config) {
         Logger.info(" - NumberBasicEncrypt: Encrypting numbers...")
+        methodExPredicate = buildMethodNamePredicates(config.exclusion)
         super.transform(config)
         Logger.info("    Encrypted ${counter.get()} numbers")
     }

@@ -39,10 +39,10 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
             desc = enText("process.rename.local_var_renamer.prefix.desc", "Prefix for new name")
         )
         val deleteASMInfo by setting(
-            name = enText("process.rename.local_var_renamer.delete_asm_info", "DeleteASMInfo"),
+            name = enText("process.rename.local_var_renamer.delete_names", "Delete names"),
             value = false,
             desc = enText(
-                "process.rename.local_var_renamer.delete_asm_info.desc",
+                "process.rename.local_var_renamer.delete_names.desc",
                 "Delete local vars and parameters info"
             ),
         )

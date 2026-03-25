@@ -37,3 +37,5 @@ fun NamePredicates.matchedAllBy(name: String): Boolean = all { it.invoke(name) }
 
 fun NamePredicates.matchedAnyBy(name: String): Boolean = any { it.invoke(name) }
 
+fun NamePredicates.matchedNoneBy(name: String): Boolean = none { it.invoke(name) }
+
