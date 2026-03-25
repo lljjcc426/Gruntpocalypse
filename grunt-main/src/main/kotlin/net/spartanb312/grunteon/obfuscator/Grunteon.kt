@@ -8,7 +8,6 @@ import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.TestTransformer
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
-import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
@@ -51,14 +50,17 @@ fun main() {
 
     measureTimeMillis {
         val emptyConfig = ConfigGroup()
-        val instance = emptyConfig.runPipeline(
-            TestTransformer(),
+        val pipeline = ProcessPipeline(
             NumberBasicEncrypt(),
             LocalVarRenamer(),
-            TestTransformer(),
         )
+        val instance = emptyConfig.runPipeline(pipeline)
         instance.execute()
     }.also { println("$it ms") }
+}
+
+fun ConfigGroup.runPipeline(pipeline: ProcessPipeline): Grunteon {
+    return Grunteon(this, pipeline.apply { parseConfig(this@runPipeline) })
 }
 
 fun ConfigGroup.runPipeline(vararg transformers: Transformer<*>): Grunteon {

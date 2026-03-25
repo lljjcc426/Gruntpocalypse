@@ -14,8 +14,6 @@ import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
-import net.spartanb312.grunteon.obfuscator.util.filters.matchedNoneBy
-import net.spartanb312.grunteon.obfuscator.util.thread.MainScope
 import org.objectweb.asm.tree.ClassNode
 
 abstract class Transformer<T : TransformerConfig>(
@@ -49,7 +47,7 @@ abstract class Transformer<T : TransformerConfig>(
     context(instance: Grunteon, res: WorkResources, jar: JarResources)
     open fun transform(config: T) {
         buildFilterPredicate(config)
-        if (parallel) runBlocking {
+        runBlocking {
             jar.classes.asSequence()
                 .filter { clazz ->
                     val include = includePredicate.matchedAllBy(clazz.value.name)
@@ -57,19 +55,10 @@ abstract class Transformer<T : TransformerConfig>(
                     val hardExclude = clazz.value.isExcluded
                     include && !exclude && !hardExclude
                 }.forEach { clazz ->
-                    launch(Dispatchers.IO) {
-                        transformClass(clazz.value, config)
-                    }
+                    if (parallel) launch(Dispatchers.IO) { transformClass(clazz.value, config) }
+                    else transformClass(clazz.value, config)
                 }
-        } else jar.classes.asSequence()
-            .filter { clazz ->
-                val include = includePredicate.matchedAllBy(clazz.value.name)
-                val exclude = excludePredicate.matchedAnyBy(clazz.value.name)
-                val hardExclude = clazz.value.isExcluded
-                include && !exclude && !hardExclude
-            }.forEach { clazz ->
-                transformClass(clazz.value, config)
-            }
+        }
     }
 
     context(instance: Grunteon, res: WorkResources, jar: JarResources)
