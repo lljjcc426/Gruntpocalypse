@@ -1,0 +1,48 @@
+package net.spartanb312.grunteon.obfuscator.process.resource
+
+import java.nio.file.Path
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.io.path.absolute
+import kotlin.io.path.exists
+import kotlin.io.path.pathString
+import kotlin.io.path.readBytes
+import kotlin.jvm.optionals.getOrNull
+
+sealed class ResourceSet {
+    abstract operator fun get(path: Path): List<ResourceEntry>
+
+    abstract operator fun get(path: String): List<ResourceEntry>
+
+    class ResourceEntry(val path: Path, val content: ByteArray)
+
+    class Single(val root: Path) : ResourceSet() {
+        private val cache = ConcurrentHashMap<String, Optional<ResourceEntry>>()
+
+        override fun get(path: Path): List<ResourceEntry> {
+            require(path.fileSystem == root.fileSystem) { "Path must be on the same file system as the root" }
+            val absolutePath = path.absolute()
+            return cache.computeIfAbsent(absolutePath.pathString) {
+                if (path.exists()) {
+                    Optional.of(ResourceEntry(absolutePath, path.readBytes()))
+                } else {
+                    Optional.empty()
+                }
+            }.getOrNull()?.let { listOf(it) } ?: emptyList()
+        }
+
+        override operator fun get(path: String): List<ResourceEntry> {
+            return get(root.resolve(path))
+        }
+    }
+
+    class Composite(val sets: List<ResourceSet>) : ResourceSet() {
+        override fun get(path: Path): List<ResourceEntry> {
+            return sets.flatMap { it[path].asSequence() }
+        }
+
+        override operator fun get(path: String): List<ResourceEntry> {
+            return sets.flatMap { it[path].asSequence() }
+        }
+    }
+}

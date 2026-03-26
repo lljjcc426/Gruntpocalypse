@@ -6,7 +6,6 @@ import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
@@ -68,7 +67,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     private val counter = Counter()
     private lateinit var methodExPredicate: NamePredicates
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon, res: WorkResources)
     override fun transform(config: Config) {
         Logger.info(" - LocalVarRenamer: Transforming local variables...")
         methodExPredicate = buildMethodNamePredicates(config.exclusion)
@@ -76,7 +75,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
         Logger.info("    Transformed ${counter.get()} local variables")
     }
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon, res: WorkResources)
     override fun transformClass(classNode: ClassNode, config: Config) {
         classNode.methods.asSequence()
             .filter { !it.isAbstract && !it.isNative }

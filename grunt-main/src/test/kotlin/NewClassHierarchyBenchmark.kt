@@ -33,14 +33,14 @@ fun main() {
         }.also { println("Old: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 10.0)) }
     } else {
         measureTime {
-            ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode)
+            ClassHierarchy.build(instance.workRes.allClassCollection, instance.workRes::getClassNode)
         }.also { println("New Cold: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
         repeat(100) {
-            ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode)
+            ClassHierarchy.build(instance.workRes.allClassCollection, instance.workRes::getClassNode)
         }
         measureTime {
             repeat(10) {
-                ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode)
+                ClassHierarchy.build(instance.workRes.allClassCollection, instance.workRes::getClassNode)
             }
         }.also { println("New: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 10.0)) }
     }

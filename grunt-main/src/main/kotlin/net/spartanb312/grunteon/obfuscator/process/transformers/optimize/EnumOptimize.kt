@@ -6,7 +6,6 @@ import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -40,14 +39,14 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
 
     private val counter = Counter()
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon, res: WorkResources)
     override fun transform(config: Config) {
         Logger.info(" - EnumOptimize: Optimizing enums...")
         super.transform(config)
         Logger.info("    Optimized ${counter.get()} enums")
     }
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon, res: WorkResources)
     override fun transformClass(classNode: ClassNode, config: Config) {
         if (!classNode.isEnum) return
         val desc = "[L${classNode.name};"

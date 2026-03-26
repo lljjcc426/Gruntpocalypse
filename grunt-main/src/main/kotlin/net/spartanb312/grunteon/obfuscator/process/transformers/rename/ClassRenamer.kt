@@ -6,7 +6,6 @@ import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
@@ -17,8 +16,6 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
-import kotlin.system.measureTimeMillis
-import kotlin.time.measureTime
 
 class ClassRenamer : Transformer<ClassRenamer.Config>(
     name = enText("process.rename.class_renamer", "ClassRenamer"),
@@ -88,14 +85,15 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
     lateinit var dictionary: NameGenerator
     private val counter = Counter()
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon, res: WorkResources)
     override fun transform(config: Config) {
         Logger.info(" - ClassRenamer: Renaming classes...")
         Logger.info("    Generating mappings for classes...")
         buildFilterPredicate(config)
         dictionary = NameGenerator.getDictionary(config.dictionary)
         val mappings = mutableMapOf<String, String>()
-        val classes = if (config.shuffled) jar.classes.values.shuffled() else jar.classes.values
+        val classes =
+            if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
         classes.asSequence()
             .filter { clazz ->
                 val include = includePredicate.matchedAllBy(clazz.name)
@@ -110,7 +108,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
                 counter.add()
             }
         Logger.info("    Applying mappings for classes...")
-        jar.applyRemap("classes", mappings, true)
+        instance.mappingApplier.applyRemap("classes", mappings, true)
         Logger.info("    Renamed ${counter.get()} classes")
     }
 

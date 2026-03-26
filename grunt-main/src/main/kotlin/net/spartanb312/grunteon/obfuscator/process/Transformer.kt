@@ -7,7 +7,6 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.Languages
 import net.spartanb312.grunteon.obfuscator.lang.MultiText
 import net.spartanb312.grunteon.obfuscator.pipeline.OrderRule
-import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
@@ -34,8 +33,8 @@ abstract class Transformer<T : TransformerConfig>(
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun execute(instance: Grunteon, res: WorkResources, jar: JarResources, config: TransformerConfig) {
-        context(instance, res, jar) { transform(config as T) }
+    fun execute(instance: Grunteon, res: WorkResources, config: TransformerConfig) {
+        context(instance, res) { transform(config as T) }
     }
 
     protected lateinit var excludePredicate: NamePredicates
@@ -46,24 +45,24 @@ abstract class Transformer<T : TransformerConfig>(
         includePredicate = buildClassNamePredicates(config.includeStrategy)
     }
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon, res: WorkResources)
     open fun transform(config: T) {
         buildFilterPredicate(config)
         runBlocking {
-            jar.classes.asSequence()
+            instance.workRes.inputClassCollection.asSequence()
                 .filter { clazz ->
-                    val include = includePredicate.matchedAllBy(clazz.value.name)
-                    val exclude = excludePredicate.matchedAnyBy(clazz.value.name)
-                    val hardExclude = clazz.value.isExcluded
+                    val include = includePredicate.matchedAllBy(clazz.name)
+                    val exclude = excludePredicate.matchedAnyBy(clazz.name)
+                    val hardExclude = clazz.isExcluded
                     include && !exclude && !hardExclude
                 }.forEach { clazz ->
-                    if (parallel) launch(Dispatchers.IO) { transformClass(clazz.value, config) }
-                    else transformClass(clazz.value, config)
+                    if (parallel) launch(Dispatchers.IO) { transformClass(clazz, config) }
+                    else transformClass(clazz, config)
                 }
         }
     }
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon, res: WorkResources)
     open fun transformClass(
         classNode: ClassNode,
         config: T,

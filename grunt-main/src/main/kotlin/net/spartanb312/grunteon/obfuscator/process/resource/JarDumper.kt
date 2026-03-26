@@ -17,9 +17,10 @@ import java.io.File
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.io.path.*
 
 class JarDumper(
-    val jarResources: JarResources,
+    val instance: Grunteon,
     val outputFile: File,
     val forceComputeMax: Boolean = false,
     val missingCheck: Boolean = true,
@@ -63,7 +64,8 @@ class JarDumper(
             Logger.info("Writing classes...")
             val mutex = Mutex()
             runBlocking {
-                for (classNode in jarResources.classes.values) {
+                // TODO: handle resource
+                for (classNode in instance.workRes.inputClassCollection) {
                     // File remove
                     if (classNode.name == "module-info" || classNode.name.shouldRemove) continue
                     val missingList = hierarchy.checkMissing(classNode)
@@ -100,6 +102,7 @@ class JarDumper(
                                 ByteArray(0)
                             }
                         }
+                        // TODO: optimize
                         mutex.withLock {
                             val zipEntry = ZipEntry(entryName)
                             if (removeTimestamps) zipEntry.time = 0
@@ -113,14 +116,17 @@ class JarDumper(
             if (missingCheck) hierarchy.printMissing()
 
             Logger.info("Writing resources...")
-            for ((name, bytes) in jarResources.resources) {
-                if (name.shouldRemove) continue
-                val zipEntry = ZipEntry(name)
-                if (removeTimestamps) zipEntry.time = 0
-                putNextEntry(zipEntry)
-                write(bytes)
-                closeEntry()
-            }
+            instance.workRes.inputResourceSet.root.walk()
+                .filter { !it.isDirectory() }
+                .filter { it.extension != "class" }
+                .filterNot { it.name.shouldRemove }
+                .forEach {
+                    val zipEntry = ZipEntry(it.pathString)
+                    if (removeTimestamps) zipEntry.time = 0
+                    putNextEntry(zipEntry)
+                    write(it.readBytes())
+                    closeEntry()
+                }
             close()
 
             // TODO: dump mappings
