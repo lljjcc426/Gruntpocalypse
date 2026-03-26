@@ -1,12 +1,15 @@
 package net.spartanb312.grunteon.obfuscator.process.hierarchy
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
+import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.info.ClassInfo
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.info.FieldInfo
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.info.MethodInfo
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.info.NameCoder
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
+import org.jetbrains.annotations.TestOnly
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
@@ -192,4 +195,19 @@ open class Hierarchy(val instance: Grunteon) {
         return missingReference
     }
 
+
+    @TestOnly
+    constructor() : this(Grunteon(ConfigGroup(), ProcessPipeline()))
+
+    @TestOnly
+    fun buildClass(classes: Collection<ClassNode>) {
+        // Build all class infos
+        classes.forEach { getClassInfo(it) }
+        fillClassHierarchyInfo()
+
+        // Missing dependencies
+        classInfos.values.forEach {
+            if (it.isBroken) missingDependencies[it] = it.children.toList()
+        }
+    }
 }

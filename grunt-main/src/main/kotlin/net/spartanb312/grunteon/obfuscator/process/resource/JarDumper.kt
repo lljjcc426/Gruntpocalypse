@@ -7,7 +7,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.util.ClearClassNode
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
@@ -18,8 +17,6 @@ import java.io.File
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.time.DurationUnit
-import kotlin.time.measureTime
 
 class JarDumper(
     val jarResources: JarResources,
@@ -57,33 +54,8 @@ class JarDumper(
                 Logger.info("Corrupting CRC32...")
                 corruptCRC32()
             }
-            // Build hierarchy
-            Logger.info("Building hierarchies...")
-            println("Classes = ${instance.allClasses.size}")
-
-            repeat(200) {
-                Hierarchy(instance).buildClass()
-            }
-            repeat(200) {
-                ClassHierarchy.build(instance)
-            }
-
-
-            measureTime {
-                repeat(10) {
-                    Hierarchy(instance).buildClass()
-                }
-            }.also { println("Old light Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 10.0)) }
-            measureTime {
-                repeat(10) {
-                    ClassHierarchy.build(instance)
-                }
-            }.also { println("New light Took %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 10.0)) }
-
             val hierarchy = Hierarchy(instance)
             hierarchy.buildClass()
-
-
             // Writing class
             Logger.info("Writing classes...")
             val mutex = Mutex()

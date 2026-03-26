@@ -3,7 +3,6 @@ package net.spartanb312.grunteon.obfuscator.process.hierarchy2
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
-import net.spartanb312.grunteon.obfuscator.Grunteon
 import org.objectweb.asm.tree.ClassNode
 import java.util.function.ToIntFunction
 
@@ -25,9 +24,9 @@ class ClassHierarchy(
         val MISSING_CLASSNODE = ClassNode()
 
         @OptIn(ExperimentalStdlibApi::class)
-        @Suppress("UNCHECKED_CAST", "EmptyRange")
-        fun build(instance: Grunteon): ClassHierarchy {
-            val classNodes = ObjectArrayList(instance.allClasses)
+        @Suppress("UNCHECKED_CAST")
+        fun build(inputClassNodes: Collection<ClassNode>): ClassHierarchy {
+            val classNodes = ObjectArrayList(inputClassNodes)
             val classNameLookUp = Object2IntOpenHashMap<String>()
             val realClassCount = classNodes.size
             var classCount = realClassCount
