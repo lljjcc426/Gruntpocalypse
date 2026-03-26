@@ -25,14 +25,11 @@ class ClassHierarchy(
 
         @OptIn(ExperimentalStdlibApi::class)
         @Suppress("UNCHECKED_CAST")
-        fun build(inputClassNodes: Collection<ClassNode>): ClassHierarchy {
+        fun build(inputClassNodes: Collection<ClassNode>, lookup: ((String) -> ClassNode?)? = null): ClassHierarchy {
             val classNodes = ObjectArrayList(inputClassNodes)
             val classNameLookUp = Object2IntOpenHashMap<String>()
-            val realClassCount = classNodes.size
-            var classCount = realClassCount
-
-            var parents = arrayOfNulls<IntArray>(classCount) as Array<IntArray>
-            val classNames = ObjectArrayList<String>(classCount)
+            var realClassCount = classNodes.size
+            val classNames = ObjectArrayList<String>(realClassCount)
 
             for (i in 0..<realClassCount) {
                 val myName = classNodes[i].name
@@ -40,18 +37,56 @@ class ClassHierarchy(
                 assert(classNames.size == i)
                 classNames.add(myName)
             }
-            assert(classCount == classNodes.size)
+
             assert(realClassCount == classNodes.size)
             assert(classNames.size == classNodes.size)
             assert(classNameLookUp.size == classNodes.size)
 
+            if (lookup != null) {
+                fun addRemainingAncestorsRecursively(node: ClassNode) {
+                    val superName = node.superName ?: JAVA_OBJECT
+                    if (!classNameLookUp.containsKey(superName)) {
+                        lookup(superName)?.let {
+                            classNodes.add(it)
+                            classNameLookUp[superName] = classNodes.size - 1
+                            classNames.add(superName)
+                            addRemainingAncestorsRecursively(it)
+                        }
+                    }
+                    val interfaces = node.interfaces ?: emptyList()
+                    for (j in 0 until interfaces.size) {
+                        val interfaceName = interfaces[j]
+                        if (!classNameLookUp.containsKey(interfaceName)) {
+                            lookup(interfaceName)?.let {
+                                classNodes.add(it)
+                                classNameLookUp[interfaceName] = classNodes.size - 1
+                                classNames.add(interfaceName)
+                                addRemainingAncestorsRecursively(it)
+                            }
+                        }
+                    }
+                }
+
+                for (i in 0..<classNodes.size) {
+                    addRemainingAncestorsRecursively(classNodes[i])
+                }
+
+                realClassCount = classNodes.size
+                assert(realClassCount >= inputClassNodes.size)
+                assert(classNames.size == classNodes.size)
+                assert(classNameLookUp.size == classNodes.size)
+            }
+
+
+            var classCount = realClassCount
             val phantomClassHandle = ToIntFunction<String> {
                 val newIdx = classCount++
                 assert(newIdx == classNames.size)
-                classNodes.add(MISSING_CLASSNODE)
                 classNames.add(it)
                 newIdx
             }
+
+            var parents = arrayOfNulls<IntArray>(realClassCount) as Array<IntArray>
 
             for (i in 0..<realClassCount) {
                 val classNode = classNodes[i]

@@ -6,9 +6,8 @@ import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import kotlin.io.path.extension
 import kotlin.io.path.toPath
 
-fun readTestClasses(): Grunteon {
-    val path =
-        net.spartanb312.grunteon.testcase.Asserts::class.java.protectionDomain.codeSource.location.toURI().toPath()
+fun readTestClasses(klass: Class<*>): Grunteon {
+    val path = klass.protectionDomain.codeSource.location.toURI().toPath()
     check(path.extension == "jar")
     val instance = Grunteon(ConfigGroup(), ProcessPipeline())
     instance.input = JarResources(path)
