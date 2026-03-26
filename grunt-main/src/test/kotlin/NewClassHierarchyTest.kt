@@ -1,23 +1,14 @@
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
-import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class NewClassHierarchyTest {
     @Test
     fun classH() {
-        val old = Hierarchy()
-        old.buildClass(readTestClasses())
-        val new = ClassHierarchy.build(readTestClasses())
-        checkClass(old, new)
-    }
-
-    @Test
-    fun classHShuffle() {
-        val old = Hierarchy()
-        old.buildClass(readTestClasses())
-        val new = ClassHierarchy.build(readTestClasses().shuffled(Random(1145141919810)))
+        val old = Hierarchy(readTestClasses())
+        old.buildClassLess()
+        val new = ClassHierarchy.build(readTestClasses().classes.values)
         checkClass(old, new)
     }
 

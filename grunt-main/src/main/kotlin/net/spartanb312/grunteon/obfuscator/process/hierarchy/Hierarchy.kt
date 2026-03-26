@@ -200,9 +200,8 @@ open class Hierarchy(val instance: Grunteon) {
     constructor() : this(Grunteon(ConfigGroup(), ProcessPipeline()))
 
     @TestOnly
-    fun buildClass(classes: Collection<ClassNode>) {
-        // Build all class infos
-        classes.forEach { getClassInfo(it) }
+    fun buildClassLess() {
+        instance.classes.values.forEach { getClassInfo(it) }
         fillClassHierarchyInfo()
 
         // Missing dependencies

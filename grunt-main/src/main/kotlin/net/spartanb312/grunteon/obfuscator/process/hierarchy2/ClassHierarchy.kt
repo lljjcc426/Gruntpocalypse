@@ -69,8 +69,8 @@ class ClassHierarchy(
                 parents[i] = parentArray.distinct().toIntArray()
             }
 
-            assert(realClassCount >= classCount)
-            assert(classNames.size == realClassCount)
+            assert(classCount >= realClassCount)
+            assert(classNames.size == classCount)
 
             val emptyIntArray = IntArray(0)
             parents = parents.copyOf(classCount) { emptyIntArray }
@@ -113,7 +113,7 @@ class ClassHierarchy(
 
             for (i in 0..<classCount) {
                 finalChildren[i] = children[i].distinct().toIntArray()
-                finalChildren[i] = ancestors[i].distinct().toIntArray()
+                finalAncestors[i] = ancestors[i].distinct().toIntArray()
                 finalDescendants[i] = descendants[i].distinct().toIntArray()
                 broken[i] = classNodes[i] == MISSING_CLASSNODE
                 missingDependencies[i] = broken[i] || ancestors[i].any { broken[it] }
