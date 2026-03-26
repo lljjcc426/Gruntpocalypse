@@ -9,7 +9,7 @@ class NewClassHierarchyTest {
     fun classH() {
         val instance1 = readTestClasses(net.spartanb312.grunteon.testcase.Asserts::class.java)
         val old = Hierarchy(instance1)
-        old.buildClassLess()
+        old.buildClass()
         val instance2 = readTestClasses(net.spartanb312.grunteon.testcase.Asserts::class.java)
         val new = ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode)
         checkClass(old, new)
@@ -19,7 +19,7 @@ class NewClassHierarchyTest {
     fun classHFastUtils() {
         val instance1 = readTestClasses(ObjectArrayList::class.java)
         val old = Hierarchy(instance1)
-        old.buildClassLess()
+        old.buildClass()
         val instance2 = readTestClasses(ObjectArrayList::class.java)
         val new = ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode)
         checkClass(old, new)

@@ -1,13 +1,10 @@
 package net.spartanb312.grunteon.obfuscator.process.hierarchy
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
-import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.info.MethodInfo
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
 import net.spartanb312.grunteon.obfuscator.util.extensions.isPrivate
-import org.jetbrains.annotations.TestOnly
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
 
@@ -16,8 +13,6 @@ import org.objectweb.asm.tree.MethodNode
  * For heavy overall renaming
  */
 class HeavyHierarchy(instance: Grunteon) : Hierarchy(instance) {
-    @TestOnly
-    constructor() : this(Grunteon(ConfigGroup(), ProcessPipeline()))
 
     override val size get() = classInfos.size + classInfos.values.sumOf { it.methods.size + it.fields.size }
 

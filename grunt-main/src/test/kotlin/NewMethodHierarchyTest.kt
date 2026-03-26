@@ -17,7 +17,7 @@ class NewMethodHierarchyTest {
     fun methodH() {
         val instance1 = readTestClasses(net.spartanb312.grunteon.testcase.Asserts::class.java)
         val old = HeavyHierarchy(instance1)
-        old.buildClassLess()
+        old.buildClass()
         old.buildMethod()
         val instance2 = readTestClasses(net.spartanb312.grunteon.testcase.Asserts::class.java)
         val new = MethodHierarchy.build(ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode))
@@ -28,7 +28,7 @@ class NewMethodHierarchyTest {
     fun methodHFastUtils() {
         val instance1 = readTestClasses(ObjectArrayList::class.java)
         val old = HeavyHierarchy(instance1)
-        old.buildClassLess()
+        old.buildClass()
         old.buildMethod()
         val instance2 = readTestClasses(ObjectArrayList::class.java)
         val new = MethodHierarchy.build(ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode))
@@ -40,7 +40,7 @@ class NewMethodHierarchyTest {
         val instance1 = Grunteon(ConfigGroup(), ProcessPipeline())
         instance1.init()
         val old = HeavyHierarchy(instance1)
-        old.buildClassLess()
+        old.buildClass()
         old.buildMethod()
         val instance2 = Grunteon(ConfigGroup(), ProcessPipeline())
         instance2.init()
