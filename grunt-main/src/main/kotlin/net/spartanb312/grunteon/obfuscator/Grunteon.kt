@@ -7,6 +7,8 @@ import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.DeadCodeRemove
+import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.EnumOptimize
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -24,7 +26,7 @@ import kotlin.system.measureTimeMillis
  * 3rd generation of Grunt
  */
 const val VERSION = "3.0.0"
-const val SUBTITLE = "build 260324"
+const val SUBTITLE = "build 260327"
 const val GITHUB = "https://github.com/SpartanB312/Grunt"
 
 fun main() {
@@ -57,6 +59,8 @@ fun main() {
     measureTimeMillis {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
+            DeadCodeRemove(),
+            EnumOptimize(),
             NumberBasicEncrypt(),
             LocalVarRenamer(),
             ClassRenamer(),
@@ -101,7 +105,7 @@ class Grunteon(
         input.readInput()
         // Reading working res
         workRes = WorkResources(input)
-        workRes.readLibs(listOf(prependPath, "libs/"))//configGroup.libs)
+        workRes.readLibs(listOf("libs/"))//configGroup.libs)
         // Output dumper
         output = JarDumper(
             jarResources = input,

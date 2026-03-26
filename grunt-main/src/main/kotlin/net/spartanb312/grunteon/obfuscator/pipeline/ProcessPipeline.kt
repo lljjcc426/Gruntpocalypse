@@ -19,6 +19,7 @@ class ProcessPipeline(
 
     init {
         // check orders
+        Logger.info("Validating pipeline orders...")
         transformers.forEachIndexed { index, transformer ->
             transformer.orderRules.forEach {
                 val valid = it.first.invoke(this.transformers, index)

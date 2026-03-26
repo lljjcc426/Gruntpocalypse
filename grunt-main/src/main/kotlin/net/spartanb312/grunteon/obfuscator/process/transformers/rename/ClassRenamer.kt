@@ -17,6 +17,8 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
+import kotlin.system.measureTimeMillis
+import kotlin.time.measureTime
 
 class ClassRenamer : Transformer<ClassRenamer.Config>(
     name = enText("process.rename.class_renamer", "ClassRenamer"),
@@ -88,7 +90,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
 
     context(instance: Grunteon, res: WorkResources, jar: JarResources)
     override fun transform(config: Config) {
-        Logger.info(" - Renaming classes...")
+        Logger.info(" - ClassRenamer: Renaming classes...")
         Logger.info("    Generating mappings for classes...")
         buildFilterPredicate(config)
         dictionary = NameGenerator.getDictionary(config.dictionary)

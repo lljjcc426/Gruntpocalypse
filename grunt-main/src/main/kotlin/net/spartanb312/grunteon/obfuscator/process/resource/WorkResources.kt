@@ -39,6 +39,7 @@ class WorkResources(
 
             coroutineScope {
                 jars.forEach {
+                    Logger.info(" - ${it.jar}")
                     launch(Dispatchers.Default) { it.readInput(true) }
                 }
             }

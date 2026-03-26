@@ -23,7 +23,7 @@ class JarResources(val jar: Path) {
     val generatedClasses = mutableMapOf<String, ClassNode>() // also included in classes
 
     fun readInput(lisLib: Boolean = false) {
-        if (lisLib) Logger.info(" - $jar") else Logger.info("Reading $jar")
+        if (!lisLib) Logger.info("Reading $jar")
         JarInputStream(jar.inputStream()).use {
             var entry = it.nextJarEntry
             while (entry != null) {
