@@ -44,8 +44,8 @@ class MethodHierarchy(
                     classToMethod[i] = methodList
                     val methodLookup = classMethodNodeLookup[i]
                     methodLookup.defaultReturnValue(-1)
-                    for (i in 0..<methods.size) {
-                        val methodNode = methods[i]
+                    for (j in 0..<methods.size) {
+                        val methodNode = methods[j]
                         if (methodNode.isInitializer) continue
                         val index = methodNodes.size
                         methodNodes.add(methodNode)
@@ -121,7 +121,7 @@ class MethodHierarchy(
                             while (iterator.hasNext()) {
                                 val otherMethodTreeIdx = iterator.nextInt()
                                 methodTreeAdjList[otherMethodTreeIdx].add(methodTreeIdx)
-                                myMethodTreeAdjList.add(methodTreeIdx)
+                                myMethodTreeAdjList.add(otherMethodTreeIdx)
                             }
                             descendentMethodCodeTreeIndices.add(methodTreeIdx)
                         }
