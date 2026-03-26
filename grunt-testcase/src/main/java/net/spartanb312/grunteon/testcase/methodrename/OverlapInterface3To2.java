@@ -2,7 +2,8 @@ package net.spartanb312.grunteon.testcase.methodrename;
 
 import java.util.Random;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static net.spartanb312.grunteon.testcase.Asserts.assertEquals;
+import static net.spartanb312.grunteon.testcase.Asserts.assertTrue;
 
 public class OverlapInterface3To2 {
     private static void checkFather1(Object o, int v) {

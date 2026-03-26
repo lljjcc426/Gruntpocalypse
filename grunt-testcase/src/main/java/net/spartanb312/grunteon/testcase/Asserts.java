@@ -64,4 +64,16 @@ public class Asserts {
             throw new AssertionError(message + ": Expected not " + expected + " but got " + actual);
         }
     }
+
+    public static void assertTrue(boolean condition) {
+        if (!condition) {
+            throw new AssertionError("Expected condition to be true but was false");
+        }
+    }
+
+    public static void assertTrue(boolean condition, String message) {
+        if (!condition) {
+            throw new AssertionError(message + ": Expected condition to be true but was false");
+        }
+    }
 }

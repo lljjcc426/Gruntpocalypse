@@ -2,7 +2,8 @@ package net.spartanb312.grunteon.testcase.methodrename;
 
 import java.util.Random;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static net.spartanb312.grunteon.testcase.Asserts.assertEquals;
+import static net.spartanb312.grunteon.testcase.Asserts.assertTrue;
 
 public class OverlapInterface2To1 {
     private static void checkFather1(Object o) {
@@ -14,10 +15,10 @@ public class OverlapInterface2To1 {
     }
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws NoSuchMethodException {
         Child child = new Child();
         assertEquals(42, child.foo());
-        Object o = new Random().nextLong(0, 1) < 114 ? child : new Object();
+        Object o = new Random().nextLong(0, 1) < 114 ? child : new Object(); // Fake random to prevent inlining
 
         checkFather1(o);
         checkFather2(o);

@@ -45,5 +45,5 @@ tasks {
 }
 
 tasks.withType<Test> {
-    maxHeapSize = "32G"
+    maxHeapSize = "4G"
 }

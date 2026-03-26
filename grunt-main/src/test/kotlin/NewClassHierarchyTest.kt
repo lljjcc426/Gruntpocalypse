@@ -1,4 +1,7 @@
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
+import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
+import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import kotlin.test.Test
@@ -21,6 +24,19 @@ class NewClassHierarchyTest {
         val old = Hierarchy(instance1)
         old.buildClass()
         val instance2 = readTestClasses(ObjectArrayList::class.java)
+        val new = ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode)
+        checkClass(old, new)
+    }
+
+
+    @Test
+    fun classHAT() {
+        val instance1 = Grunteon(ConfigGroup(), ProcessPipeline())
+        instance1.init()
+        val old = Hierarchy(instance1)
+        old.buildClass()
+        val instance2 = Grunteon(ConfigGroup(), ProcessPipeline())
+        instance2.init()
         val new = ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode)
         checkClass(old, new)
     }

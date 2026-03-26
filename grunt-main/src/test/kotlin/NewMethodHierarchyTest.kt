@@ -11,6 +11,7 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
 import kotlin.streams.asSequence
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class NewMethodHierarchyTest {
     @Test
@@ -53,7 +54,7 @@ class NewMethodHierarchyTest {
         new: MethodHierarchy
     ) {
         new.treeCCToTreeIdx.forEach {
-            assert(it.distinct().size == it.size)
+            assertEquals(it.distinct().size, it.size, "Connected component contains duplicate method trees")
         }
 
         old.instance.classes.values.forEach { node ->
@@ -71,8 +72,14 @@ class NewMethodHierarchyTest {
                 )
 
                 if (!methodInfo.isSourceMethod) {
-                    assert(methodInfo.competitors.isEmpty()) { "WTF" }
-                    assert(methodInfo.relatedMethods.isEmpty()) { "WTF" }
+                    assertTrue(
+                        methodInfo.competitors.isEmpty(),
+                        "WTF old hierarchy is broken, competitors should be empty since ${methodInfo.full} is not a source method"
+                    )
+                    assertTrue(
+                        methodInfo.relatedMethods.isEmpty(),
+                        "WTF old hierarchy is broken, relatedMethods should be empty since ${methodInfo.full} is not a source method"
+                    )
                     return@forEach
                 }
                 val methodTreeIdx = new.sourceMethodToMethodTreeIdxLookup[methodIdx]

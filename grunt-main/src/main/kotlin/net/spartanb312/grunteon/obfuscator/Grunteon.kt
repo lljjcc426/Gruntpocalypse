@@ -61,8 +61,8 @@ fun main() {
             LocalVarRenamer(),
             ClassRenamer(),
         )
-        instance.init()
         val instance = emptyConfig.runPipeline(pipeline)
+        instance.init()
         instance.execute()
     }.also { println("$it ms") }
 }
@@ -94,12 +94,14 @@ class Grunteon(
     fun init() {
         Logger.info("Executing obfuscating job...")
 
+        val prependPath = System.getenv("GRUNTEON_PREPEND_PATH") ?: ""
+
         // Reading input jar
-        input = JarResources(Path("input.jar"))
+        input = JarResources(Path(prependPath, "input.jar"))
         input.readInput()
         // Reading working res
         workRes = WorkResources(input)
-        workRes.readLibs(listOf("libs/"))//configGroup.libs)
+        workRes.readLibs(listOf(prependPath, "libs/"))//configGroup.libs)
         // Output dumper
         output = JarDumper(
             jarResources = input,
