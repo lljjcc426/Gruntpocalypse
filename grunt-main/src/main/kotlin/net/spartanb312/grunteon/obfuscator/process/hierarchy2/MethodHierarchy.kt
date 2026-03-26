@@ -31,19 +31,21 @@ class MethodHierarchy(
 ) {
     companion object {
         fun build(classHierarchy: ClassHierarchy): MethodHierarchy {
-            val methodNodes = ObjectArrayList<MethodNode>()
-            val methodOwner = IntArrayList()
+            val methodNodes = ObjectArrayList<MethodNode>(classHierarchy.realClassCount)
+            val methodOwner = IntArrayList(classHierarchy.realClassCount)
             val classMethodNodeLookup = Array(classHierarchy.realClassCount) { Object2IntOpenHashMap<MethodNodeKey>() }
-            val classToMethod = ObjectArrayList<IntArrayList>()
+            val classToMethod = arrayOfNulls<IntArrayList>(classHierarchy.realClassCount) as Array<IntArrayList>
 
             fun populateMethodNodesAndOwners() {
                 for (i in 0..<classHierarchy.realClassCount) {
                     val classNode = classHierarchy.classNodes[i]
                     val methods = classNode.methods ?: emptyList()
                     val methodList = IntArrayList()
+                    classToMethod[i] = methodList
                     val methodLookup = classMethodNodeLookup[i]
                     methodLookup.defaultReturnValue(-1)
-                    for (methodNode in methods) {
+                    for (i in 0..<methods.size) {
+                        val methodNode = methods[i]
                         if (methodNode.isInitializer) continue
                         val index = methodNodes.size
                         methodNodes.add(methodNode)
@@ -52,16 +54,14 @@ class MethodHierarchy(
                         methodOwner.add(i)
                         methodList.add(index)
                     }
-                    classToMethod.add(methodList)
                 }
             }
             populateMethodNodesAndOwners()
 
             val methodCount = methodNodes.size
-            val methodCodeLookup = Object2IntOpenHashMap<String>()
+            val methodCodeLookup = Object2IntOpenHashMap<String>(methodCount)
             val methodCode = IntArray(methodCount)
             val methodAccess = IntArray(methodCount)
-            val methodCodeToMethods = ObjectArrayList<IntArrayList>()
             val classToMethodCodeBits = Array(classHierarchy.realClassCount) { IntOpenHashSet() }
 
             fun assignMethodCodeAndBroadcastToDescendants() {
@@ -69,12 +69,10 @@ class MethodHierarchy(
                     val methodNode = methodNodes[methodIdx]
                     val codename = methodNode.name + methodNode.desc
                     val myMethodCode = methodCodeLookup.computeIfAbsent(codename, ToIntFunction {
-                        methodCodeToMethods.add(IntArrayList())
                         methodCodeLookup.size
                     })
                     methodCode[methodIdx] = myMethodCode
                     methodAccess[methodIdx] = methodNode.access
-                    methodCodeToMethods[methodCode[methodIdx]].add(methodIdx)
 
                     // Fill inherent method bits
                     if (methodNode.access.isPrivate) continue
@@ -98,7 +96,7 @@ class MethodHierarchy(
             val methodToMethodTree = Array(classHierarchy.realClassCount) {
                 Int2ObjectOpenHashMap<IntOpenHashSet>()
             } // Tells a class's method code belongs to which method tree(s)
-            val sourceMethodToMethodTreeIdxLookup = Int2IntOpenHashMap()
+            val sourceMethodToMethodTreeIdxLookup = Int2IntOpenHashMap(methodCount)
             sourceMethodToMethodTreeIdxLookup.defaultReturnValue(-1)
 
             fun assignMethodTreeToMethods() {
@@ -123,8 +121,8 @@ class MethodHierarchy(
                             while (iterator.hasNext()) {
                                 val otherMethodTreeIdx = iterator.nextInt()
                                 methodTreeAdjList[otherMethodTreeIdx].add(methodTreeIdx)
+                                myMethodTreeAdjList.add(methodTreeIdx)
                             }
-                            myMethodTreeAdjList.addAll(descendentMethodCodeTreeIndices)
                             descendentMethodCodeTreeIndices.add(methodTreeIdx)
                         }
                         myMethodTreeAdjList.remove(methodTreeIdx)
@@ -160,8 +158,6 @@ class MethodHierarchy(
             }
 
             assignMethodTreeToMethods()
-
-            assert(methodCodeLookup.size == methodCodeToMethods.size) { "Method code lookup size mismatch" }
 
             val treeGraphConnectedComponents = ObjectArrayList<IntArrayList>()
             val methodTreeToConnectedComponent = IntArray(methodTreeRoots.size) { -1 }

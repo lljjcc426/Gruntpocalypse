@@ -1,6 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.hierarchy2
 
 import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import org.objectweb.asm.tree.ClassNode
@@ -23,6 +24,22 @@ class ClassHierarchy(
         const val JAVA_OBJECT = "java/lang/Object"
         val MISSING_CLASSNODE = ClassNode()
 
+        fun IntArray.distinctCount(): Int {
+            val set = IntOpenHashSet(this)
+            for (i in 0..<size) {
+                set.add(get(i))
+            }
+            return set.size
+        }
+
+        fun IntArrayList.distinctIntArray(): IntArray {
+            val set = IntOpenHashSet(this)
+            for (i in 0..<size) {
+                set.add(getInt(i))
+            }
+            return set.toIntArray()
+        }
+
         @OptIn(ExperimentalStdlibApi::class)
         @Suppress("UNCHECKED_CAST")
         fun build(inputClassNodes: Collection<ClassNode>, lookup: ((String) -> ClassNode?)? = null): ClassHierarchy {
@@ -42,7 +59,6 @@ class ClassHierarchy(
 
             assert(realClassCount == classNodes.size)
             assert(classNames.size == classNodes.size)
-            assert(classNameLookUp.size == classNodes.size)
 
             if (lookup != null) {
                 fun addRemainingAncestorsRecursively(node: ClassNode) {
@@ -76,9 +92,7 @@ class ClassHierarchy(
                 realClassCount = classNodes.size
                 assert(realClassCount >= inputClassNodes.size)
                 assert(classNames.size == classNodes.size)
-                assert(classNameLookUp.size == classNodes.size)
             }
-
 
             var classCount = realClassCount
             val phantomClassHandle = ToIntFunction<String> {
@@ -104,7 +118,7 @@ class ClassHierarchy(
                 for (j in 0 until interfaces.size) {
                     parentArray[j + 1] = classNameLookUp.computeIfAbsent(interfaces[j], phantomClassHandle)
                 }
-                parents[i] = parentArray.distinct().toIntArray()
+                parents[i] = parentArray
             }
 
             assert(classCount >= realClassCount)
@@ -149,9 +163,10 @@ class ClassHierarchy(
             val finalDescendants = arrayOfNulls<IntArray>(classCount) as Array<IntArray>
 
             for (i in 0..<classCount) {
-                finalChildren[i] = children[i].distinct().toIntArray()
-                finalAncestors[i] = ancestors[i].distinct().toIntArray()
-                finalDescendants[i] = descendants[i].distinct().toIntArray()
+                finalChildren[i] = children[i].toIntArray()
+                assert(finalChildren[i].size == finalChildren[i].distinctCount())
+                finalAncestors[i] = ancestors[i].distinctIntArray()
+                finalDescendants[i] = descendants[i].distinctIntArray()
                 broken[i] = classNodes[i] === MISSING_CLASSNODE
                 missingDependencies[i] = broken[i] || ancestors[i].any { broken[it] }
             }
