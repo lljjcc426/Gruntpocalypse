@@ -2,12 +2,14 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
+import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
+import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
@@ -26,6 +28,11 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
 
     override val defConfig: TransformerConfig get() = Config()
     override val confType: Class<Config> get() = Config::class.java
+
+    init {
+        after(NumberBasicEncrypt::class.java, "Renamer should run after encryptor")
+        // before(ReferenceRedirect::class.java, "Renamer should run before invokedynamic")
+    }
 
     class Config : TransformerConfig() {
         val dictionary by setting(

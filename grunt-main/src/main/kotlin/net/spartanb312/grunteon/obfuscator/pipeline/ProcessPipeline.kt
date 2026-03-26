@@ -14,8 +14,18 @@ class ProcessPipeline(
 ) {
 
     private val initialized = AtomicBoolean(false)
-    private val transformers = transformers.toMutableList()
+    private val transformers = transformers.toList()
     private val transformer2Config = mutableMapOf<Transformer<*>, TransformerConfig>()
+
+    init {
+        // check orders
+        transformers.forEachIndexed { index, transformer ->
+            transformer.orderRules.forEach {
+                val valid = it.first.invoke(this.transformers, index)
+                if (!valid) throw Exception("${transformer.engName} has a wrong order! Reason: ${it.second}")
+            }
+        }
+    }
 
     fun parseConfig(configGroup: ConfigGroup) {
         initialized.set(true)

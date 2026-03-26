@@ -6,6 +6,7 @@ import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.Languages
 import net.spartanb312.grunteon.obfuscator.lang.MultiText
+import net.spartanb312.grunteon.obfuscator.pipeline.OrderRule
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -23,6 +24,7 @@ abstract class Transformer<T : TransformerConfig>(
 ) {
 
     val engName = name.getLang(Languages.English)
+    val orderRules = mutableListOf<Pair<OrderRule, String>>()
     abstract val defConfig: TransformerConfig
     abstract val confType: Class<T>
     fun qualifyConfig(config: TransformerConfig, debug: Boolean): Boolean {
