@@ -84,18 +84,23 @@ class NewMethodHierarchyTest {
                 }
                 val methodTreeIdx = new.sourceMethodToMethodTreeIdxLookup[methodIdx]
                 assert(methodTreeIdx != -1) { "Method ${classInfo.name}.${methodInfo.name}${methodInfo.desc} is not a method tree root" }
-                val newCompetitors = new.methodTreeAdjList[methodTreeIdx].stream().asSequence()
-                    .map {
-                        val methodIdx = new.methodTreeRoots[it]
-                        val methodOwner = new.classHierarchy.classNodes[new.methodOwners[methodIdx]]
-                        val methodNode = new.methodNodes[methodIdx]
-                        "${methodOwner.name}.${methodNode.name}${methodNode.desc}"
-                    }.toSet()
-//                assertEquals(
-//                    methodInfo.competitors.map { it.full }.toSet(),
-//                    newCompetitors,
-//                    "Competitors mismatch for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
-//                )
+
+                // Note: Old hierarchy analysis is not very stable with competitors and it is only a intermediate
+                // result. So we skip this and compare related methods instead.
+                //
+                // val newCompetitors = new.methodTreeAdjList[methodTreeIdx].stream().asSequence()
+                //     .map {
+                //         val methodIdx = new.methodTreeRoots[it]
+                //         val methodOwner = new.classHierarchy.classNodes[new.methodOwners[methodIdx]]
+                //         val methodNode = new.methodNodes[methodIdx]
+                //         "${methodOwner.name}.${methodNode.name}${methodNode.desc}"
+                //     }.toSet()
+                // assertEquals(
+                //     methodInfo.competitors.map { it.full }.toSet(),
+                //     newCompetitors,
+                //     "Competitors mismatch for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
+                // )
+
                 var newRelated =
                     new.treeCCToTreeIdx[new.methodTreeToConnectedComponent[methodTreeIdx]].stream().asSequence()
                         .map { treeIdx ->
