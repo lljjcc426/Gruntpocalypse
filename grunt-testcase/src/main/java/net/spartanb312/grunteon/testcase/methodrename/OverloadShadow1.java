@@ -2,7 +2,8 @@ package net.spartanb312.grunteon.testcase.methodrename;
 
 import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static net.spartanb312.grunteon.testcase.Asserts.assertEquals;
+import static net.spartanb312.grunteon.testcase.Asserts.assertNotEquals;
 
 public class OverloadShadow1 {
     private static class C1 {

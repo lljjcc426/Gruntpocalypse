@@ -26,6 +26,7 @@ dependencies {
     library(libs.bundles.utils)
 
     testImplementation(kotlin("test"))
+    testImplementation(project(":grunt-testcase"))
 }
 
 tasks {
