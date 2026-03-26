@@ -38,6 +38,7 @@ class JarDumper(
     fun dumpJar() {
         Logger.info("Dumping jar to ${outputFile.path}")
         if (outputFile.exists()) Logger.warn("Existing output file will be overridden!")
+        outputFile.parentFile.mkdirs()
         val outputStream = outputFile.outputStream()
         // Corrupt header
         if (corruptHeader) {

@@ -43,4 +43,8 @@ class MethodInfo(
         result = 31 * result + methodNode.hashCode()
         return result
     }
+
+    override fun toString(): String {
+        return full
+    }
 }

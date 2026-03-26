@@ -11,7 +11,10 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRena
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.io.path.Path
 import kotlin.system.measureTimeMillis
 
@@ -25,7 +28,10 @@ const val SUBTITLE = "build 260324"
 const val GITHUB = "https://github.com/SpartanB312/Grunt"
 
 fun main() {
-
+    Logger = SimpleLogger(
+        "Grunteon",
+        "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
+    )
     println(
         """
              ________  __________   ____ ___   _______    ___________
@@ -56,6 +62,7 @@ fun main() {
             ClassRenamer(),
         )
         val instance = emptyConfig.runPipeline(pipeline)
+        instance.init()
         instance.execute()
     }.also { println("$it ms") }
 }
@@ -84,15 +91,17 @@ class Grunteon(
     inline val libraries get() = workRes.libraries
     inline val allClasses get() = workRes.allClasses
 
-    fun execute() {
+    fun init() {
         Logger.info("Executing obfuscating job...")
 
+        val prependPath = System.getenv("GRUNTEON_PREPEND_PATH") ?: ""
+
         // Reading input jar
-        input = JarResources(Path("input.jar"))
+        input = JarResources(Path(prependPath, "input.jar"))
         input.readInput()
         // Reading working res
         workRes = WorkResources(input)
-        workRes.readLibs(listOf("libs/"))//configGroup.libs)
+        workRes.readLibs(listOf(prependPath, "libs/"))//configGroup.libs)
         // Output dumper
         output = JarDumper(
             jarResources = input,
@@ -107,7 +116,9 @@ class Grunteon(
             fileRemovePrefix = configGroup.fileRemovePrefix,
             fileRemoveSuffix = configGroup.fileRemoveSuffix,
         )
+    }
 
+    fun execute() {
         // TODO: Profiler
         context(workRes, input) {
             contextOf<Grunteon>().pipeline.execute()
