@@ -6,21 +6,21 @@ import net.spartanb312.grunteon.obfuscator.lang.enText
 abstract class TransformerConfig : Configurable() {
 
     val excludeStrategy by setting(
-        enText("process.common.config.exclude_strategy", "Exclude Strategy"),
+        enText("process.common.exclude_strategy", "Exclude strategy"),
         listOf(
             "net/dummy/**", // Exclude package
             "net/dummy/Class", // Exclude class
             "net/dummy/Event**" // Exclude prefix
         ),
-        enText("process.common.config.exclude_strategy.desc", "Specify class exclusions."),
+        enText("process.common.exclude_strategy.desc", "Specify class exclusions"),
     )
 
     val includeStrategy by setting(
-        enText("process.common.config.exclude_strategy", "Exclude Strategy"),
+        enText("process.common.include_strategy", "Include strategy"),
         listOf(
             "**" // Include all
         ),
-        enText("process.common.config.exclude_strategy.desc", "Specify class includes."),
+        enText("process.common.include_strategy.desc", "Specify class includes"),
     )
 
 }

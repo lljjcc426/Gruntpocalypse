@@ -6,10 +6,15 @@ import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.Languages
 import net.spartanb312.grunteon.obfuscator.lang.MultiText
+import net.spartanb312.grunteon.obfuscator.pipeline.OrderRule
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.thread.MainScope
+import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
+import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
+import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import org.objectweb.asm.tree.ClassNode
 
 abstract class Transformer<T : TransformerConfig>(
@@ -19,6 +24,7 @@ abstract class Transformer<T : TransformerConfig>(
 ) {
 
     val engName = name.getLang(Languages.English)
+    val orderRules = mutableListOf<Pair<OrderRule, String>>()
     abstract val defConfig: TransformerConfig
     abstract val confType: Class<T>
     fun qualifyConfig(config: TransformerConfig, debug: Boolean): Boolean {
@@ -32,27 +38,36 @@ abstract class Transformer<T : TransformerConfig>(
         context(instance, res, jar) { transform(config as T) }
     }
 
+    protected lateinit var excludePredicate: NamePredicates
+    protected lateinit var includePredicate: NamePredicates
+
+    fun buildFilterPredicate(config: T) {
+        excludePredicate = buildClassNamePredicates(config.excludeStrategy)
+        includePredicate = buildClassNamePredicates(config.includeStrategy)
+    }
+
     context(instance: Grunteon, res: WorkResources, jar: JarResources)
     open fun transform(config: T) {
-        if (parallel) runBlocking {
+        buildFilterPredicate(config)
+        runBlocking {
             jar.classes.asSequence()
-                .filter { true } // TODO : class filter
-                .forEach { clazz ->
-                    launch(Dispatchers.IO) {
-                        transformClass(clazz.value, config)
-                    }
+                .filter { clazz ->
+                    val include = includePredicate.matchedAllBy(clazz.value.name)
+                    val exclude = excludePredicate.matchedAnyBy(clazz.value.name)
+                    val hardExclude = clazz.value.isExcluded
+                    include && !exclude && !hardExclude
+                }.forEach { clazz ->
+                    if (parallel) launch(Dispatchers.IO) { transformClass(clazz.value, config) }
+                    else transformClass(clazz.value, config)
                 }
-        } else jar.classes.asSequence()
-            .filter { true } // TODO : class filter
-            .forEach { clazz ->
-                transformClass(clazz.value, config)
-            }
+        }
     }
 
     context(instance: Grunteon, res: WorkResources, jar: JarResources)
     open fun transformClass(
         classNode: ClassNode,
         config: T,
-    ) { }
+    ) {
+    }
 
 }

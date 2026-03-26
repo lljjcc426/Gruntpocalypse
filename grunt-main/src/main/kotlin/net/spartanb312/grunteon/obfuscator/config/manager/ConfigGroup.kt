@@ -4,6 +4,7 @@ import net.spartanb312.grunteon.obfuscator.config.Configurable
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
+import java.io.File
 import java.util.zip.Deflater
 
 class ConfigGroup : Configurable() {
@@ -102,6 +103,19 @@ class ConfigGroup : Configurable() {
         desc = enText("config.file_remove_suffix.desc", "File with specified suffix will be removed")
     )
 
+    /**
+     * Custom dictionary
+     */
+    var customDictionary by setting(
+        name = enText("config.custom_dictionary_file", "CustomDictionaryFile"),
+        value = "customDictionary.txt",
+        desc = enText("config.custom_dictionary_file.desc", "Custom dictionary file. Each line is a name"),
+    )
+    val customIncrementalDictionary by setting(
+        name = enText("config.custom_incremental_dictionary", "CustomIncrementalDictionary"),
+        value = listOf("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"),
+        desc = enText("config.custom_incremental_dictionary.desc", "Custom incremental elements for dictionary")
+    )
 
     /**
      * Transformer configs

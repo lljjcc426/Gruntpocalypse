@@ -16,6 +16,10 @@ import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
+import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
+import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import net.spartanb312.grunteon.obfuscator.util.numerical.asInt
 import net.spartanb312.grunteon.obfuscator.util.numerical.asLong
 import org.objectweb.asm.Opcodes
@@ -41,17 +45,17 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     class Config : TransformerConfig() {
         // Integer
         private val integer0 = setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.config.integer", "Integer"),
+            name = enText("process.encrypt.number.number_basic_encrypt.integer", "Integer"),
             value = true,
-            desc = enText("process.encrypt.number.number_basic_encrypt.config.integer.desc", "Encrypt integers")
+            desc = enText("process.encrypt.number.number_basic_encrypt.integer.desc", "Encrypt integers")
         )
         val integer by integer0
         val integerChance by setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.config.integer_chance", "Integer chance"),
+            name = enText("process.encrypt.number.number_basic_encrypt.integer_chance", "Integer chance"),
             value = 1f,
             range = 0f..1f,
             desc = enText(
-                "process.encrypt.number.number_basic_encrypt.config.integer_chance.desc",
+                "process.encrypt.number.number_basic_encrypt.integer_chance.desc",
                 "Integer encrypt rate. Range: 0.0..1.0"
             )
         ).whenTrue(integer0)
@@ -124,13 +128,27 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                 "When enabled, a modifier will be applied to all chances. Modifier = (MaxInsn - CurrentInsn) / MaxInsn"
             )
         )
+
+        // Exclusion
+        val exclusion by setting(
+            enText("process.encrypt.number.number_basic_encrypt.method_exclusion", "Method exclusion"),
+            listOf(
+                "net/dummy/**", // Exclude package
+                "net/dummy/Class", // Exclude class
+                "net/dummy/Class.method", // Exclude method name
+                "net/dummy/Class.method()V", // Exclude method with desc
+            ),
+            enText("process.encrypt.number.number_basic_encrypt.method_exclusion.desc", "Specify method exclusions."),
+        )
     }
 
     private val counter = Counter()
+    private lateinit var methodExPredicate: NamePredicates
 
     context(instance: Grunteon, res: WorkResources, jar: JarResources)
     override fun transform(config: Config) {
         Logger.info(" - NumberBasicEncrypt: Encrypting numbers...")
+        methodExPredicate = buildMethodNamePredicates(config.exclusion)
         super.transform(config)
         Logger.info("    Encrypted ${counter.get()} numbers")
     }
@@ -140,6 +158,9 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         classNode.methods.asSequence()
             .filter { !it.isAbstract && !it.isNative }
             .forEach { method ->
+                val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
+                if (excluded) return@forEach
+                if ((method.instructions?.size() ?: 0) >= config.maxInstructions) return@forEach
                 val chanceModifier =
                     (if (config.dynamicStrength) (config.maxInstructions - method.instructions.size()).toFloat() / config.maxInstructions
                     else 1f).coerceIn(0f, 1f)

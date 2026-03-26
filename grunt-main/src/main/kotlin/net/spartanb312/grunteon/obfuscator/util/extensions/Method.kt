@@ -2,6 +2,7 @@ package net.spartanb312.grunteon.obfuscator.util.extensions
 
 import net.spartanb312.genesis.kotlin.extensions.*
 import org.objectweb.asm.tree.AnnotationNode
+import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
 
 val starts = listOf("Z", "B", "C", "S", "I", "L", "F", "D")
@@ -23,6 +24,8 @@ fun getParameterSizeFromDesc(descriptor: String): Int {
     }
     return count
 }
+
+fun methodFullDesc(owner: ClassNode, method: MethodNode): String = "${owner.name}.${method.name}${method.desc}"
 
 inline val MethodNode.isPublic get() = access.isPublic
 

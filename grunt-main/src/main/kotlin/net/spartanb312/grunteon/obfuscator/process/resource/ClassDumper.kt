@@ -24,10 +24,10 @@ class ClassDumper(
                 if (clazz1?.isInterface == true && clazz2?.isInterface == true) return "java/lang/Object"
                 try {
                     super.getCommonSuperClass(type1, type2)
-                } catch (exception: Exception) {
+                } catch (_: Exception) {
                     try {
                         Class.forName(type1)
-                    } catch (ignore: Exception) {
+                    } catch (_: Exception) {
                         if (clazz1 == null) {
                             Logger.error("Missing dependency $type1")
                             throw Exception("Can't find common super class due to missing $type1")
@@ -35,7 +35,7 @@ class ClassDumper(
                     }
                     try {
                         Class.forName(type2)
-                    } catch (ignore: Exception) {
+                    } catch (_: Exception) {
                         if (clazz2 == null) {
                             Logger.error("Missing dependency $type2")
                             throw Exception("Can't find common super class due to missing $type2")

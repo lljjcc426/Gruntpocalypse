@@ -6,9 +6,9 @@ import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
-import net.spartanb312.grunteon.obfuscator.process.transformers.TestTransformer
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
-import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenameTransformer
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
@@ -56,15 +56,19 @@ fun main() {
 
     measureTimeMillis {
         val emptyConfig = ConfigGroup()
-        val instance = emptyConfig.runPipeline(
-            TestTransformer(),
+        val pipeline = ProcessPipeline(
             NumberBasicEncrypt(),
-            ClassRenameTransformer(),
-            TestTransformer(),
+            LocalVarRenamer(),
+            ClassRenamer(),
         )
         instance.init()
+        val instance = emptyConfig.runPipeline(pipeline)
         instance.execute()
     }.also { println("$it ms") }
+}
+
+fun ConfigGroup.runPipeline(pipeline: ProcessPipeline): Grunteon {
+    return Grunteon(this, pipeline.apply { parseConfig(this@runPipeline) })
 }
 
 fun ConfigGroup.runPipeline(vararg transformers: Transformer<*>): Grunteon {
@@ -91,11 +95,11 @@ class Grunteon(
         Logger.info("Executing obfuscating job...")
 
         // Reading input jar
-        input = JarResources(Path("I:/code/obf/Grunteon/run/AT260127/engine/boar-main.jar"))
+        input = JarResources(Path("input.jar"))
         input.readInput()
         // Reading working res
         workRes = WorkResources(input)
-        workRes.readLibs(listOf("I:/code/obf/Grunteon/run/AT260127/libs"))//configGroup.libs)
+        workRes.readLibs(listOf("libs/"))//configGroup.libs)
         // Output dumper
         output = JarDumper(
             jarResources = input,

@@ -54,6 +54,8 @@ class JarDumper(
                 Logger.info("Corrupting CRC32...")
                 corruptCRC32()
             }
+            // Build hierarchy
+            Logger.info("Building hierarchies...")
             val hierarchy = Hierarchy(instance)
             hierarchy.buildClass()
             // Writing class
