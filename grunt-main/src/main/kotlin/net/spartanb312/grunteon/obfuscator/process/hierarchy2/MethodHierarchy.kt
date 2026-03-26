@@ -108,9 +108,6 @@ class MethodHierarchy(
                 for (classIdx in 0..<classHierarchy.realClassCount) {
                     val descendentIndices = classHierarchy.descendants[classIdx]
                     fun setSource(methodIdx: Int) {
-                        if (classHierarchy.classNodes[classIdx].name.contains("OverlapComplex\$R1")) {
-                            println()
-                        }
                         assert(!isSourceMethod[methodIdx])
                         isSourceMethod[methodIdx] = true
                         val sourceMethodCode = methodCode[methodIdx]
