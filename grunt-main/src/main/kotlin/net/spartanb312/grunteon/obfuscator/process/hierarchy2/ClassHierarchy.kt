@@ -26,6 +26,7 @@ class ClassHierarchy(
         @OptIn(ExperimentalStdlibApi::class)
         @Suppress("UNCHECKED_CAST")
         fun build(inputClassNodes: Collection<ClassNode>, lookup: ((String) -> ClassNode?)? = null): ClassHierarchy {
+            val emptyIntArray = IntArray(0)
             val classNodes = ObjectArrayList(inputClassNodes)
             val classNameLookUp = Object2IntOpenHashMap<String>()
             classNameLookUp.defaultReturnValue(-1)
@@ -84,6 +85,7 @@ class ClassHierarchy(
                 val newIdx = classCount++
                 assert(newIdx == classNames.size)
                 classNames.add(it)
+                classNodes.add(MISSING_CLASSNODE)
                 newIdx
             }
 
@@ -92,7 +94,7 @@ class ClassHierarchy(
             for (i in 0..<realClassCount) {
                 val classNode = classNodes[i]
                 if (classNode.name == JAVA_OBJECT) {
-                    parents[i] = IntArray(0)
+                    parents[i] = emptyIntArray
                     continue
                 }
                 val interfaces = classNode.interfaces ?: emptyList()
@@ -108,7 +110,6 @@ class ClassHierarchy(
             assert(classCount >= realClassCount)
             assert(classNames.size == classCount)
 
-            val emptyIntArray = IntArray(0)
             parents = parents.copyOf(classCount) { emptyIntArray }
 
             val children = Array(classCount) { IntArrayList() }
@@ -151,7 +152,7 @@ class ClassHierarchy(
                 finalChildren[i] = children[i].distinct().toIntArray()
                 finalAncestors[i] = ancestors[i].distinct().toIntArray()
                 finalDescendants[i] = descendants[i].distinct().toIntArray()
-                broken[i] = classNodes[i] == MISSING_CLASSNODE
+                broken[i] = classNodes[i] === MISSING_CLASSNODE
                 missingDependencies[i] = broken[i] || ancestors[i].any { broken[it] }
             }
 
