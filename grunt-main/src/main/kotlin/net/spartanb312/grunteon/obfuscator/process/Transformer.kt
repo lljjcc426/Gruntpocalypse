@@ -7,7 +7,6 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.Languages
 import net.spartanb312.grunteon.obfuscator.lang.MultiText
 import net.spartanb312.grunteon.obfuscator.pipeline.OrderRule
-import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
@@ -33,8 +32,8 @@ abstract class Transformer<T : TransformerConfig>(
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun execute(instance: Grunteon, res: WorkResources, config: TransformerConfig) {
-        context(instance, res) { transform(config as T) }
+    fun execute(instance: Grunteon, config: TransformerConfig) {
+        context(instance) { transform(config as T) }
     }
 
     protected lateinit var excludePredicate: NamePredicates
@@ -45,7 +44,7 @@ abstract class Transformer<T : TransformerConfig>(
         includePredicate = buildClassNamePredicates(config.includeStrategy)
     }
 
-    context(instance: Grunteon, res: WorkResources)
+    context(instance: Grunteon)
     open fun transform(config: T) {
         buildFilterPredicate(config)
         runBlocking {
@@ -62,7 +61,7 @@ abstract class Transformer<T : TransformerConfig>(
         }
     }
 
-    context(instance: Grunteon, res: WorkResources)
+    context(instance: Grunteon)
     open fun transformClass(
         classNode: ClassNode,
         config: T,

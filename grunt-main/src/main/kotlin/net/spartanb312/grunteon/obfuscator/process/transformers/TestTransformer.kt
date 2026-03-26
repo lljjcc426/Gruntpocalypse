@@ -5,7 +5,6 @@ import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import org.objectweb.asm.tree.ClassNode
 
 class TestTransformer : Transformer<TestTransformer.Config>(
@@ -47,7 +46,7 @@ class TestTransformer : Transformer<TestTransformer.Config>(
         )
     }
 
-    context(instance: Grunteon, res: WorkResources)
+    context(instance: Grunteon)
     override fun transformClass(
         classNode: ClassNode,
         config: Config,

@@ -7,7 +7,6 @@ import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
-import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -85,7 +84,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
     lateinit var dictionary: NameGenerator
     private val counter = Counter()
 
-    context(instance: Grunteon, res: WorkResources)
+    context(instance: Grunteon)
     override fun transform(config: Config) {
         Logger.info(" - ClassRenamer: Renaming classes...")
         Logger.info("    Generating mappings for classes...")

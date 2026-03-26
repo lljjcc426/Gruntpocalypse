@@ -10,7 +10,6 @@ import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
@@ -144,7 +143,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     private val counter = Counter()
     private lateinit var methodExPredicate: NamePredicates
 
-    context(instance: Grunteon, res: WorkResources)
+    context(instance: Grunteon)
     override fun transform(config: Config) {
         Logger.info(" - NumberBasicEncrypt: Encrypting numbers...")
         methodExPredicate = buildMethodNamePredicates(config.exclusion)
@@ -152,7 +151,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         Logger.info("    Encrypted ${counter.get()} numbers")
     }
 
-    context(instance: Grunteon, res: WorkResources)
+    context(instance: Grunteon)
     override fun transformClass(classNode: ClassNode, config: Config) {
         classNode.methods.asSequence()
             .filter { !it.isAbstract && !it.isNative }
