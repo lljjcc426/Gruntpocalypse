@@ -2,13 +2,12 @@ package net.spartanb312.grunteon.obfuscator
 
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
-import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
-import net.spartanb312.grunteon.obfuscator.process.transformers.TestTransformer
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
@@ -54,6 +53,7 @@ fun main() {
         val pipeline = ProcessPipeline(
             NumberBasicEncrypt(),
             LocalVarRenamer(),
+            ClassRenamer(),
         )
         val instance = emptyConfig.runPipeline(pipeline)
         instance.execute()

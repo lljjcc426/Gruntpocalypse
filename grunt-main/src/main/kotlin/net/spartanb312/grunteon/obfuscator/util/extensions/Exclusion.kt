@@ -10,14 +10,14 @@ inline val String.isExcluded get() = isMixinClass || isGlobalExcluded
 context(_: Grunteon)
 inline val ClassNode.isExcluded get() = isMixinClass || isGlobalExcluded
 
-context(_: Grunteon)
-inline val String.isMixinClass get() = contextOf<Grunteon>().mixinExPredicate.matchedAnyBy(this)
+context(instance: Grunteon)
+inline val String.isMixinClass get() = instance.mixinExPredicate.matchedAnyBy(this)
 
-context(_: Grunteon)
-inline val ClassNode.isMixinClass get() = contextOf<Grunteon>().mixinExPredicate.matchedAnyBy(this.name)
+context(instance: Grunteon)
+inline val ClassNode.isMixinClass get() = instance.mixinExPredicate.matchedAnyBy(this.name)
 
-context(_: Grunteon)
-inline val String.isGlobalExcluded get() = contextOf<Grunteon>().globalExPredicate.matchedAnyBy(this)
+context(instance: Grunteon)
+inline val String.isGlobalExcluded get() = instance.globalExPredicate.matchedAnyBy(this)
 
-context(_: Grunteon)
-inline val ClassNode.isGlobalExcluded get() = contextOf<Grunteon>().globalExPredicate.matchedAnyBy(this.name)
+context(instance: Grunteon)
+inline val ClassNode.isGlobalExcluded get() = instance.globalExPredicate.matchedAnyBy(this.name)
