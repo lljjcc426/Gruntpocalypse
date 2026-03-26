@@ -28,6 +28,7 @@ class ClassHierarchy(
         fun build(inputClassNodes: Collection<ClassNode>, lookup: ((String) -> ClassNode?)? = null): ClassHierarchy {
             val classNodes = ObjectArrayList(inputClassNodes)
             val classNameLookUp = Object2IntOpenHashMap<String>()
+            classNameLookUp.defaultReturnValue(-1)
             var realClassCount = classNodes.size
             val classNames = ObjectArrayList<String>(realClassCount)
 
