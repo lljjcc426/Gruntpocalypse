@@ -7,15 +7,9 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import net.spartanb312.genesis.kotlin.extensions.isPrivate
-import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
-import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
-import net.spartanb312.grunteon.obfuscator.process.hierarchy.HeavyHierarchy
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
 import org.objectweb.asm.tree.MethodNode
 import java.util.function.ToIntFunction
-import kotlin.time.DurationUnit
-import kotlin.time.measureTime
 
 data class MethodNodeKey(
     val name: String,
@@ -211,48 +205,5 @@ class MethodHierarchy(
                 treeGraphConnectedComponents
             )
         }
-    }
-}
-
-fun main() {
-    val instance = Grunteon(ConfigGroup(), ProcessPipeline())
-    instance.init()
-
-    val old = false
-
-    if (old) {
-        measureTime {
-            HeavyHierarchy(instance).apply {
-                buildClass()
-                buildMethod()
-            }
-        }.also { println("Old Cold: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
-
-        repeat(20) {
-            HeavyHierarchy(instance).apply {
-                buildClass()
-                buildMethod()
-            }
-        }
-        measureTime {
-            repeat(5) {
-                HeavyHierarchy(instance).apply {
-                    buildClass()
-                    buildMethod()
-                }
-            }
-        }.also { println("Old: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 5.0)) }
-    } else {
-        measureTime {
-            MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
-        }.also { println("New Cold: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
-        repeat(20) {
-            MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
-        }
-        measureTime {
-            repeat(5) {
-                MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
-            }
-        }.also { println("New: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 5.0)) }
     }
 }
