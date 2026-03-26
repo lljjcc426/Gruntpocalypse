@@ -88,7 +88,10 @@ class MethodHierarchy(
                     classToMethodCodeBits[methodOwnerIdx].add(myMethodCode)
                     val descendents = classHierarchy.descendants[methodOwnerIdx]
                     for (i in 0..<descendents.size) {
-                        classToMethodCodeBits[descendents[i]].add(myMethodCode)
+                        val descendentIdx = descendents[i]
+                        if (descendentIdx < classHierarchy.realClassCount) {
+                            classToMethodCodeBits[descendentIdx].add(myMethodCode)
+                        }
                     }
                 }
             }
