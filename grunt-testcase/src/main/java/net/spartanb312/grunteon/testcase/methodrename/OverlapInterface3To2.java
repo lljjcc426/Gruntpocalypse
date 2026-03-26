@@ -22,13 +22,13 @@ public class OverlapInterface3To2 {
     public static void main(String[] args) {
         Child1 child1 = new Child1();
         assertEquals(42, child1.foo());
-        Object o1 = new Random().nextLong(0, 1) < 114 ? child1 : new Object();
+        Object o1 = new Random().nextLong(0, 1) < 114 ? child1 : new Object(); // Fake random to prevent inlining
         checkFather1(o1, 42);
         checkFather2(o1, 42);
 
         Child2 child2 = new Child2();
         assertEquals(69, child2.foo());
-        Object o2 = new Random().nextLong(0, 1) < 514 ? child2 : new Object();
+        Object o2 = new Random().nextLong(0, 1) < 514 ? child2 : new Object(); // Fake random to prevent inlining
         checkFather2(o2, 69);
         checkFather3(o2, 69);
 
