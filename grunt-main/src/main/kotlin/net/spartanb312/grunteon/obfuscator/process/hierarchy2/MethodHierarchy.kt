@@ -3,6 +3,7 @@ package net.spartanb312.grunteon.obfuscator.process.hierarchy2
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import net.spartanb312.genesis.kotlin.extensions.isPrivate
@@ -12,7 +13,6 @@ import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.HeavyHierarchy
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
 import org.objectweb.asm.tree.MethodNode
-import java.util.*
 import java.util.function.ToIntFunction
 import kotlin.time.DurationUnit
 import kotlin.time.measureTime
@@ -31,7 +31,7 @@ class MethodHierarchy(
     val sourceMethod: BooleanArray,
     val methodTreeRoots: IntArray,
     val sourceMethodToMethodTreeIdxLookup: Int2IntOpenHashMap,
-    val methodTreeAdjList: ObjectArrayList<BitSet>,
+    val methodTreeAdjList: ObjectArrayList<IntOpenHashSet>,
     val methodTreeToConnectedComponent: IntArray,
     val treeCCToTreeIdx: ObjectArrayList<IntArrayList>
 ) {
@@ -65,7 +65,7 @@ class MethodHierarchy(
             val methodCode = IntArray(methodCount)
             val methodAccess = IntArray(methodCount)
             val methodCodeToMethods = ObjectArrayList<IntArrayList>()
-            val classToMethodCodeBits = Array(classHierarchy.realClassCount) { BitSet() }
+            val classToMethodCodeBits = Array(classHierarchy.realClassCount) { IntOpenHashSet() }
 
             for (methodIdx in 0..<methodCount) {
                 val methodNode = methodNodes[methodIdx]
@@ -81,19 +81,19 @@ class MethodHierarchy(
                 // Fill inherent method bits
                 if (methodNode.access.isPrivate) continue
                 val methodOwnerIdx = methodOwner.getInt(methodIdx)
-                classToMethodCodeBits[methodOwnerIdx].set(myMethodCode)
+                classToMethodCodeBits[methodOwnerIdx].add(myMethodCode)
                 val descendents = classHierarchy.descendants[methodOwnerIdx]
                 for (i in 0..<descendents.size) {
-                    classToMethodCodeBits[descendents[i]].set(myMethodCode)
+                    classToMethodCodeBits[descendents[i]].add(myMethodCode)
                 }
             }
 
             // Search up for source method
             val isSourceMethod = BooleanArray(methodCount)
             val methodTreeRoots = IntArrayList() // Roots are aka. source methods
-            val methodTreeAdjList = ObjectArrayList<BitSet>()
+            val methodTreeAdjList = ObjectArrayList<IntOpenHashSet>()
             val methodToMethodTree = Array(classHierarchy.realClassCount) {
-                Int2ObjectOpenHashMap<BitSet>()
+                Int2ObjectOpenHashMap<IntOpenHashSet>()
             } // Tells a class's method code belongs to which method tree(s)
             val sourceMethodToMethodTreeIdxLookup = Int2IntOpenHashMap()
             sourceMethodToMethodTreeIdxLookup.defaultReturnValue(-1)
@@ -109,23 +109,23 @@ class MethodHierarchy(
                     val methodTreeIdx = methodTreeRoots.size
                     methodTreeRoots.add(methodIdx)
                     sourceMethodToMethodTreeIdxLookup[methodIdx] = methodTreeIdx
-                    val myMethodTreeAdjList = BitSet()
+                    val myMethodTreeAdjList = IntOpenHashSet()
 
                     for (i in 0..<descendentIndices.size) {
                         val descendentIdx = descendentIndices[i]
                         val descendentMethodCodes = classToMethodCodeBits[descendentIdx]
-                        if (!descendentMethodCodes.get(sourceMethodCode)) continue
+                        if (!descendentMethodCodes.contains(sourceMethodCode)) continue
                         val descendentMethodCodeTreeIndices =
-                            methodToMethodTree[descendentIdx].computeIfAbsent(sourceMethodCode) { BitSet() }
-                        var otherMethodTreeIdx = descendentMethodCodeTreeIndices.nextSetBit(0)
-                        while (otherMethodTreeIdx >= 0) {
-                            methodTreeAdjList[otherMethodTreeIdx].set(methodTreeIdx)
-                            otherMethodTreeIdx = descendentMethodCodeTreeIndices.nextSetBit(otherMethodTreeIdx + 1)
+                            methodToMethodTree[descendentIdx].computeIfAbsent(sourceMethodCode) { IntOpenHashSet() }
+                        val iterator = descendentMethodCodeTreeIndices.intIterator()
+                        while (iterator.hasNext()) {
+                            val otherMethodTreeIdx = iterator.nextInt()
+                            methodTreeAdjList[otherMethodTreeIdx].add(methodTreeIdx)
                         }
-                        myMethodTreeAdjList.or(descendentMethodCodeTreeIndices)
-                        descendentMethodCodeTreeIndices.set(methodTreeIdx)
+                        myMethodTreeAdjList.addAll(descendentMethodCodeTreeIndices)
+                        descendentMethodCodeTreeIndices.add(methodTreeIdx)
                     }
-                    myMethodTreeAdjList.clear(methodTreeIdx)
+                    myMethodTreeAdjList.remove(methodTreeIdx)
                     methodTreeAdjList.add(myMethodTreeAdjList)
                 }
 
@@ -138,19 +138,19 @@ class MethodHierarchy(
                 }
 
                 val parentIndices = classHierarchy.parents[classIdx]
-                val allParentMethodCodeBits = BitSet()
+                val allParentMethodCodeBits = IntOpenHashSet()
                 for (i in 0..<parentIndices.size) {
                     val parentIdx = parentIndices[i]
                     if (parentIdx >= classHierarchy.realClassCount) continue
                     val parentCodeBits = classToMethodCodeBits[parentIdx]
-                    allParentMethodCodeBits.or(parentCodeBits)
+                    allParentMethodCodeBits.addAll(parentCodeBits)
                 }
 
                 for (j in 0..<myMethods.size) {
                     val myMethod = myMethodArray[j]
                     if (methodAccess[myMethod].isPrivate) continue
                     val myMethodCode = methodCode[myMethod]
-                    if (!allParentMethodCodeBits.get(myMethodCode)) {
+                    if (!allParentMethodCodeBits.contains(myMethodCode)) {
                         setSource(myMethod)
                     }
                 }
@@ -167,10 +167,10 @@ class MethodHierarchy(
                 treeGraphConnectedComponents[connectedComponentIdx].add(treeIdx)
                 methodTreeToConnectedComponent[treeIdx] = connectedComponentIdx
                 val adjList = methodTreeAdjList[treeIdx]
-                var nextTreeIdx = adjList.nextSetBit(0)
-                while (nextTreeIdx >= 0) {
+                val iterator = adjList.intIterator()
+                while (iterator.hasNext()) {
+                    val nextTreeIdx = iterator.nextInt()
                     dfs(nextTreeIdx, connectedComponentIdx)
-                    nextTreeIdx = adjList.nextSetBit(nextTreeIdx + 1)
                 }
             }
 
@@ -225,7 +225,7 @@ fun main() {
                     buildMethod()
                 }
             }
-        }.also { println("Old %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 5.0)) }
+        }.also { println("Old: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 5.0)) }
     } else {
         measureTime {
             MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
@@ -237,6 +237,6 @@ fun main() {
             repeat(5) {
                 MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
             }
-        }.also { println("New %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 5.0)) }
+        }.also { println("New: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 5.0)) }
     }
 }
