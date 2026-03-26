@@ -6,6 +6,7 @@ import net.spartanb312.grunteon.obfuscator.util.Logger
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.tree.ClassNode
 import java.net.URI
+import java.nio.file.FileSystemNotFoundException
 import java.nio.file.FileSystems
 import java.nio.file.Path
 import kotlin.io.path.*
@@ -62,9 +63,13 @@ class WorkResources private constructor(
         private fun toZipRootPath(zipPath: Path): Path {
             val jarURI = URI.create("jar:" + zipPath.toUri())
             // TODO: lifecycle of zipFileSystem
-            val zipFileSystem = FileSystems.newFileSystem(jarURI, mapOf<String, String>())
-            val zipRoot = zipFileSystem.getPath("/")
-            return zipRoot
+            val zipFileSystem = try {
+                FileSystems.getFileSystem(jarURI)
+            } catch (_: FileSystemNotFoundException) {
+                FileSystems.newFileSystem(jarURI, mapOf<String, String>())
+            }
+
+            return zipFileSystem.getPath("/")
         }
 
         private fun resolvePath(path: Path): Path {
