@@ -2,6 +2,9 @@ package net.spartanb312.grunteon.obfuscator.process.resource
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.tree.ClassNode
@@ -82,6 +85,7 @@ class WorkResources private constructor(
             return path
         }
 
+        @OptIn(ExperimentalCoroutinesApi::class)
         fun read(input: Path, libs: List<Path> = emptyList()): WorkResources {
             Logger.info("Reading...")
             Logger.info("Input: ${input.absolutePathString()}")
@@ -96,36 +100,56 @@ class WorkResources private constructor(
 
             val inputClassMap = Object2ObjectOpenHashMap<String, ClassNode>()
             val libraryClassMap = Object2ObjectOpenHashMap<String, ClassNode>()
-            allResourceSetList.parallelStream()
-                .flatMap { resourceSet ->
-                    val isInput = resourceSet == inputResourceSet
-                    resourceSet.root.walk()
-                        .filter { it.extension == "class" }
-                        .map { resourceSet[it].first() }
-                        .map { isInput to it }
-                        .toList()
-                        .parallelStream()
-                        .map {
-                            runCatching {
-                                it.first to ClassNode().apply {
-                                    ClassReader(it.second.content)
-                                        .accept(this, ClassReader.EXPAND_FRAMES)
+            runBlocking {
+                val inputClassNodes = Channel<ClassNode>(Channel.BUFFERED)
+                val libraryNodes = Channel<ClassNode>(Channel.BUFFERED)
+
+                launch(Dispatchers.Default) {
+                    coroutineScope {
+                        allResourceSetList.forEach { resourceSet ->
+                            launch {
+                                val entries = withContext(Dispatchers.IO) {
+                                    resourceSet.root.walk()
+                                        .filter { it.extension == "class" }
+                                        .map { resourceSet[it].first() }
+                                        .toList()
                                 }
-                            }.getOrNull()
+
+                                val isInput = resourceSet === inputResourceSet
+                                entries.forEach { entry ->
+                                    launch {
+                                        runCatching {
+                                            ClassNode().apply {
+                                                ClassReader(entry.content)
+                                                    .accept(this, ClassReader.EXPAND_FRAMES)
+                                            }
+                                        }.onSuccess {
+                                            if (isInput) {
+                                                inputClassNodes.send(it)
+                                            } else {
+                                                libraryNodes.send(it)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        .filter { it != null }
-                        .toList()
-                        .stream()
+                    }
+                    inputClassNodes.close()
+                    libraryNodes.close()
                 }
-                .sequential()
-                .forEach {
-                    it!!
-                    if (it.first) {
-                        inputClassMap[it.second.name] = it.second
-                    } else {
-                        libraryClassMap[it.second.name] = it.second
+
+                launch {
+                    inputClassNodes.consumeEach {
+                        inputClassMap[it.name] = it
                     }
                 }
+                launch {
+                    libraryNodes.consumeEach {
+                        libraryClassMap[it.name] = it
+                    }
+                }
+            }
 
             return WorkResources(
                 inputResourceSet = inputResourceSet,
