@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.hierarchy2
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
@@ -23,8 +25,14 @@ data class MethodNodeKey(
 class MethodHierarchy(
     val classHierarchy: ClassHierarchy,
     val methodNodes: Array<MethodNode>,
+    val methodOwners: IntArray,
     val classNodeMethodLookup: Array<Object2IntOpenHashMap<MethodNodeKey>>,
-    val sourceMethod: BooleanArray
+    val sourceMethod: BooleanArray,
+    val methodTreeRoots: IntArray,
+    val sourceMethodToMethodTreeIdxLookup: Int2IntOpenHashMap,
+    val methodTreeAdjList: ObjectArrayList<BitSet>,
+    val methodTreeToConnectedComponent: IntArray,
+    val treeCCToTreeIdx: ObjectArrayList<IntArrayList>
 ) {
     companion object {
         fun build(classHierarchy: ClassHierarchy): MethodHierarchy {
@@ -70,6 +78,7 @@ class MethodHierarchy(
                 methodCodeToMethods[methodCode[methodIdx]].add(methodIdx)
 
                 // Fill inherent method bits
+                if (methodNode.access.isPrivate) continue
                 val methodOwnerIdx = methodOwner.getInt(methodIdx)
                 classToMethodCodeBits[methodOwnerIdx].set(myMethodCode)
                 val descendents = classHierarchy.descendants[methodOwnerIdx]
@@ -82,30 +91,38 @@ class MethodHierarchy(
             val isSourceMethod = BooleanArray(methodCount)
             val methodTreeRoots = IntArrayList() // Roots are aka. source methods
             val methodTreeAdjList = ObjectArrayList<BitSet>()
-            val methodToMethodTree = Array(methodCount) { BitSet() } // Tells a method belongs to which method tree(s)
+            val methodToMethodTree = Array(classHierarchy.realClassCount) {
+                Int2ObjectOpenHashMap<BitSet>()
+            } // Tells a class's method code belongs to which method tree(s)
+            val sourceMethodToMethodTreeIdxLookup = Int2IntOpenHashMap()
+            sourceMethodToMethodTreeIdxLookup.defaultReturnValue(-1)
             for (classIdx in 0..<classHierarchy.realClassCount) {
                 val descendentIndices = classHierarchy.descendants[classIdx]
                 fun setSource(methodIdx: Int) {
+                    if (classHierarchy.classNodes[classIdx].name.contains("OverlapComplex\$R1")) {
+                        println()
+                    }
                     assert(!isSourceMethod[methodIdx])
                     isSourceMethod[methodIdx] = true
                     val sourceMethodCode = methodCode[methodIdx]
                     val methodTreeIdx = methodTreeRoots.size
                     methodTreeRoots.add(methodIdx)
+                    sourceMethodToMethodTreeIdxLookup[methodIdx] = methodTreeIdx
                     val myMethodTreeAdjList = BitSet()
 
                     for (i in 0..<descendentIndices.size) {
                         val descendentIdx = descendentIndices[i]
-                        val descendentMethods = classToMethod[descendentIdx]
-                        val descendentMethodArray = descendentMethods.elements()
-                        for (j in 0..<descendentMethods.size) {
-                            val descendentMethod = descendentMethodArray[j]
-                            val descendentMethodCode = methodCode[descendentMethod]
-                            if (descendentMethodCode == sourceMethodCode) {
-                                val descendentMethodTreeMarks = methodToMethodTree[descendentMethod]
-                                myMethodTreeAdjList.or(descendentMethodTreeMarks)
-                                descendentMethodTreeMarks.set(methodTreeIdx)
-                            }
+                        val descendentMethodCodes = classToMethodCodeBits[descendentIdx]
+                        if (!descendentMethodCodes.get(sourceMethodCode)) continue
+                        val descendentMethodCodeTreeIndices =
+                            methodToMethodTree[descendentIdx].computeIfAbsent(sourceMethodCode) { BitSet() }
+                        var otherMethodTreeIdx = descendentMethodCodeTreeIndices.nextSetBit(0)
+                        while (otherMethodTreeIdx >= 0) {
+                            methodTreeAdjList[otherMethodTreeIdx].set(methodTreeIdx)
+                            otherMethodTreeIdx = descendentMethodCodeTreeIndices.nextSetBit(otherMethodTreeIdx + 1)
                         }
+                        myMethodTreeAdjList.or(descendentMethodCodeTreeIndices)
+                        descendentMethodCodeTreeIndices.set(methodTreeIdx)
                     }
                     myMethodTreeAdjList.clear(methodTreeIdx)
                     methodTreeAdjList.add(myMethodTreeAdjList)
@@ -140,11 +157,41 @@ class MethodHierarchy(
 
             assert(methodCodeLookup.size == methodCodeToMethods.size) { "Method code lookup size mismatch" }
 
+            val visitedTree = BooleanArray(methodTreeRoots.size)
+            val treeGraphConnectedComponents = ObjectArrayList<IntArrayList>()
+            val methodTreeToConnectedComponent = IntArray(methodTreeRoots.size) { -1 }
+            fun dfs(treeIdx: Int, connectedComponentIdx: Int) {
+                if (visitedTree[treeIdx]) return
+                visitedTree[treeIdx] = true
+                treeGraphConnectedComponents[connectedComponentIdx].add(treeIdx)
+                methodTreeToConnectedComponent[treeIdx] = connectedComponentIdx
+                val adjList = methodTreeAdjList[treeIdx]
+                var nextTreeIdx = adjList.nextSetBit(0)
+                while (nextTreeIdx >= 0) {
+                    dfs(nextTreeIdx, connectedComponentIdx)
+                    nextTreeIdx = adjList.nextSetBit(nextTreeIdx + 1)
+                }
+            }
+
+            for (i in 0..<methodTreeRoots.size) {
+                if (!visitedTree[i]) {
+                    val connectedComponentIdx = treeGraphConnectedComponents.size
+                    treeGraphConnectedComponents.add(IntArrayList())
+                    dfs(i, connectedComponentIdx)
+                }
+            }
+
             return MethodHierarchy(
                 classHierarchy,
                 methodNodes.toTypedArray(),
+                methodOwner.toIntArray(),
                 classMethodNodeLookup,
-                isSourceMethod
+                isSourceMethod,
+                methodTreeRoots.toIntArray(),
+                sourceMethodToMethodTreeIdxLookup,
+                methodTreeAdjList,
+                methodTreeToConnectedComponent,
+                treeGraphConnectedComponents
             )
         }
     }
@@ -157,12 +204,12 @@ fun main() {
     measureTime {
         MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
     }.also { println("Cold: %.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
-    repeat(20) {
-        MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
-    }
-    measureTime {
-        repeat(5) {
-            MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
-        }
-    }.also { println("%.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 5.0)) }
+//    repeat(20) {
+//        MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
+//    }
+//    measureTime {
+//        repeat(5) {
+//            MethodHierarchy.build(ClassHierarchy.build(instance.allClasses, instance.workRes::getClassNode))
+//        }
+//    }.also { println("%.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS) / 5.0)) }
 }
