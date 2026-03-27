@@ -1,10 +1,8 @@
 package net.spartanb312.grunteon.obfuscator.process.resource
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.produce
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.util.ClearClassNode
@@ -21,6 +19,7 @@ import java.util.zip.ZipOutputStream
 import kotlin.io.path.*
 
 object JarDumper {
+    @OptIn(ExperimentalCoroutinesApi::class)
     context(instance: Grunteon)
     fun dumpJar(outputFile: Path) {
         val config = instance.configGroup
@@ -46,39 +45,25 @@ object JarDumper {
             )
             corruptJarHeader(random, outputStream)
         }
-        ZipOutputStream(outputStream).use { zipOut ->
-            // Compression level
-            zipOut.setLevel(config.compressionLevel)
-            // Archive comment
-            if (config.archiveComment.isNotEmpty()) zipOut.setComment(config.archiveComment)
-            // Corrupt CRC32
-            if (config.corruptCRC32) {
-                Logger.info("Corrupting CRC32...")
-                val random = Xoshiro256PPRandom(
-                    getSeed(
-                        config.input,
-                        config.output,
-                        "corruptCRC32",
-                    )
-                )
-                zipOut.corruptCRC32(random)
-            }
+        runBlocking {
+            val classes = produce(
+                Dispatchers.Default,
+                capacity = Channel.BUFFERED
+            ) {
+                // Build hierarchy
+                Logger.info("Building hierarchies...")
+                val hierarchy =
+                    ClassHierarchy.build(instance.workRes.allClassCollection, instance.workRes::getClassNode)
+                // Writing class
+                Logger.info("Writing classes...")
 
-            // Build hierarchy
-            Logger.info("Building hierarchies...")
-            val hierarchy = ClassHierarchy.build(instance.workRes.allClassCollection, instance.workRes::getClassNode)
-            // Writing class
-            Logger.info("Writing classes...")
-            val mutex = Mutex()
-
-            runBlocking {
-                // TODO: handle resource
+                if (config.missingCheck) hierarchy.printMissing()
                 for (classNode in instance.workRes.inputClassCollection) {
                     // File remove
                     if (classNode.name == "module-info" || checkFileNameRemove(classNode.name)) continue
                     val missingList = hierarchy.checkMissing(classNode)
                     val classInfo = hierarchy.findClass(classNode.name)!!
-                    launch(Dispatchers.IO) {
+                    launch(Dispatchers.Default) {
                         // Dependency check
                         val missingRef = missingList.isNotEmpty()
                         if (missingRef && config.missingCheck) {
@@ -110,32 +95,55 @@ object JarDumper {
                                 ByteArray(0)
                             }
                         }
-                        // TODO: optimize
-                        mutex.withLock {
-                            val zipEntry = ZipEntry(entryName)
-                            if (config.removeTimeStamps) zipEntry.time = 0
-                            zipOut.putNextEntry(zipEntry)
-                            zipOut.write(byteArray)
-                            zipOut.closeEntry()
-                        }
+
+                        send(entryName to byteArray)
                     }
                 }
             }
-            if (config.missingCheck) hierarchy.printMissing()
 
-            Logger.info("Writing resources...")
-            instance.workRes.inputResourceSet.root.walk()
-                .filter { !it.isDirectory() }
-                .filter { it.extension != "class" }
-                .filterNot { checkFileNameRemove(it.name) }
-                .forEach {
-                    val zipEntry = ZipEntry(it.pathString)
-                    if (config.removeTimeStamps) zipEntry.time = 0
-                    zipOut.putNextEntry(zipEntry)
-                    zipOut.write(it.readBytes())
-                    zipOut.closeEntry()
+            withContext(Dispatchers.IO) {
+                ZipOutputStream(outputStream).use { zipOut ->
+                    // Compression level
+                    zipOut.setLevel(config.compressionLevel)
+                    // Archive comment
+                    if (config.archiveComment.isNotEmpty()) zipOut.setComment(config.archiveComment)
+                    // Corrupt CRC32
+                    if (config.corruptCRC32) {
+                        Logger.info("Corrupting CRC32...")
+                        val random = Xoshiro256PPRandom(
+                            getSeed(
+                                config.input,
+                                config.output,
+                                "corruptCRC32",
+                            )
+                        )
+                        zipOut.corruptCRC32(random)
+                    }
+
+                    Logger.info("Writing resources...")
+                    instance.workRes.inputResourceSet.root.walk()
+                        .filter { !it.isDirectory() }
+                        .filter { it.extension != "class" }
+                        .filterNot { checkFileNameRemove(it.name) }
+                        .forEach {
+                            val zipEntry = ZipEntry(it.pathString.removePrefix("/"))
+                            if (config.removeTimeStamps) zipEntry.time = 0
+                            zipOut.putNextEntry(zipEntry)
+                            zipOut.write(it.readBytes())
+                            zipOut.closeEntry()
+                        }
+
+                    Logger.info("Writing classes...")
+                    for ((entryName, byteArray) in classes) {
+                        val zipEntry = ZipEntry(entryName)
+                        if (config.removeTimeStamps) zipEntry.time = 0
+                        zipOut.putNextEntry(zipEntry)
+                        zipOut.write(byteArray)
+                        zipOut.closeEntry()
+                    }
+                    // TODO: dump mappings
                 }
-            // TODO: dump mappings
+            }
         }
     }
 }
