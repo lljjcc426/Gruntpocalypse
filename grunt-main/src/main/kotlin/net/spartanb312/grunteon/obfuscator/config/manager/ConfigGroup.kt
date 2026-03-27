@@ -6,6 +6,7 @@ import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import java.io.File
 import java.util.zip.Deflater
+import kotlin.random.Random
 
 class ConfigGroup : Configurable() {
 
@@ -42,6 +43,11 @@ class ConfigGroup : Configurable() {
             "net/spartanb312/common/MixinExampleClass"
         ),
         desc = enText("config.mixin_exclusions.desc", "Minecraft mixin exclusions. For mods or plugins")
+    )
+    val baseSeed by setting(
+        name = enText("config.base_seed", "Base seed"),
+        value = "I love XJP",
+        desc = enText("config.base_seed.desc", "Base seed for controllable random")
     )
     val dumpMappings by setting(
         name = enText("config.dump_mappings", "Dump mappings"),

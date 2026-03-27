@@ -8,10 +8,11 @@ compose-fluent = "v0.1.0"
 compose-hot-reload = "1.0.0-beta03"
 
 junit = "6.0.1"
-
 gson = "2.12.1"
 asm = "9.9"
 fastutil = "8.5.16"
+apache-math3 = "3.6.1"
+apache-lang3 = "3.16.0"
 
 [plugins]
 #compose = { id = "org.jetbrains.compose", version.ref = "compose" }
@@ -35,6 +36,11 @@ asm-analysis = { group = "org.ow2.asm", name = "asm-analysis", version.ref = "as
 fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 
+# Apache
+apache-math = { module = "org.apache.commons:commons-math3", version.ref = "apache-math3" }
+apache-lang = { module = "org.apache.commons:commons-lang3", version.ref = "apache-lang3" }
+
 [bundles]
 asm = ["asm", "asm-tree", "asm-util", "asm-commons", "asm-analysis"]
+apache = ["apache-math", "apache-lang"]
 utils = ["fastutil", "gson"]
