@@ -29,7 +29,7 @@ fun <T> swap(arr: Array<T>, i: Int, j: Int) {
     arr[j] = tmp
 }
 
-fun <T> Collection<T>.random(randomGen: RandomGenerator): T {
+fun <T> Collection<T>.random(randomGen: UniformRandomProvider): T {
     if (isEmpty()) throw NoSuchElementException("Collection is empty.")
     return elementAt(randomGen.nextInt(size))
 }
