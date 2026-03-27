@@ -4,8 +4,18 @@ import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
+import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.info.ClassInfo
+import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
 import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.FieldInsnNode
+import org.objectweb.asm.tree.MethodInsnNode
+import org.objectweb.asm.tree.MethodNode
 import java.util.function.ToIntFunction
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.forEach
 
 class ClassHierarchy(
     val classNodes: Array<ClassNode>,
@@ -186,4 +196,110 @@ class ClassHierarchy(
             )
         }
     }
+
+    // utils
+    fun findClass(className: String): Int? {
+        val ret = classNameLookUp.getInt(className)
+        return if (ret == -1) null else ret
+    }
+
+    // subtype
+    fun isSubType(child: ClassInfo, father: ClassInfo): Boolean {
+        return isSubType(child.name, father.name)
+    }
+
+    fun isSubType(child: String, father: String): Boolean {
+        if (child == father) return true
+        val childInfo = findClass(child) ?: return false
+        val fatherInfo = findClass(father) ?: return false
+        val flag1 = ancestors[childInfo].contains(fatherInfo)
+        val flag2 = descendants[fatherInfo].contains(childInfo)
+        if (flag1 != flag2) {
+            Logger.fatal("Class hierarchy error! Flag1=$flag1, Flag2=$flag2, Father=$father, Child=$child")
+        }
+        return flag1 || flag2
+    }
+
+    // common superclass
+    fun getCommonSuperClass(type1: ClassInfo, type2: ClassInfo): Int? {
+        return getCommonSuperClass(type1.name, type2.name)
+    }
+
+    fun getCommonSuperClass(type1: String, type2: String): Int? {
+        val info1 = findClass(type1) ?: return null
+        val info2 = findClass(type2) ?: return null
+        return when {
+            type1 == "java/lang/Object" -> info1
+            type2 == "java/lang/Object" -> info2
+            isSubType(type1, type2) -> info2
+            isSubType(type2, type1) -> info1
+            classNodes[info1].isInterface && classNodes[info2].isInterface -> null
+            else -> null
+        }
+    }
+
+    // missing dependencies
+    context(instance: Grunteon)
+    fun printMissing(printAffected: Boolean = true) {
+        val inputKeys = instance.workRes.inputClassMap.keys
+        for (index in classNodes.indices) {
+            if (broken[index]) {
+                val dependency = classNames[index]
+                Logger.error("Missing ancestor $dependency")
+                if (printAffected) {
+                    descendants[index].forEach { des ->
+                        val name = classNames[des]
+                        if (name in inputKeys) Logger.error("   Required by $name")
+                        else Logger.warn("    Required by $name")
+                    }
+                }
+            }
+        }
+    }
+
+    // reference search
+    context(instance: Grunteon)
+    fun checkMissing(classNode: ClassNode): Set<String> {
+        val missingReference = mutableSetOf<String>()
+        for (method in classNode.methods) {
+            missingReference.addAll(checkMissing(method))
+        }
+        return missingReference
+    }
+
+    context(instance: Grunteon)
+    fun checkMissing(methodNode: MethodNode): Set<String> {
+        val missingReference = mutableSetOf<String>()
+        methodNode.instructions.forEach { insn ->
+            if (insn is FieldInsnNode) {
+                val name = if (!insn.owner.startsWith("[")) insn.owner
+                else insn.owner.substringAfterLast("[").removePrefix("L").removeSuffix(";")
+                val info = findClass(name)
+                val node = instance.workRes.getClassNode(name)
+                if (info == null) {
+                    //println("Missing $name")
+                    if (node == null) missingReference.add(name)
+                } else if (broken[info]) {
+                    //println("Broken $name")
+                    missingReference.add(name)
+                }
+            }
+            if (insn is MethodInsnNode) {
+                val name = if (!insn.owner.startsWith("[")) insn.owner
+                else insn.owner.substringAfterLast("[").removePrefix("L").removeSuffix(";")
+                val info = findClass(name)
+                val node = instance.workRes.getClassNode(name)
+                if (info == null) {
+                    //println("Missing $name")
+                    if (node == null) missingReference.add(name)
+                } else if (broken[info]) {
+                    //println("Broken $name")
+                    missingReference.add(name)
+                }
+            }
+        }
+        return missingReference
+    }
+
+
 }

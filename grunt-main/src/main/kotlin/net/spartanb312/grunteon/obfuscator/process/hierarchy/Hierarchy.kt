@@ -180,7 +180,6 @@ open class Hierarchy(val instance: Grunteon) {
                 else insn.owner.substringAfterLast("[").removePrefix("L").removeSuffix(";")
                 val info = getClassInfo(name)
                 if (info.isBroken) missingReference.add(info)
-
             }
             if (insn is MethodInsnNode) {
                 val name = if (!insn.owner.startsWith("[")) insn.owner

@@ -36,12 +36,16 @@ class WorkResources private constructor(
 ) {
     val inputClassCollection: Collection<ClassNode> get() = inputClassMap.values
     val generatedClassCollection: Collection<ClassNode> get() = generatedClassMap.values
+    val librariesClassCollection: Collection<ClassNode> get() = libraryClassMap.values
 
     // TODO: optimize this
     inline val allClassCollection
-        get() = ObjectArrayList<ClassNode>(inputClassCollection.size + generatedClassCollection.size).apply {
+        get() = ObjectArrayList<ClassNode>(
+            inputClassCollection.size + generatedClassCollection.size + librariesClassCollection.size
+        ).apply {
             addAll(inputClassCollection)
             addAll(generatedClassCollection)
+            addAll(librariesClassCollection)
         }
 
 
@@ -54,6 +58,7 @@ class WorkResources private constructor(
             }
             classNode
         } catch (_: Exception) {
+            //throw Exception("Fail to read in runtime = $name")
             null
         }
     }

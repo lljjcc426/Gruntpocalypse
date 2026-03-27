@@ -1,14 +1,14 @@
 package net.spartanb312.grunteon.obfuscator.process.resource
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
 import org.objectweb.asm.ClassWriter
 
 class ClassDumper(
     private val instance: Grunteon,
-    private val hierarchy: Hierarchy,
+    private val hierarchy: ClassHierarchy,
     useComputeMax: Boolean = false
 ) : ClassWriter(if (useComputeMax) COMPUTE_MAXS else COMPUTE_FRAMES) {
 

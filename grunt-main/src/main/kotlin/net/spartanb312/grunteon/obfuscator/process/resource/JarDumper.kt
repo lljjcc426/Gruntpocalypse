@@ -6,7 +6,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.util.ClearClassNode
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
@@ -58,28 +58,32 @@ class JarDumper(
             }
             // Build hierarchy
             Logger.info("Building hierarchies...")
-            val hierarchy = Hierarchy(instance)
-            hierarchy.buildClass()
+            val hierarchy = ClassHierarchy.build(instance.workRes.allClassCollection, instance.workRes::getClassNode)
             // Writing class
             Logger.info("Writing classes...")
             val mutex = Mutex()
+
+            //hierarchy.findClass("java/lang/Float") ?: throw Exception()
+
+            //hierarchy.classNameLookUp.forEach { (string, i) -> if (string.startsWith("java"))println("$string -> $i") }
+
             runBlocking {
                 // TODO: handle resource
                 for (classNode in instance.workRes.inputClassCollection) {
                     // File remove
                     if (classNode.name == "module-info" || classNode.name.shouldRemove) continue
                     val missingList = hierarchy.checkMissing(classNode)
-                    val classInfo = hierarchy.getClassInfo(classNode)
+                    val classInfo = hierarchy.findClass(classNode.name)!!
                     launch(Dispatchers.IO) {
                         // Dependency check
                         val missingRef = missingList.isNotEmpty()
                         if (missingRef && missingCheck) {
                             Logger.error("Class ${classNode.name} missing reference:")
                             for (missing in missingList) {
-                                Logger.error(" - ${missing.name}")
+                                Logger.error(" - $missing")
                             }
                         }
-                        val missingAny = (classInfo.missingDependencies || missingRef) && missingCheck
+                        val missingAny = (hierarchy.missingDependencies[classInfo] || missingRef) && missingCheck
                         val useComputeMax = forceComputeMax || missingAny || classNode.isExcluded
                         val missing = missingAny && !forceComputeMax && !classNode.isExcluded
                         // Write zip entry
