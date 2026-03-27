@@ -24,7 +24,7 @@ dependencies {
     // libraries
     library(libs.bundles.asm)
     library(libs.bundles.utils)
-    library(libs.bundles.apache)
+    library(libs.bundles.apache.common)
 
     testImplementation(kotlin("test"))
     testImplementation(project(":grunt-testcase"))

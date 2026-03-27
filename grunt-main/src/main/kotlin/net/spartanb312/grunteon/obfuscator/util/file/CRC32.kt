@@ -1,10 +1,10 @@
 package net.spartanb312.grunteon.obfuscator.util.file
 
-import org.apache.commons.math3.random.RandomGenerator
+import org.apache.commons.rng.UniformRandomProvider
 import java.util.zip.CRC32
 import java.util.zip.ZipOutputStream
 
-fun ZipOutputStream.corruptCRC32(randomGen: RandomGenerator) {
+fun ZipOutputStream.corruptCRC32(randomGen: UniformRandomProvider) {
     val field = ZipOutputStream::class.java.getDeclaredField("crc")
     field.isAccessible = true
     field[this] = object : CRC32() {

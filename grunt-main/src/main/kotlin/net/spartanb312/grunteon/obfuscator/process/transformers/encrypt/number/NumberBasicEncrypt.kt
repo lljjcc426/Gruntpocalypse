@@ -13,8 +13,8 @@ import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.collection.shuffled
+import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
-import net.spartanb312.grunteon.obfuscator.util.cryptography.toRandom
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
@@ -23,7 +23,7 @@ import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicate
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import net.spartanb312.grunteon.obfuscator.util.numerical.asInt
 import net.spartanb312.grunteon.obfuscator.util.numerical.asLong
-import org.apache.commons.math3.random.RandomGenerator
+import org.apache.commons.rng.UniformRandomProvider
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InsnList
@@ -166,7 +166,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                     (if (config.dynamicStrength) (config.maxInstructions - method.instructions.size()).toFloat() / config.maxInstructions
                     else 1f).coerceIn(0f, 1f)
 
-                val randomGen = getSeed(classNode.name, method.name, method.desc).toRandom()
+                val randomGen = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc))
                 method.instructions
                     .filter { it.opcode != Opcodes.NEWARRAY }
                     .shuffled(randomGen)
@@ -236,21 +236,21 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
             }
     }
 
-    fun RandomGenerator.encrypt(value: Float): InsnList {
+    fun UniformRandomProvider.encrypt(value: Float): InsnList {
         return instructions {
             +encrypt(value.asInt())
             INVOKESTATIC("java/lang/Float", "intBitsToFloat", "(I)F")
         }
     }
 
-    fun RandomGenerator.encrypt(value: Double): InsnList {
+    fun UniformRandomProvider.encrypt(value: Double): InsnList {
         return instructions {
             +encrypt(value.asLong())
             INVOKESTATIC("java/lang/Double", "longBitsToDouble", "(J)D")
         }
     }
 
-    fun RandomGenerator.encrypt(value: Int): InsnList {
+    fun UniformRandomProvider.encrypt(value: Int): InsnList {
         val random = nextInt(Int.MAX_VALUE)
         val negative = (if (nextBoolean()) random else -random) + value
         val obfuscated = value xor negative
@@ -271,7 +271,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         }
     }
 
-    fun RandomGenerator.encrypt(value: Long): InsnList = instructions {
+    fun UniformRandomProvider.encrypt(value: Long): InsnList = instructions {
         val key = nextLong()
         val unsignedString = java.lang.Long.toUnsignedString(key, 32)
         LDC(unsignedString)

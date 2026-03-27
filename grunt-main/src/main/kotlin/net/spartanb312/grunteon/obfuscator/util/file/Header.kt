@@ -1,10 +1,9 @@
 package net.spartanb312.grunteon.obfuscator.util.file
 
-import net.spartanb312.grunteon.obfuscator.util.cryptography.nextInt
-import org.apache.commons.math3.random.RandomGenerator
-import java.io.FileOutputStream
+import org.apache.commons.rng.UniformRandomProvider
+import java.io.OutputStream
 
-fun corruptJarHeader(randomGen: RandomGenerator, outputStream: FileOutputStream) {
+fun corruptJarHeader(randomGen: UniformRandomProvider, outputStream: OutputStream) {
     // Write default jar header to stream.
     outputStream.write(0x50)
     outputStream.write(0x4B)

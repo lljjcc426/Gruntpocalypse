@@ -1,14 +1,14 @@
 package net.spartanb312.grunteon.obfuscator.util.collection
 
-import org.apache.commons.math3.random.RandomGenerator
+import org.apache.commons.rng.UniformRandomProvider
 import java.util.*
 
 const val SHUFFLE_THRESHOLD = 5
 
-inline fun <reified T> Iterable<T>.shuffled(randomGen: RandomGenerator): List<T> =
+inline fun <reified T> Iterable<T>.shuffled(randomGen: UniformRandomProvider): List<T> =
     toMutableList().apply { shuffle(randomGen) }
 
-inline fun <reified T> MutableList<T>.shuffle(rnd: RandomGenerator) {
+inline fun <reified T> MutableList<T>.shuffle(rnd: UniformRandomProvider) {
     val size: Int = size
     if (size < SHUFFLE_THRESHOLD || this is RandomAccess) {
         for (i in size downTo 2) Collections.swap(this, i - 1, rnd.nextInt(i))
