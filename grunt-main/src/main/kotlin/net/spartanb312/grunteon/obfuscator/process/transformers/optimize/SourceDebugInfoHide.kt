@@ -10,8 +10,8 @@ import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.collection.random
+import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
-import net.spartanb312.grunteon.obfuscator.util.cryptography.toRandom
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.LineNumberNode
@@ -82,7 +82,7 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
 
     context(instance: Grunteon)
     override fun transformClass(classNode: ClassNode, config: Config) {
-        val randomGen = getSeed(classNode.name).toRandom()
+        val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))
         if (config.sourceFiles != SourceFileAction.Off) {
             if (config.sourceFiles == SourceFileAction.Replace) {
                 classNode.sourceDebug = config.sourceNames.random(randomGen)

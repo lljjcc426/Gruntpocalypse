@@ -13,6 +13,7 @@ asm = "9.9"
 fastutil = "8.5.16"
 apache-math3 = "3.6.1"
 apache-lang3 = "3.16.0"
+apache-commons-rng-simple = "1.6"
 
 [plugins]
 #compose = { id = "org.jetbrains.compose", version.ref = "compose" }
@@ -39,8 +40,9 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 # Apache
 apache-math = { module = "org.apache.commons:commons-math3", version.ref = "apache-math3" }
 apache-lang = { module = "org.apache.commons:commons-lang3", version.ref = "apache-lang3" }
+apache-rng-simple = { module = "org.apache.commons:commons-rng-simple", version.ref = "apache-commons-rng-simple" }
 
 [bundles]
 asm = ["asm", "asm-tree", "asm-util", "asm-commons", "asm-analysis"]
-apache = ["apache-math", "apache-lang"]
+apache-common = ["apache-math", "apache-lang", "apache-rng-simple"]
 utils = ["fastutil", "gson"]
