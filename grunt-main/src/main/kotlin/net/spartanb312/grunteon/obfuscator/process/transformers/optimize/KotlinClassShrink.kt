@@ -1,10 +1,20 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 
+import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
+import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.extensions.matchInvoke
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.tree.AbstractInsnNode
+import org.objectweb.asm.tree.AnnotationNode
+import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.InsnNode
+import org.objectweb.asm.tree.LdcInsnNode
 
 class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
     name = enText("process.optimize.kotlin_class_shrink", "KotlinClassShrink"),
@@ -27,7 +37,129 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
     }
 
     class Config : TransformerConfig() {
+        val metaData by setting(
+            name = enText("process.optimize.kotlin_class_shrink.remove_metadata", "Metadata remove"),
+            value = true,
+            desc = enText(
+                "process.optimize.kotlin_class_shrink.remove_metadata.desc",
+                "Remove kotlin metadata. Warning: It will render KReflect unusable"
+            )
+        )
+        val intrinsics by setting(
+            name = enText("process.optimize.kotlin_class_shrink.remove_intrinsics", "Intrinsics remove"),
+            value = true,
+            desc = enText(
+                "process.optimize.kotlin_class_shrink.remove_intrinsics.desc",
+                "Remove kotlin intrinsics like parameter check"
+            )
+        )
+        val intrinsicsRemoval by setting(
+            name = enText("process.optimize.kotlin_class_shrink.remove_intrinsics_target", "Intrinsics remove target"),
+            value = listOf(
+                "checkExpressionValueIsNotNull",
+                "checkNotNullExpressionValue",
+                "checkReturnedValueIsNotNull",
+                "checkFieldIsNotNull",
+                "checkParameterIsNotNull",
+                "checkNotNullParameter"
+            ),
+            desc = enText(
+                "process.optimize.kotlin_class_shrink.remove_intrinsics_target.desc",
+                "Specify intrinsics remove target"
+            )
+        )
+        val replaceLDC by setting(
+            name = enText("process.optimize.kotlin_class_shrink.replace_ldc", "Replace LDC"),
+            value = true,
+            desc = enText(
+                "process.optimize.kotlin_class_shrink.replace_ldc.desc",
+                "Replace LDC to avoid reference leaking"
+            )
+        )
+    }
 
+    private val intrinsics = Counter()
+    private val metadata = Counter()
+
+    context(instance: Grunteon)
+    override fun transform(config: Config) {
+        Logger.info(" - KotlinClassShrink: Shrinking kotlin classes...")
+        super.transform(config)
+        if (config.metaData) Logger.info("    Removed ${metadata.get()} kotlin metadata")
+        if (config.intrinsics) Logger.info("    Removed ${intrinsics.get()} kotlin intrinsics")
+    }
+
+    context(instance: Grunteon)
+    override fun transformClass(classNode: ClassNode, config: Config) {
+        if (config.intrinsics) {
+            classNode.methods.forEach { methodNode ->
+                val replace = mutableListOf<AbstractInsnNode>()
+                methodNode.instructions.forEach { insnNode ->
+                    if (insnNode.matchInvoke(Opcodes.INVOKESTATIC, "kotlin/jvm/internal/Intrinsics")) {
+                        val removeSize = intrinsicsRemoveMethods[insnNode.name + insnNode.desc] ?: 0
+                        if (removeSize > 0 && config.intrinsicsRemoval.contains(insnNode.name)) {
+                            replace.removeLast()
+                            repeat(removeSize) {
+                                replace.add(InsnNode(Opcodes.POP))
+                            }
+                            intrinsics.add()
+                        } else {
+                            if (config.replaceLDC && intrinsicsReplaceMethods.contains(insnNode.name + insnNode.desc)) {
+                                val ldc = replace.last()
+                                if (ldc is LdcInsnNode) {
+                                    ldc.cst = "REMOVED BY GRUNT"
+                                    intrinsics.add()
+                                }
+                            }
+                            replace.add(insnNode)
+                        }
+                    } else replace.add(insnNode)
+                }
+                methodNode.instructions.clear()
+                replace.forEach { methodNode.instructions.add(it) }
+            }
+        }
+        if (config.metaData) {
+            fun MutableList<AnnotationNode>.removeCheck() {
+                toList().forEach {
+                    if (
+                        it.desc.startsWith("Lkotlin/jvm/internal/SourceDebugExtension") ||
+                        it.desc.startsWith("Lkotlin/Metadata") ||
+                        it.desc.startsWith("Lkotlin/coroutines/jvm/internal/DebugMetadata")
+                    ) {
+                        remove(it)
+                        metadata.add()
+                    }
+                }
+            }
+            classNode.visibleAnnotations?.removeCheck()
+            classNode.invisibleAnnotations?.removeCheck()
+        }
+    }
+
+    companion object {
+        private val intrinsicsRemoveMethods = mutableMapOf(
+            "checkExpressionValueIsNotNull(Ljava/lang/Object;Ljava/lang/String;)V" to 1,
+            "checkNotNullExpressionValue(Ljava/lang/Object;Ljava/lang/String;)V" to 1,
+            "checkReturnedValueIsNotNull(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)V" to 2,
+            "checkReturnedValueIsNotNull(Ljava/lang/Object;Ljava/lang/String;)V" to 1,
+            "checkFieldIsNotNull(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)V" to 2,
+            "checkFieldIsNotNull(Ljava/lang/Object;Ljava/lang/String;)V" to 1,
+            "checkParameterIsNotNull(Ljava/lang/Object;Ljava/lang/String;)V" to 1,
+            "checkNotNullParameter(Ljava/lang/Object;Ljava/lang/String;)V" to 1
+        )
+
+        private val intrinsicsReplaceMethods = mutableListOf(
+            "checkNotNull(Ljava/lang/Object;Ljava/lang/String;)V",
+            "throwNpe(Ljava/lang/String;)V",
+            "throwJavaNpe(Ljava/lang/String;)V",
+            "throwUninitializedProperty(Ljava/lang/String;)V",
+            "throwUninitializedPropertyAccessException(Ljava/lang/String;)V",
+            "throwAssert(Ljava/lang/String;)V",
+            "throwIllegalArgument(Ljava/lang/String;)V",
+            "throwIllegalState(Ljava/lang/String;)V",
+            "throwUndefinedForReified(Ljava/lang/String;)V",
+        )
     }
 
 }

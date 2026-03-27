@@ -7,8 +7,10 @@ import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.ClassShrink
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.DeadCodeRemove
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.EnumOptimize
+import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.KotlinClassShrink
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -67,6 +69,8 @@ fun main() {
         val pipeline = ProcessPipeline(
             DeadCodeRemove(),
             EnumOptimize(),
+            KotlinClassShrink(),
+            ClassShrink(),
             NumberBasicEncrypt(),
             LocalVarRenamer(),
             ClassRenamer(),

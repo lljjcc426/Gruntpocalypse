@@ -1,9 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.util.extensions
 
-import org.objectweb.asm.tree.AbstractInsnNode
-import org.objectweb.asm.tree.ClassNode
-import org.objectweb.asm.tree.FieldNode
-import org.objectweb.asm.tree.MethodNode
+import org.objectweb.asm.tree.*
+import kotlin.contracts.contract
 
 fun AbstractInsnNode.matchAnyOp(vararg opcodes: Int) = opcodes.any { it == opcode }
 
@@ -22,4 +20,21 @@ fun ClassNode.findMethod(name: String, desc: String, predicate: (MethodNode) -> 
 
 fun ClassNode.findField(name: String, desc: String, predicate: (FieldNode) -> Boolean): FieldNode? {
     return fields?.firstOrNull { it.name == name && it.desc == desc && predicate(it) }
+}
+
+fun AbstractInsnNode.matchInvoke(
+    invokeType: Int,
+    owner: String? = null,
+    name: String? = null,
+    desc: String? = null,
+): Boolean {
+    contract {
+        returns(true) implies (this@matchInvoke is MethodInsnNode)
+    }
+    if (this !is MethodInsnNode) return false
+    if (this.opcode != invokeType) return false
+    if (owner != null && this.owner != owner) return false
+    if (name != null && this.name != name) return false
+    if (desc != null && this.desc != desc) return false
+    return true
 }
