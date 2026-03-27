@@ -12,6 +12,8 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.EnumOpt
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
+import net.spartanb312.grunteon.obfuscator.util.cryptography.toRandom
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
 import java.io.File
@@ -95,6 +97,7 @@ class Grunteon(
     lateinit var output: JarDumper
     lateinit var workRes: WorkResources
     val mappingApplier = MappingApplier(this)
+    val generalRandom = getSeed(configGroup.input, configGroup.output).toRandom()
 
     fun init() {
         Logger.info("Executing obfuscating job...")

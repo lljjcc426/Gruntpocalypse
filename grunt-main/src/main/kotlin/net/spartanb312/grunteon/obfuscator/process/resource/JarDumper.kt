@@ -44,7 +44,7 @@ class JarDumper(
         // Corrupt header
         if (corruptHeader) {
             Logger.info("Corrupting jar header...")
-            corruptJarHeader(outputStream)
+            corruptJarHeader(instance.generalRandom, outputStream)
         }
         ZipOutputStream(outputStream).apply {
             // Compression level
@@ -54,7 +54,7 @@ class JarDumper(
             // Corrupt CRC32
             if (corruptCRC32) {
                 Logger.info("Corrupting CRC32...")
-                corruptCRC32()
+                corruptCRC32(instance.generalRandom)
             }
             // Build hierarchy
             Logger.info("Building hierarchies...")
@@ -62,10 +62,6 @@ class JarDumper(
             // Writing class
             Logger.info("Writing classes...")
             val mutex = Mutex()
-
-            //hierarchy.findClass("java/lang/Float") ?: throw Exception()
-
-            //hierarchy.classNameLookUp.forEach { (string, i) -> if (string.startsWith("java"))println("$string -> $i") }
 
             runBlocking {
                 // TODO: handle resource

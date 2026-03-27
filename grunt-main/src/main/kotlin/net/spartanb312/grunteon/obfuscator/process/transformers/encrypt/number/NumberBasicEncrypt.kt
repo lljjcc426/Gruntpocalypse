@@ -12,6 +12,9 @@ import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.collection.shuffled
+import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
+import net.spartanb312.grunteon.obfuscator.util.cryptography.toRandom
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
@@ -20,12 +23,12 @@ import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicate
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import net.spartanb312.grunteon.obfuscator.util.numerical.asInt
 import net.spartanb312.grunteon.obfuscator.util.numerical.asLong
+import org.apache.commons.math3.random.RandomGenerator
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InsnList
 import org.objectweb.asm.tree.IntInsnNode
 import org.objectweb.asm.tree.LdcInsnNode
-import kotlin.random.Random
 
 /**
  * Basic number encryption
@@ -162,48 +165,50 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                 val chanceModifier =
                     (if (config.dynamicStrength) (config.maxInstructions - method.instructions.size()).toFloat() / config.maxInstructions
                     else 1f).coerceIn(0f, 1f)
+
+                val randomGen = getSeed(classNode.name, method.name, method.desc).toRandom()
                 method.instructions
                     .filter { it.opcode != Opcodes.NEWARRAY }
-                    .shuffled()
+                    .shuffled(randomGen)
                     .forEach { instruction ->
                         // Encrypt integer
-                        if (config.integer && Random.nextFloat() < chanceModifier * config.integerChance) {
+                        if (config.integer && randomGen.nextFloat() < chanceModifier * config.integerChance) {
                             if (instruction.opcode in Opcodes.ICONST_M1..Opcodes.ICONST_5) {
                                 val value = instruction.opcode - Opcodes.ICONST_0
-                                method.instructions.insertBefore(instruction, encrypt(value))
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
                                 method.instructions.remove(instruction)
                                 counter.add()
                             } else if (instruction is IntInsnNode) {
-                                method.instructions.insertBefore(instruction, encrypt(instruction.operand))
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(instruction.operand))
                                 method.instructions.remove(instruction)
                                 counter.add()
                             } else if (instruction is LdcInsnNode && instruction.cst is Int) {
                                 val value = instruction.cst as Int
                                 if (value < Int.MAX_VALUE - Short.MAX_VALUE * 8) {
-                                    method.instructions.insertBefore(instruction, encrypt(value))
+                                    method.instructions.insertBefore(instruction, randomGen.encrypt(value))
                                     method.instructions.remove(instruction)
                                     counter.add()
                                 }
                             }
                         }
                         // Encrypt long
-                        if (config.long && Random.nextFloat() < chanceModifier * config.longChance) {
+                        if (config.long && randomGen.nextFloat() < chanceModifier * config.longChance) {
                             if (instruction.opcode in Opcodes.LCONST_0..Opcodes.LCONST_1) {
                                 val value = (instruction.opcode - Opcodes.LCONST_0).toLong()
-                                method.instructions.insertBefore(instruction, encrypt(value))
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
                                 method.instructions.remove(instruction)
                                 counter.add()
                             } else if (instruction is LdcInsnNode && instruction.cst is Long) {
                                 val value = instruction.cst as Long
-                                method.instructions.insertBefore(instruction, encrypt(value))
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
                                 method.instructions.remove(instruction)
                                 counter.add()
                             }
                         }
                         // Encrypt float
-                        if (config.float && Random.nextFloat() < chanceModifier * config.floatChance) {
+                        if (config.float && randomGen.nextFloat() < chanceModifier * config.floatChance) {
                             fun encryptFloat(float: Float) {
-                                method.instructions.insertBefore(instruction, encrypt(float))
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(float))
                                 method.instructions.remove(instruction)
                                 counter.add()
                             }
@@ -215,9 +220,9 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                             }
                         }
                         // Encrypt double
-                        if (config.double && Random.nextFloat() < chanceModifier * config.doubleChance) {
+                        if (config.double && randomGen.nextFloat() < chanceModifier * config.doubleChance) {
                             fun encryptDouble(double: Double) {
-                                method.instructions.insertBefore(instruction, encrypt(double))
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(double))
                                 method.instructions.remove(instruction)
                                 counter.add()
                             }
@@ -231,26 +236,26 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
             }
     }
 
-    fun encrypt(value: Float): InsnList {
+    fun RandomGenerator.encrypt(value: Float): InsnList {
         return instructions {
             +encrypt(value.asInt())
             INVOKESTATIC("java/lang/Float", "intBitsToFloat", "(I)F")
         }
     }
 
-    fun encrypt(value: Double): InsnList {
+    fun RandomGenerator.encrypt(value: Double): InsnList {
         return instructions {
             +encrypt(value.asLong())
             INVOKESTATIC("java/lang/Double", "longBitsToDouble", "(J)D")
         }
     }
 
-    fun encrypt(value: Int): InsnList {
-        val random = Random.nextInt(Int.MAX_VALUE)
-        val negative = (if (Random.nextBoolean()) random else -random) + value
+    fun RandomGenerator.encrypt(value: Int): InsnList {
+        val random = nextInt(Int.MAX_VALUE)
+        val negative = (if (nextBoolean()) random else -random) + value
         val obfuscated = value xor negative
         return instructions {
-            if (Random.nextBoolean()) {
+            if (nextBoolean()) {
                 +negative.toInsnNode()
                 I2L
                 +obfuscated.toInsnNode()
@@ -266,8 +271,8 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         }
     }
 
-    fun encrypt(value: Long): InsnList = instructions {
-        val key = Random.nextLong()
+    fun RandomGenerator.encrypt(value: Long): InsnList = instructions {
+        val key = nextLong()
         val unsignedString = java.lang.Long.toUnsignedString(key, 32)
         LDC(unsignedString)
         INT(32)
