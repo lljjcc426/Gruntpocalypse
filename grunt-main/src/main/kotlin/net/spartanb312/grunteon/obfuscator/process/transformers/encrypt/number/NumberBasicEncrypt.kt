@@ -31,7 +31,6 @@ import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InsnList
 import org.objectweb.asm.tree.IntInsnNode
 import org.objectweb.asm.tree.LdcInsnNode
-import java.util.random.RandomGenerator
 
 /**
  * Basic number encryption
@@ -258,7 +257,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                         (if (config.dynamicStrength) (config.maxInstructions - method.instructions.size()).toFloat() / config.maxInstructions
                         else 1f).coerceIn(0f, 1f)
 
-                    val randomGen = getSeed(classNode.name, method.name, method.desc).toRandom()
+                    val randomGen = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc))
                     method.instructions
                         .filter { it.opcode != Opcodes.NEWARRAY }
                         .shuffled(randomGen)
