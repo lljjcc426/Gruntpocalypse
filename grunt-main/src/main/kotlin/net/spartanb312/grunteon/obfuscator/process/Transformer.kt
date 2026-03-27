@@ -32,7 +32,7 @@ abstract class Transformer<T : TransformerConfig>(
     }
 
     context(instance: Grunteon)
-    val transformerSeed get() = instance.configGroup.baseSeed + name.descriptor
+    val transformerSeed get() = instance.baseSeed + name.descriptor
 
     @Suppress("UNCHECKED_CAST")
     fun execute(instance: Grunteon, config: TransformerConfig) {

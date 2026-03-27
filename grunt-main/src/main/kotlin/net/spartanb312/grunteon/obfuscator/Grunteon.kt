@@ -26,6 +26,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
 import kotlin.io.path.walk
+import kotlin.random.Random
 import kotlin.system.measureTimeMillis
 
 /**
@@ -101,6 +102,7 @@ class Grunteon(
     lateinit var output: JarDumper
     lateinit var workRes: WorkResources
     val mappingApplier = MappingApplier(this)
+    val baseSeed get() = if (configGroup.controllableRandom) configGroup.inputSeed else Random.nextInt().toString()
     val generalRandom = getSeed(configGroup.input, configGroup.output).toRandom()
 
     fun init() {

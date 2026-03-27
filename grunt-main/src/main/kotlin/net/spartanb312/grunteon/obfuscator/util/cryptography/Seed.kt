@@ -15,7 +15,7 @@ fun Transformer<*>.getSeed(vararg append: String): ByteArray {
 context(instance: Grunteon)
 fun getSeed(vararg append: String): ByteArray {
     return MessageDigest.getInstance("SHA-256")
-        .digest(append.fold(instance.configGroup.baseSeed, String::plus).toByteArray(StandardCharsets.UTF_8))
+        .digest(append.fold(instance.baseSeed, String::plus).toByteArray(StandardCharsets.UTF_8))
 }
 
 private fun ByteArray.toInts(): IntArray {

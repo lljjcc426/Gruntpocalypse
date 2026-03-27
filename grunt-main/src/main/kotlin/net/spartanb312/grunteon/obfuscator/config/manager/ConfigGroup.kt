@@ -44,10 +44,15 @@ class ConfigGroup : Configurable() {
         ),
         desc = enText("config.mixin_exclusions.desc", "Minecraft mixin exclusions. For mods or plugins")
     )
-    val baseSeed by setting(
-        name = enText("config.base_seed", "Base seed"),
+    val controllableRandom by setting(
+        name = enText("config.controllable_random", "Controllable random"),
+        value = true,
+        desc = enText("config.controllable_random.desc", "Use your specified random seed")
+    )
+    val inputSeed by setting(
+        name = enText("config.input_base_seed", "Base seed"),
         value = "I love XJP",
-        desc = enText("config.base_seed.desc", "Base seed for controllable random")
+        desc = enText("config.input_base_seed.desc", "Base seed for controllable random")
     )
     val dumpMappings by setting(
         name = enText("config.dump_mappings", "Dump mappings"),
