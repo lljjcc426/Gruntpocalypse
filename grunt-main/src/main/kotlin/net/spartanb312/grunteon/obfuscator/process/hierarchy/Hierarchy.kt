@@ -37,7 +37,7 @@ open class Hierarchy(val instance: Grunteon) {
 
     open fun buildClass() {
         // Build all class infos
-        instance.allClasses.forEach { getClassInfo(it) }
+        instance.workRes.allClassCollection.forEach { getClassInfo(it) }
         fillClassHierarchyInfo()
 
         // Missing dependencies
@@ -157,7 +157,7 @@ open class Hierarchy(val instance: Grunteon) {
         missingDependencies.forEach { (dependency, requiredBy) ->
             Logger.error("Missing ${dependency.name}")
             if (printAffected) requiredBy.forEach {
-                if (it.name in instance.classes.keys) Logger.error("   Required by ${it.name}")
+                if (it.name in instance.workRes.inputClassMap.keys) Logger.error("   Required by ${it.name}")
                 else Logger.warn("    Required by ${it.name}")
             }
         }

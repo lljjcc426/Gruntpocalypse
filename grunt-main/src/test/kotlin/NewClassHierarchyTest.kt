@@ -14,7 +14,7 @@ class NewClassHierarchyTest {
         val old = Hierarchy(instance1)
         old.buildClass()
         val instance2 = readTestClasses(net.spartanb312.grunteon.testcase.Asserts::class.java)
-        val new = ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode)
+        val new = ClassHierarchy.build(instance2.workRes.inputClassCollection, instance2.workRes::getClassNode)
         checkClass(old, new)
     }
 
@@ -24,7 +24,7 @@ class NewClassHierarchyTest {
         val old = Hierarchy(instance1)
         old.buildClass()
         val instance2 = readTestClasses(ObjectArrayList::class.java)
-        val new = ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode)
+        val new = ClassHierarchy.build(instance2.workRes.inputClassCollection, instance2.workRes::getClassNode)
         checkClass(old, new)
     }
 
@@ -37,7 +37,7 @@ class NewClassHierarchyTest {
         old.buildClass()
         val instance2 = Grunteon(ConfigGroup(), ProcessPipeline())
         instance2.init()
-        val new = ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode)
+        val new = ClassHierarchy.build(instance2.workRes.inputClassCollection, instance2.workRes::getClassNode)
         checkClass(old, new)
     }
 
@@ -45,7 +45,7 @@ class NewClassHierarchyTest {
         old: Hierarchy,
         new: ClassHierarchy
     ) {
-        old.instance.classes.values.forEach { node ->
+        old.instance.workRes.inputClassCollection.forEach { node ->
             val info = old.classInfos[node.name]!!
             val newIdx = new.classNameLookUp.getInt(info.name)
             assertEquals(info.name, new.classNames[newIdx], "Class name mismatch for ${info.name}")

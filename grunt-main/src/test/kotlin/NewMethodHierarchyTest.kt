@@ -21,7 +21,12 @@ class NewMethodHierarchyTest {
         old.buildClass()
         old.buildMethod()
         val instance2 = readTestClasses(net.spartanb312.grunteon.testcase.Asserts::class.java)
-        val new = MethodHierarchy.build(ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode))
+        val new = MethodHierarchy.build(
+            ClassHierarchy.build(
+                instance2.workRes.inputClassCollection,
+                instance2.workRes::getClassNode
+            )
+        )
         checkMethod(old, new)
     }
 
@@ -32,7 +37,12 @@ class NewMethodHierarchyTest {
         old.buildClass()
         old.buildMethod()
         val instance2 = readTestClasses(ObjectArrayList::class.java)
-        val new = MethodHierarchy.build(ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode))
+        val new = MethodHierarchy.build(
+            ClassHierarchy.build(
+                instance2.workRes.inputClassCollection,
+                instance2.workRes::getClassNode
+            )
+        )
         checkMethod(old, new)
     }
 
@@ -45,7 +55,12 @@ class NewMethodHierarchyTest {
         old.buildMethod()
         val instance2 = Grunteon(ConfigGroup(), ProcessPipeline())
         instance2.init()
-        val new = MethodHierarchy.build(ClassHierarchy.build(instance2.classes.values, instance2.workRes::getClassNode))
+        val new = MethodHierarchy.build(
+            ClassHierarchy.build(
+                instance2.workRes.inputClassCollection,
+                instance2.workRes::getClassNode
+            )
+        )
         checkMethod(old, new)
     }
 
@@ -57,7 +72,7 @@ class NewMethodHierarchyTest {
             assertEquals(it.distinct().size, it.size, "Connected component contains duplicate method trees")
         }
 
-        old.instance.classes.values.forEach { node ->
+        old.instance.workRes.inputClassCollection.forEach { node ->
             val classInfo = old.classInfos[node.name]!!
             val classIdx = new.classHierarchy.classNameLookUp.getInt(classInfo.name)
             classInfo.methods.forEach { methodInfo ->

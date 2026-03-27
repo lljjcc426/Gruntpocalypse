@@ -6,8 +6,6 @@ import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.process.resource.JarResources
-import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
@@ -57,14 +55,14 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
 
     private val counter = Counter()
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon)
     override fun transform(config: Config) {
         Logger.info(" - DeadCodeRemove: Removing dead codes...")
         super.transform(config)
         Logger.info("    Removed ${counter.get()} dead codes")
     }
 
-    context(instance: Grunteon, res: WorkResources, jar: JarResources)
+    context(instance: Grunteon)
     override fun transformClass(classNode: ClassNode, config: Config) {
         classNode.methods.toList().asSequence()
             .filter { !it.isNative && !it.isAbstract }
