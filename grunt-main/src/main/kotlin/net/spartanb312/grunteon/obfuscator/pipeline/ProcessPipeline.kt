@@ -4,6 +4,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
+import net.spartanb312.grunteon.obfuscator.process.WorkerContext
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -38,8 +39,17 @@ class ProcessPipeline(
     fun execute() {
         if (!initialized.get()) throw Exception("Pipeline is not initialized")
         Logger.info("Obfuscating...")
-        transformer2Config.forEach { (transformer, config) ->
-            transformer.execute(instance, config)
+        val old = true
+        if (old) {
+            transformer2Config.forEach { (transformer, config) ->
+                transformer.execute(instance, config)
+            }
+        } else {
+            val stages = transformer2Config.map { (transformer, config) ->
+                transformer.buildStage(config)
+            }
+            val workerContext = WorkerContext()
+            workerContext.execute(instance, stages)
         }
     }
 

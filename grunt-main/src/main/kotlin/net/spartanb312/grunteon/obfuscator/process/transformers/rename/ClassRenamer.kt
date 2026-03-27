@@ -4,6 +4,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.Category
+import net.spartanb312.grunteon.obfuscator.process.StageBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
@@ -111,5 +112,32 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         Logger.info("    Renamed ${counter.get()} classes")
     }
 
-
+    override fun StageBuilder.buildStage(config: Config) {
+        seq {
+            val instance = contextOf<Grunteon>()
+            Logger.info(" - ClassRenamer: Renaming classes...")
+            Logger.info("    Generating mappings for classes...")
+            buildFilterPredicate(config)
+            dictionary = NameGenerator.getDictionary(config.dictionary)
+            val mappings = mutableMapOf<String, String>()
+            val classes =
+                if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
+            classes.asSequence()
+                .filter { clazz ->
+                    val include = includePredicate.matchedAllBy(clazz.name)
+                    val exclude = excludePredicate.matchedAnyBy(clazz.name)
+                    val hardExclude = clazz.isExcluded
+                    include && !exclude && !hardExclude
+                }.forEach { clazz ->
+                    if (clazz.methods.any { it.isMainMethod }) return@forEach
+                    if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
+                    mappings[clazz.name] =
+                        config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + dictionary.nextName()
+                    counter.add()
+                }
+            Logger.info("    Applying mappings for classes...")
+            instance.mappingApplier.applyRemap("classes", mappings, true)
+            Logger.info("    Renamed ${counter.get()} classes")
+        }
+    }
 }

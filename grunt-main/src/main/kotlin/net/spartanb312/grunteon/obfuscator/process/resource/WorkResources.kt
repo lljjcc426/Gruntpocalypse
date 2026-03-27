@@ -95,9 +95,9 @@ class WorkResources private constructor(
         fun read(input: Path, libs: List<Path> = emptyList()): WorkResources {
             Logger.info("Reading...")
             Logger.info("Input: ${input.absolutePathString()}")
-            Logger.info("Libraries:")
+            Logger.debug("Libraries:")
             libs.forEach {
-                Logger.info(" - ${it.absolutePathString()}")
+                Logger.debug(" - ${it.absolutePathString()}")
             }
             val inputResourceSet = ResourceSet.Single(resolvePath(input))
             val libraryResourceSets = libs.associate { it.pathString to ResourceSet.Single(resolvePath(it)) }

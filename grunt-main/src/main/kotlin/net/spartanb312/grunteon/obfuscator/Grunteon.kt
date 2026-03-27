@@ -21,7 +21,8 @@ import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
 import kotlin.io.path.walk
 import kotlin.random.Random
-import kotlin.system.measureTimeMillis
+import kotlin.time.DurationUnit
+import kotlin.time.measureTime
 
 /**
  * Grunteon
@@ -32,11 +33,13 @@ const val VERSION = "3.0.0"
 const val SUBTITLE = "build 260327"
 const val GITHUB = "https://github.com/SpartanB312/Grunt"
 
-fun main() {
-    Logger = SimpleLogger(
-        "Grunteon",
-        "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
-    )
+fun main(args: Array<String>) {
+    if ("--silent" !in args) {
+        Logger = SimpleLogger(
+            "Grunteon",
+            "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
+        )
+    }
     println(
         """
              ________  __________   ____ ___   _______    ___________
@@ -59,7 +62,7 @@ fun main() {
     // TODO: Plugin scan
     // TODO: Plugin initialize
 
-    measureTimeMillis {
+    repeat(100) {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
             DeadCodeRemove(),
@@ -75,7 +78,7 @@ fun main() {
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()
         instance.execute()
-    }.also { println("$it ms") }
+    }
 }
 
 fun ConfigGroup.runPipeline(pipeline: ProcessPipeline): Grunteon {
@@ -123,9 +126,11 @@ class Grunteon(
 
     fun execute() {
         // TODO: Profiler
-        context(workRes) {
-            contextOf<Grunteon>().pipeline.execute()
-        }
+        measureTime {
+            context(workRes) {
+                contextOf<Grunteon>().pipeline.execute()
+            }
+        }.also { println("%.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
 
         // TODO: make this optional
         JarDumper.dumpJar(Path("output.jar"))

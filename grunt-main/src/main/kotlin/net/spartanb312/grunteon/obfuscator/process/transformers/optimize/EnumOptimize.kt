@@ -4,9 +4,11 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
+import net.spartanb312.grunteon.obfuscator.process.StageBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.findMethod
 import net.spartanb312.grunteon.obfuscator.util.extensions.isEnum
@@ -67,4 +69,34 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
         }
     }
 
+    override fun StageBuilder.buildStage(config: Config) {
+        seq {
+            Logger.info(" - EnumOptimize: Optimizing enums...")
+        }
+        val counter = reducibleScopeValue { FastCounter() }
+        parForEachFiltered(config) { classNode ->
+            if (!classNode.isEnum) return@parForEachFiltered
+            val counter = counter.local
+            val desc = "[L${classNode.name};"
+            val valuesMethod = classNode.findMethod("values", "()$desc") {
+                it.instructions.size() >= 4
+            }
+            if (valuesMethod != null) {
+                for (instruction in valuesMethod.instructions.toList()) {
+                    if (instruction is MethodInsnNode) {
+                        if (instruction.opcode == Opcodes.INVOKEVIRTUAL && instruction.name == "clone") {
+                            if (instruction.next.opcode == Opcodes.CHECKCAST) {
+                                valuesMethod.instructions.remove(instruction.next)
+                            }
+                            valuesMethod.instructions.remove(instruction)
+                            counter.add(1)
+                        }
+                    }
+                }
+            }
+        }
+        seq {
+            Logger.info("    Optimized ${counter.global.get()} enums")
+        }
+    }
 }

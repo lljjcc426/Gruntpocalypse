@@ -48,6 +48,24 @@ abstract class Transformer<T : TransformerConfig>(
     }
 
     context(instance: Grunteon)
+    fun filterClass(clazz: ClassNode): Boolean {
+        val include = includePredicate.matchedAllBy(clazz.name)
+        val exclude = excludePredicate.matchedAnyBy(clazz.name)
+        val hardExclude = clazz.isExcluded
+        return include && !exclude && !hardExclude
+    }
+
+    protected inline fun StageBuilder.parForEachFiltered(
+        config: T,
+        crossinline action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
+    ) {
+        buildFilterPredicate(config)
+        parForEach {
+            if (filterClass(it)) action(it)
+        }
+    }
+
+    context(instance: Grunteon)
     open fun transform(config: T) {
         buildFilterPredicate(config)
         runBlocking {
@@ -71,4 +89,12 @@ abstract class Transformer<T : TransformerConfig>(
     ) {
     }
 
+    fun buildStage(config: TransformerConfig): StageBuilder {
+        val stageBuilder = StageBuilder()
+        @Suppress("UNCHECKED_CAST")
+        stageBuilder.buildStage(config as T)
+        return stageBuilder
+    }
+
+    protected open fun StageBuilder.buildStage(config: T) {}
 }

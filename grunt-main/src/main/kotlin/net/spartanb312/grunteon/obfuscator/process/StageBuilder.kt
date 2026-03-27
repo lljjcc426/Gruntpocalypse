@@ -7,8 +7,8 @@ import java.util.concurrent.RecursiveTask
 
 class ScopeValueAccess(
     internal val globals: Array<Any>,
-    internal val reducibleGlobal: Array<Mergeable>,
-    internal val reducibleLocal: Array<Mergeable?>
+    internal val reducibleGlobal: Array<Mergeable<*>>,
+    internal val reducibleLocal: Array<Mergeable<*>?>
 ) {
     constructor(global: ScopeValueGlobal) : this(
         global.globals,
@@ -37,7 +37,7 @@ class ScopeValueAccess(
 
 class ScopeValueGlobal(
     internal val globals: Array<Any>,
-    internal val reducibleGlobal: Array<Mergeable>
+    internal val reducibleGlobal: Array<Mergeable<*>>
 ) {
     fun mergeToGlobal(other: ScopeValueAccess) {
         for (i in reducibleGlobal.indices) {
@@ -62,7 +62,7 @@ sealed interface ScopeValueKey<T> {
         val global: T
     }
 
-    sealed interface Reducible<T : Mergeable> : ScopeValueKey<T> {
+    sealed interface Reducible<T : Mergeable<*>> : ScopeValueKey<T> {
         context(_: Grunteon, _: ScopeValueAccess)
         val global: T
 
@@ -79,7 +79,7 @@ internal class GlobalScopeValueKeyImpl<T>(val init: context(Grunteon) () -> T, v
         get() = access.globals[index] as T
 }
 
-internal class ReducibleScopeValueKeyImpl<T : Mergeable>(val init: context(Grunteon) () -> T, val index: Int) :
+internal class ReducibleScopeValueKeyImpl<T : Mergeable<*>>(val init: context(Grunteon) () -> T, val index: Int) :
     ScopeValueKey.Reducible<T> {
     @Suppress("UNCHECKED_CAST")
     context(_: Grunteon, access: ScopeValueAccess)
@@ -122,7 +122,7 @@ class StageBuilder {
         return key
     }
 
-    fun <T : Mergeable> reducibleScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Reducible<T> {
+    fun <T : Mergeable<*>> reducibleScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Reducible<T> {
         val key = ReducibleScopeValueKeyImpl(init, reducibleScopeValueKeys.size)
         reducibleScopeValueKeys += key
         return key
@@ -131,7 +131,7 @@ class StageBuilder {
 
 internal class WorkerContext {
     val globalKeys = Reference2ObjectOpenHashMap<GlobalScopeValueKeyImpl<*>, Any>()
-    val reducibleKeys = Reference2ObjectOpenHashMap<ReducibleScopeValueKeyImpl<*>, Mergeable>()
+    val reducibleKeys = Reference2ObjectOpenHashMap<ReducibleScopeValueKeyImpl<*>, Mergeable<*>>()
 
     fun execute(instance: Grunteon, stages: List<StageBuilder>) {
         stages.forEach { stage ->
