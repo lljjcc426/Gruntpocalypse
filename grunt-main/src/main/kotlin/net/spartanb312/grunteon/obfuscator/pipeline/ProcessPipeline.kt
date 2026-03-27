@@ -39,7 +39,7 @@ class ProcessPipeline(
     fun execute() {
         if (!initialized.get()) throw Exception("Pipeline is not initialized")
         Logger.info("Obfuscating...")
-        val old = true
+        val old = false
         if (old) {
             transformer2Config.forEach { (transformer, config) ->
                 transformer.execute(instance, config)

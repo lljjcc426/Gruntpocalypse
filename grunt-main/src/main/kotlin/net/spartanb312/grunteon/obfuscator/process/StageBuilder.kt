@@ -1,7 +1,9 @@
 package net.spartanb312.grunteon.obfuscator.process
 
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap
+import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.util.LWWSP
 import org.objectweb.asm.tree.ClassNode
 import java.util.concurrent.RecursiveTask
 
@@ -129,46 +131,68 @@ class StageBuilder {
     }
 }
 
+private val lwwsp = LWWSP(Runtime.getRuntime().availableProcessors())
+
 internal class WorkerContext {
     val globalKeys = Reference2ObjectOpenHashMap<GlobalScopeValueKeyImpl<*>, Any>()
     val reducibleKeys = Reference2ObjectOpenHashMap<ReducibleScopeValueKeyImpl<*>, Mergeable<*>>()
 
     fun execute(instance: Grunteon, stages: List<StageBuilder>) {
-        stages.forEach { stage ->
-            val global = Array(stage.globalScopeValueKeys.size) { index ->
-                // WTF fastutil Reference2ObjectFunction is broken and doesn't give correctly typed parameter
-                globalKeys.computeIfAbsent(stage.globalScopeValueKeys[index], java.util.function.Function {
-                    it.init(instance)
-                })
-            }
-            val reducible = Array(stage.reducibleScopeValueKeys.size) { index ->
-                reducibleKeys.computeIfAbsent(stage.reducibleScopeValueKeys[index], java.util.function.Function {
-                    it.init(instance)
-                })
-            }
-            val scopeValueGlobal = ScopeValueGlobal(global, reducible)
-            stage.instructions.forEach { inst ->
-                val access = ScopeValueAccess(scopeValueGlobal)
-                when (inst) {
-                    is Instruction.Seq -> inst.block.invoke(instance, access)
-                    is Instruction.SeqForEach -> {
-                        instance.workRes.inputClassCollection.forEach { classNode ->
-                            inst.block.invoke(instance, access, classNode)
+        runBlocking {
+            stages.forEach { stage ->
+                val global = Array(stage.globalScopeValueKeys.size) { index ->
+                    // WTF fastutil Reference2ObjectFunction is broken and doesn't give correctly typed parameter
+                    globalKeys.computeIfAbsent(stage.globalScopeValueKeys[index], java.util.function.Function {
+                        it.init(instance)
+                    })
+                }
+                val reducible = Array(stage.reducibleScopeValueKeys.size) { index ->
+                    reducibleKeys.computeIfAbsent(stage.reducibleScopeValueKeys[index], java.util.function.Function {
+                        it.init(instance)
+                    })
+                }
+                val scopeValueGlobal = ScopeValueGlobal(global, reducible)
+                stage.instructions.forEach { inst ->
+                    val access = when (inst) {
+                        is Instruction.Seq -> {
+                            ScopeValueAccess(scopeValueGlobal).apply {
+                                inst.block.invoke(instance, this)
+                            }
+                        }
+                        is Instruction.SeqForEach -> {
+                            ScopeValueAccess(scopeValueGlobal).apply {
+                                instance.workRes.inputClassCollection.forEach { classNode ->
+                                    inst.block.invoke(instance, this, classNode)
+                                }
+                            }
+                        }
+                        is Instruction.ParForEach -> {
+                            val sharedResources = ParForEachTask.SharedResources(
+                                instance,
+                                inst,
+                                instance.workRes.inputClassCollection.toTypedArray()
+                            )
+                            LWWSP.iterativeTask(
+                                size = sharedResources.classArray.size,
+                                batchSize = 16,
+                                newScope = { ScopeValueAccess(scopeValueGlobal) },
+                                action = { start, end ->
+                                    for (i in start until end) {
+                                        sharedResources.instruction.block.invoke(
+                                            instance,
+                                            this,
+                                            sharedResources.classArray[i]
+                                        )
+                                    }
+                                }
+                            ).submit(lwwsp).await().getOrThrow().reduce { a, b ->
+                                a.mergeToLocal(b)
+                                a
+                            }
                         }
                     }
-                    is Instruction.ParForEach -> {
-                        // TODO: use LWWSP
-                        val sharedResources = ParForEachTask.SharedResources(
-                            instance,
-                            inst,
-                            instance.workRes.inputClassCollection.toTypedArray()
-                        )
-                        val task = ParForEachTask(sharedResources, access, 0, sharedResources.classArray.size)
-                        task.fork()
-                        task.join()
-                    }
+                    scopeValueGlobal.mergeToGlobal(access)
                 }
-                scopeValueGlobal.mergeToGlobal(access)
             }
         }
     }
