@@ -174,7 +174,7 @@ internal class WorkerContext {
                             )
                             LWWSP.iterativeTask(
                                 size = sharedResources.classArray.size,
-                                batchSize = 16,
+                                batchSize = 128,
                                 newScope = { ScopeValueAccess(scopeValueGlobal) },
                                 action = { start, end ->
                                     for (i in start until end) {
