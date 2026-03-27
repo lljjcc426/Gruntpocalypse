@@ -12,10 +12,12 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.DeadCod
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.EnumOptimize
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.KotlinClassShrink
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.SourceDebugInfoHide
+import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.StringEqualsOptimize
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
+import net.spartanb312.grunteon.obfuscator.util.cryptography.nextInt
 import net.spartanb312.grunteon.obfuscator.util.cryptography.toRandom
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
@@ -74,6 +76,7 @@ fun main() {
             KotlinClassShrink(),
             ClassShrink(),
             SourceDebugInfoHide(),
+            StringEqualsOptimize(),
             NumberBasicEncrypt(),
             LocalVarRenamer(),
             ClassRenamer(),

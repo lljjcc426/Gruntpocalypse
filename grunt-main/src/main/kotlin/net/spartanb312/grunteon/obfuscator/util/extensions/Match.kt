@@ -38,3 +38,14 @@ fun AbstractInsnNode.matchInvoke(
     if (desc != null && this.desc != desc) return false
     return true
 }
+
+fun MethodInsnNode.match(
+    owner: String,
+    name: String? = null,
+    desc: String? = null,
+): Boolean {
+    if (this.owner != owner) return false
+    if (name != null && this.name != name) return false
+    if (desc != null && this.desc != desc) return false
+    return true
+}

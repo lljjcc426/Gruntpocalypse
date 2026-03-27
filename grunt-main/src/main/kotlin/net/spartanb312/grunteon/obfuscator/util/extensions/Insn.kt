@@ -25,10 +25,6 @@ inline val AbstractInsnNode.isNotInstruction: Boolean get() = this is LineNumber
 
 inline val AbstractInsnNode.isNumberInsn get() = isIntInsn || isLongInsn || isFloatInsn || isDoubleInsn
 
-fun MethodInsnNode.match(owner: String, name: String, desc: String): Boolean {
-    return this.owner == owner && this.name == name && this.desc == desc
-}
-
 fun AbstractInsnNode.getIntValue(): Int? {
     return when (opcode) {
         in Opcodes.ICONST_M1..Opcodes.ICONST_5 -> opcode - 3
