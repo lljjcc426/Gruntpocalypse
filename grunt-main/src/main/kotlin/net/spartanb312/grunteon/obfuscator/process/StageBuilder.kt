@@ -131,7 +131,9 @@ class StageBuilder {
     }
 }
 
-private val lwwsp = LWWSP(Runtime.getRuntime().availableProcessors())
+private val lwwsp = LWWSP(Runtime.getRuntime().availableProcessors()) {
+    it.isDaemon = true
+}
 
 internal class WorkerContext {
     val globalKeys = Reference2ObjectOpenHashMap<GlobalScopeValueKeyImpl<*>, Any>()
