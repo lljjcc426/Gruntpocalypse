@@ -11,6 +11,7 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.ClassSh
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.DeadCodeRemove
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.EnumOptimize
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.KotlinClassShrink
+import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.SourceDebugInfoHide
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -72,6 +73,7 @@ fun main() {
             EnumOptimize(),
             KotlinClassShrink(),
             ClassShrink(),
+            SourceDebugInfoHide(),
             NumberBasicEncrypt(),
             LocalVarRenamer(),
             ClassRenamer(),
