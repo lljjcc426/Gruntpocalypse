@@ -4,17 +4,15 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
+import net.spartanb312.grunteon.obfuscator.process.StageBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchInvoke
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.tree.AbstractInsnNode
-import org.objectweb.asm.tree.AnnotationNode
-import org.objectweb.asm.tree.ClassNode
-import org.objectweb.asm.tree.InsnNode
-import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.*
 
 class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
     name = enText("process.optimize.kotlin_class_shrink", "KotlinClassShrink"),
@@ -134,6 +132,66 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
             }
             classNode.visibleAnnotations?.removeCheck()
             classNode.invisibleAnnotations?.removeCheck()
+        }
+    }
+
+    override fun StageBuilder.buildStage(config: Config) {
+        seq {
+            Logger.info(" - KotlinClassShrink: Shrinking kotlin classes...")
+        }
+        val intrinsics = reducibleScopeValue { FastCounter() }
+        val metadata = reducibleScopeValue { FastCounter() }
+        parForEach { classNode ->
+            if (config.intrinsics) {
+                val intrinsics = intrinsics.local
+                classNode.methods.forEach { methodNode ->
+                    val replace = mutableListOf<AbstractInsnNode>()
+                    methodNode.instructions.forEach { insnNode ->
+                        if (insnNode.matchInvoke(Opcodes.INVOKESTATIC, "kotlin/jvm/internal/Intrinsics")) {
+                            val removeSize = intrinsicsRemoveMethods[insnNode.name + insnNode.desc] ?: 0
+                            if (removeSize > 0 && config.intrinsicsRemoval.contains(insnNode.name)) {
+                                replace.removeLast()
+                                repeat(removeSize) {
+                                    replace.add(InsnNode(Opcodes.POP))
+                                }
+                                intrinsics.add()
+                            } else {
+                                if (config.replaceLDC && intrinsicsReplaceMethods.contains(insnNode.name + insnNode.desc)) {
+                                    val ldc = replace.last()
+                                    if (ldc is LdcInsnNode) {
+                                        ldc.cst = "REMOVED BY GRUNT"
+                                        intrinsics.add()
+                                    }
+                                }
+                                replace.add(insnNode)
+                            }
+                        } else replace.add(insnNode)
+                    }
+                    methodNode.instructions.clear()
+                    replace.forEach { methodNode.instructions.add(it) }
+                }
+            }
+            if (config.metaData) {
+                val metadata = metadata.local
+                fun MutableList<AnnotationNode>.removeCheck() {
+                    toList().forEach {
+                        if (
+                            it.desc.startsWith("Lkotlin/jvm/internal/SourceDebugExtension") ||
+                            it.desc.startsWith("Lkotlin/Metadata") ||
+                            it.desc.startsWith("Lkotlin/coroutines/jvm/internal/DebugMetadata")
+                        ) {
+                            remove(it)
+                            metadata.add()
+                        }
+                    }
+                }
+                classNode.visibleAnnotations?.removeCheck()
+                classNode.invisibleAnnotations?.removeCheck()
+            }
+        }
+        seq {
+            if (config.metaData) Logger.info("    Removed ${metadata.global.get()} kotlin metadata")
+            if (config.intrinsics) Logger.info("    Removed ${intrinsics.global.get()} kotlin intrinsics")
         }
     }
 
