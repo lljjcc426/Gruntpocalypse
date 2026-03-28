@@ -29,16 +29,16 @@ class MappingManager {
     fun applyRemap(type: MappingType) {
         val mapping = mappings[type.ordinal]
         val remapper = SimpleRemapper(Opcodes.ASM9, mapping)
-        val newClasses = pb.reducibleScopeValue {
+        val newClasses = reducibleScopeValue {
             MergeableObjectList(ObjectArrayList<ClassNode>())
         }
-        pb.parForEach {
+        parForEach {
             val copy = ClassNode()
             val adapter = ClassRemapper(copy, remapper)
             it.accept(adapter)
             newClasses.local.add(copy)
         }
-        pb.seq {
+        seq {
             val instance = contextOf<Grunteon>()
             instance.workRes.inputClassMap.clear()
             newClasses.global.forEach { instance.workRes.inputClassMap[it.name] = it }

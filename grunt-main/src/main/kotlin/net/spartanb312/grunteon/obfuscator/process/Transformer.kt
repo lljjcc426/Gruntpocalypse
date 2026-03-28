@@ -47,7 +47,8 @@ abstract class Transformer<T : TransformerConfig>(
         return include && !exclude && !hardExclude
     }
 
-    protected inline fun PipelineBuilder.parForEachFiltered(
+    context(_: PipelineBuilder)
+    protected inline fun parForEachFiltered(
         config: T,
         crossinline action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
     ) {
@@ -57,12 +58,14 @@ abstract class Transformer<T : TransformerConfig>(
         }
     }
 
-    context(instance: Grunteon)
+    context(_: Grunteon)
     internal fun buildStageImpl(pipelineBuilder: PipelineBuilder, config: TransformerConfig) {
-        @Suppress("UNCHECKED_CAST")
-        pipelineBuilder.buildStageImpl(config as T)
+        context(pipelineBuilder) {
+            @Suppress("UNCHECKED_CAST")
+            buildStageImpl(config as T)
+        }
     }
 
-    context(instance: Grunteon)
-    protected abstract fun PipelineBuilder.buildStageImpl(config: T)
+    context(instance: Grunteon, _: PipelineBuilder)
+    protected abstract fun buildStageImpl(config: T)
 }

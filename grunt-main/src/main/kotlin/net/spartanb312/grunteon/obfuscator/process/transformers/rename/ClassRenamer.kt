@@ -122,8 +122,8 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         }
     }
 
-    context(instance: Grunteon)
-    override fun PipelineBuilder.buildStageImpl(config: Config) {
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
         barrier()
         val counter = globalScopeValue { FastCounter() }
         seq {

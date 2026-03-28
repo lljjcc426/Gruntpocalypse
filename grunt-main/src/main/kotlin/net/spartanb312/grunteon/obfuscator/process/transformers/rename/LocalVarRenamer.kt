@@ -3,10 +3,7 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.util.Counter
@@ -67,8 +64,8 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     private val counter = Counter()
     private lateinit var methodExPredicate: NamePredicates
 
-    context(instance: Grunteon)
-    override fun PipelineBuilder.buildStageImpl(config: Config) {
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
         pre {
             Logger.info(" - LocalVarRenamer: Transforming local variables...")
             // TODO: there is a better way to do this instead of lateinit var

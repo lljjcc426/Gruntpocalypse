@@ -140,54 +140,63 @@ class PipelineBuilder {
     internal val globalScopeValueKeys = mutableListOf<GlobalScopeValueKeyImpl<*>>()
     internal val localScopeValueKeys = mutableListOf<LocalScopeValueKeyImpl<*>>()
     internal val reducibleScopeValueKeys = mutableListOf<ReducibleScopeValueKeyImpl<*>>()
+}
 
-    fun barrier() {
-        instructions += Instruction.Barrier
-    }
+context(pb: PipelineBuilder)
+fun barrier() {
+    pb.instructions += Instruction.Barrier
+}
 
-    fun seq(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
-        instructions += Instruction.Seq(block)
-    }
+context(pb: PipelineBuilder)
+fun seq(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
+    pb.instructions += Instruction.Seq(block)
+}
 
-    fun pre(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
-        instructions += Instruction.Pre(block)
-    }
+context(pb: PipelineBuilder)
+fun pre(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
+    pb.instructions += Instruction.Pre(block)
+}
 
-    fun post(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
-        instructions += Instruction.Post(block)
-    }
+context(pb: PipelineBuilder)
+fun post(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
+    pb.instructions += Instruction.Post(block)
+}
 
-    fun seqForEach(
-        includeGenerated: Boolean = false,
-        block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit
-    ) {
-        instructions += Instruction.SeqForEach(includeGenerated, block)
-    }
+context(pb: PipelineBuilder)
+fun seqForEach(
+    includeGenerated: Boolean = false,
+    block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit
+) {
+    pb.instructions += Instruction.SeqForEach(includeGenerated, block)
+}
 
-    fun parForEach(
-        includeGenerated: Boolean = false,
-        block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit
-    ) {
-        instructions += Instruction.ParForEach(includeGenerated, block)
-    }
+context(pb: PipelineBuilder)
+fun parForEach(
+    includeGenerated: Boolean = false,
+    block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit
+) {
+    pb.instructions += Instruction.ParForEach(includeGenerated, block)
+}
 
-    fun <T> globalScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Global<T> {
-        val key = GlobalScopeValueKeyImpl(init, globalScopeValueKeys.size)
-        globalScopeValueKeys += key
-        return key
-    }
+context(pb: PipelineBuilder)
+fun <T> globalScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Global<T> {
+    val key = GlobalScopeValueKeyImpl(init, pb.globalScopeValueKeys.size)
+    pb.globalScopeValueKeys += key
+    return key
+}
 
-    fun <T : Any> localScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Local<T> {
-        val key = LocalScopeValueKeyImpl(init, localScopeValueKeys.size)
-        localScopeValueKeys += key
-        return key
-    }
+context(pb: PipelineBuilder)
+fun <T : Any> localScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Local<T> {
+    val key = LocalScopeValueKeyImpl(init, pb.localScopeValueKeys.size)
+    pb.localScopeValueKeys += key
+    return key
+}
 
-    fun <T : Mergeable<*>> reducibleScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Reducible<T> {
-        val key = ReducibleScopeValueKeyImpl(init, reducibleScopeValueKeys.size)
-        reducibleScopeValueKeys += key
-        return key
-    }
+context(pb: PipelineBuilder)
+fun <T : Mergeable<*>> reducibleScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Reducible<T> {
+    val key = ReducibleScopeValueKeyImpl(init, pb.reducibleScopeValueKeys.size)
+    pb.reducibleScopeValueKeys += key
+    return key
 }
 
 private val lwwsp = LWWSP(Runtime.getRuntime().availableProcessors()) {
