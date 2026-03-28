@@ -78,7 +78,7 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
             Logger.info(" - SourceDebugInfoHide: Removing/Editing debug information...")
         }
         val counter = reducibleScopeValue { FastCounter() }
-        parForEach { classNode ->
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
             val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))
             if (config.sourceFiles != SourceFileAction.Off) {
