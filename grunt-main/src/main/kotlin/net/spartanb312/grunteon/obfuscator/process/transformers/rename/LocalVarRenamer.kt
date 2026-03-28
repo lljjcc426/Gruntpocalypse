@@ -99,6 +99,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
             }
     }
 
+    context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
         pre {
             Logger.info(" - LocalVarRenamer: Transforming local variables...")
@@ -106,8 +107,10 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { FastCounter() }
+        val dictionary = globalScopeValue { NameGenerator.getDictionary(config.dictionary) }
         parForEachFiltered(config) { classNode ->
             val counter = counter.local
+            val dictionary = dictionary.global
             classNode.methods.asSequence()
                 .filter { !it.isAbstract && !it.isNative }
                 .forEach { method ->
@@ -122,8 +125,8 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
                         counter.add(locals + params)
                         return@forEach
                     }
-                    val dictionary = NameGenerator.getDictionary(config.dictionary)
-                    method.localVariables?.forEach { it.name = "${config.prefix}${dictionary.nextName()}" }
+                    val nameGenerator = NameGenerator(dictionary)
+                    method.localVariables?.forEach { it.name = "${config.prefix}${nameGenerator.nextName()}" }
                     counter.add(method.localVariables?.size ?: 0)
                 }
         }

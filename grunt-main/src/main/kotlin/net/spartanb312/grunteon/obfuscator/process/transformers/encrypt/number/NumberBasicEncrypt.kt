@@ -238,6 +238,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
             }
     }
 
+    context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
         pre {
             Logger.info(" - NumberBasicEncrypt: Encrypting numbers...")

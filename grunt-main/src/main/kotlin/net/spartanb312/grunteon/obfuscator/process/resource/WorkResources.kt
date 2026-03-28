@@ -28,24 +28,17 @@ class WorkResources private constructor(
      * Input classes in input/output set, maps name to class node.
      * Also included in allClasses.
      */
-    val inputClassMap: MutableMap<String, ClassNode>,
-    /**
-     * Generated classes in input/output set, maps name to class node in input.
-     * Also included in allClasses.
-     */
-    val generatedClassMap: MutableMap<String, ClassNode> // also included in classes
+    val inputClassMap: MutableMap<String, ClassNode>
 ) {
     val inputClassCollection: Collection<ClassNode> get() = inputClassMap.values
-    val generatedClassCollection: Collection<ClassNode> get() = generatedClassMap.values
     val librariesClassCollection: Collection<ClassNode> get() = libraryClassMap.values
 
     // TODO: optimize this
     inline val allClassCollection
         get() = ObjectArrayList<ClassNode>(
-            inputClassCollection.size + generatedClassCollection.size + librariesClassCollection.size
+            inputClassCollection.size + librariesClassCollection.size
         ).apply {
             addAll(inputClassCollection)
-            addAll(generatedClassCollection)
             addAll(librariesClassCollection)
         }
 
@@ -137,8 +130,7 @@ class WorkResources private constructor(
                 libraryResourceSets = libraryResourceSets,
                 allResourceSets = allResourceSets,
                 libraryClassMap = libraryClassMap,
-                inputClassMap = inputClassMap,
-                generatedClassMap = Object2ObjectOpenHashMap()
+                inputClassMap = inputClassMap
             )
         }
 

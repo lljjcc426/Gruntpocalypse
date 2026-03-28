@@ -102,6 +102,7 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
     }
 
 
+    context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
         pre {
             Logger.info(" - StringEqualsOptimize: Redirecting string equals calls...")

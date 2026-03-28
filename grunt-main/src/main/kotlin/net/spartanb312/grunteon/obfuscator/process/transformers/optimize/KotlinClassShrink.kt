@@ -135,6 +135,7 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         }
     }
 
+    context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
         pre {
             Logger.info(" - KotlinClassShrink: Shrinking kotlin classes...")

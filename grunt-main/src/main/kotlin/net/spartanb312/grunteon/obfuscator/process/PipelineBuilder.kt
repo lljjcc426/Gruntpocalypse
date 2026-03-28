@@ -58,8 +58,15 @@ sealed interface Instruction {
     class Seq(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
     class Pre(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
     class Post(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
-    class SeqForEach(val block: context(Grunteon, ScopeValueAccess)  (classNode: ClassNode) -> Unit) : Instruction
-    class ParForEach(val block: context(Grunteon, ScopeValueAccess)  (classNode: ClassNode) -> Unit) : Instruction
+    class SeqForEach(
+        val includeGenerated: Boolean,
+        val block: context(Grunteon, ScopeValueAccess)  (classNode: ClassNode) -> Unit
+    ) : Instruction
+
+    class ParForEach(
+        val includeGenerated: Boolean,
+        val block: context(Grunteon, ScopeValueAccess)  (classNode: ClassNode) -> Unit
+    ) : Instruction
 }
 
 sealed interface ScopeValueKey<T> {
@@ -126,12 +133,18 @@ class PipelineBuilder {
         instructions += Instruction.Post(block)
     }
 
-    fun seqForRach(block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit) {
-        instructions += Instruction.SeqForEach(block)
+    fun seqForEach(
+        includeGenerated: Boolean = false,
+        block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit
+    ) {
+        instructions += Instruction.SeqForEach(includeGenerated, block)
     }
 
-    fun parForEach(block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit) {
-        instructions += Instruction.ParForEach(block)
+    fun parForEach(
+        includeGenerated: Boolean = false,
+        block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit
+    ) {
+        instructions += Instruction.ParForEach(includeGenerated, block)
     }
 
     fun <T> globalScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Global<T> {

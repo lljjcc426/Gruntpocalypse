@@ -1,12 +1,11 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
+import com.google.gson.JsonObject
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.util.Counter
@@ -16,6 +15,10 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.commons.ClassRemapper
+import org.objectweb.asm.commons.SimpleRemapper
+import org.objectweb.asm.tree.ClassNode
 
 class ClassRenamer : Transformer<ClassRenamer.Config>(
     name = enText("process.rename.class_renamer", "ClassRenamer"),
@@ -84,6 +87,40 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
 
     private val counter = Counter()
 
+    private class MappingApplier {
+        val classMappings = Object2ObjectOpenHashMap<String, String>()
+        val revMappings = Object2ObjectOpenHashMap<String, String>()
+        val mappingObjects = Object2ObjectOpenHashMap<String, JsonObject>()
+
+        context(instance: Grunteon)
+        fun applyRemap(type: String, mappings: Map<String, String>, remapClassNames: Boolean = false) {
+            if (instance.configGroup.dumpMappings) {
+                val obj = JsonObject()
+                mappings.forEach { (prev, new) ->
+                    obj.addProperty(prev, new)
+                    classMappings[prev] = new
+                    revMappings[new] = prev
+                }
+                mappingObjects[type] = JsonObject().apply { add(type, obj) }
+            }
+            val remapper = SimpleRemapper(Opcodes.ASM9, mappings)
+            instance.workRes.inputClassMap.toList().forEach { (name, node) ->
+                val copy = ClassNode()
+                val adapter = ClassRemapper(copy, remapper)
+                node.accept(adapter)
+                instance.workRes.inputClassMap[name] = copy
+            }
+            if (remapClassNames) {
+                instance.workRes.inputClassMap.toList().forEach { (name, node) ->
+                    mappings[name]?.let { newName ->
+                        instance.workRes.inputClassMap.remove(name)
+                        instance.workRes.inputClassMap[newName] = node
+                    }
+                }
+            }
+        }
+    }
+
     context(instance: Grunteon)
     override fun transform(config: Config) {
         Logger.info(" - ClassRenamer: Renaming classes...")
@@ -108,18 +145,20 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
                 counter.add()
             }
         Logger.info("    Applying mappings for classes...")
-        instance.mappingApplier.applyRemap("classes", mappings, true)
+        MappingApplier().applyRemap("classes", mappings, true)
         Logger.info("    Renamed ${counter.get()} classes")
     }
 
+    context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
+        barrier()
         seq {
             val instance = contextOf<Grunteon>()
             Logger.info(" - ClassRenamer: Renaming classes...")
             Logger.info("    Generating mappings for classes...")
             buildFilterPredicate(config)
-            dictionary = NameGenerator.getDictionary(config.dictionary)
-            val mappings = mutableMapOf<String, String>()
+            val dictionary = NameGenerator.getDictionary(config.dictionary)
+            val nameGenerator = NameGenerator(dictionary)
             val classes =
                 if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
             classes.asSequence()
@@ -131,12 +170,17 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
                 }.forEach { clazz ->
                     if (clazz.methods.any { it.isMainMethod }) return@forEach
                     if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
-                    mappings[clazz.name] =
-                        config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + dictionary.nextName()
+                    instance.mappingManager.addMapping(
+                        MappingManager.MappingType.Classes,
+                        clazz.name,
+                        config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + nameGenerator.nextName()
+                    )
                     counter.add()
                 }
             Logger.info("    Applying mappings for classes...")
-            instance.mappingApplier.applyRemap("classes", mappings, true)
+        }
+        instance.mappingManager.applyRemap(MappingManager.MappingType.Classes)
+        post {
             Logger.info("    Renamed ${counter.get()} classes")
         }
     }

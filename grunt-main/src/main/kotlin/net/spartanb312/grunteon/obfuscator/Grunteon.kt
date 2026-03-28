@@ -2,7 +2,7 @@ package net.spartanb312.grunteon.obfuscator
 
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
-import net.spartanb312.grunteon.obfuscator.process.MappingApplier
+import net.spartanb312.grunteon.obfuscator.process.MappingManager
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
@@ -106,7 +106,7 @@ class Grunteon(
      * Resources
      */
     lateinit var workRes: WorkResources
-    val mappingApplier = MappingApplier(this)
+    val mappingManager = MappingManager()
     val baseSeed get() = if (configGroup.controllableRandom) configGroup.inputSeed else Random.nextInt().toString()
 
     fun init() {

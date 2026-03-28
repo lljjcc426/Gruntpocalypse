@@ -70,6 +70,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
         }
     }
 
+    context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
         pre {
             Logger.info(" - EnumOptimize: Optimizing enums...")

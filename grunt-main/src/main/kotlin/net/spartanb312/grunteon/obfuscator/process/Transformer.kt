@@ -89,10 +89,12 @@ abstract class Transformer<T : TransformerConfig>(
     ) {
     }
 
+    context(instance: Grunteon)
     internal fun buildStageImpl(pipelineBuilder: PipelineBuilder, config: TransformerConfig) {
         @Suppress("UNCHECKED_CAST")
         pipelineBuilder.buildStageImpl(config as T)
     }
 
+    context(instance: Grunteon)
     protected open fun PipelineBuilder.buildStageImpl(config: T) {}
 }
