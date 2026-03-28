@@ -6,7 +6,6 @@ import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.util.LWWSP
 import org.objectweb.asm.tree.ClassNode
-import java.util.concurrent.RecursiveTask
 
 class ScopeValueAccess(
     internal val globals: Array<Any>,
@@ -236,6 +235,7 @@ internal class WorkerContext {
                 }
                 preTasks.clear()
                 if (!pendingParallelTasks.isEmpty) {
+                    println("Flushing ${pendingParallelTasks.size} parallel tasks...")
                     val tasks = pendingParallelTasks.toTypedArray()
                     pendingParallelTasks.clear()
                     val classArray = instance.workRes.inputClassCollection.toTypedArray()
@@ -302,41 +302,5 @@ internal class WorkerContext {
             }
             flushParallelTasks()
         }
-    }
-
-    internal class ParForEachTask(
-        val sharedResources: SharedResources,
-        val access: ScopeValueAccess,
-        val from: Int,
-        val to: Int
-    ) : RecursiveTask<ScopeValueAccess>() {
-        override fun compute(): ScopeValueAccess {
-            val size = to - from
-            val targetSize = maxOf(sharedResources.classArray.size / 256, 16)
-            if (size > targetSize) {
-                val mid = (from + size / 2)
-                val left = ParForEachTask(sharedResources, access, from, mid)
-                val right = ParForEachTask(sharedResources, access.fork(), mid, to)
-                right.fork()
-                val leftResult = left.compute()
-                val rightResult = right.join()
-                leftResult.mergeToLocal(rightResult)
-                return leftResult
-            }
-
-            val func = sharedResources.instruction.block
-            val instance = sharedResources.instance
-            val classArray = sharedResources.classArray
-            for (i in from until to) {
-                func.invoke(instance, access, classArray[i])
-            }
-            return access
-        }
-
-        class SharedResources(
-            val instance: Grunteon,
-            val instruction: Instruction.ParForEach,
-            val classArray: Array<ClassNode>
-        )
     }
 }
