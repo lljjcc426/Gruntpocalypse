@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap
 import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.util.LWWSP
+import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.FilterStrategy
 import org.objectweb.asm.tree.ClassNode
 
@@ -236,7 +237,7 @@ internal class WorkerContext {
                 }
                 preTasks.clear()
                 if (!pendingParallelTasks.isEmpty) {
-                    println("Flushing ${pendingParallelTasks.size} parallel tasks...")
+                    Logger.debug("Flushing ${pendingParallelTasks.size} parallel tasks...")
                     val tasks = pendingParallelTasks.toTypedArray()
                     pendingParallelTasks.clear()
                     val classArray = instance.workRes.inputClassCollection.toTypedArray()
