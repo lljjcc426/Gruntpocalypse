@@ -7,20 +7,12 @@ import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
-import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.ClassShrink
-import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.DeadCodeRemove
-import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.EnumOptimize
-import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.KotlinClassShrink
-import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.SourceDebugInfoHide
-import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.StringEqualsOptimize
+import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
-import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
 import java.nio.file.Path
-import java.text.SimpleDateFormat
-import java.util.*
 import kotlin.io.path.Path
 import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
@@ -38,10 +30,10 @@ const val SUBTITLE = "build 260327"
 const val GITHUB = "https://github.com/SpartanB312/Grunt"
 
 fun main() {
-    Logger = SimpleLogger(
-        "Grunteon",
-        "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
-    )
+//    Logger = SimpleLogger(
+//        "Grunteon",
+//        "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
+//    )
     println(
         """
              ________  __________   ____ ___   _______    ___________
@@ -64,23 +56,25 @@ fun main() {
     // TODO: Plugin scan
     // TODO: Plugin initialize
 
-    measureTimeMillis {
-        val emptyConfig = ConfigGroup()
-        val pipeline = ProcessPipeline(
-            DeadCodeRemove(),
-            EnumOptimize(),
-            KotlinClassShrink(),
-            ClassShrink(),
-            SourceDebugInfoHide(),
-            StringEqualsOptimize(),
-            NumberBasicEncrypt(),
-            LocalVarRenamer(),
-            ClassRenamer(),
-        )
-        val instance = emptyConfig.runPipeline(pipeline)
-        instance.init()
-        instance.execute()
-    }.also { println("$it ms") }
+    repeat(100) {
+        measureTimeMillis {
+            val emptyConfig = ConfigGroup()
+            val pipeline = ProcessPipeline(
+                DeadCodeRemove(),
+                EnumOptimize(),
+                KotlinClassShrink(),
+                ClassShrink(),
+                SourceDebugInfoHide(),
+                StringEqualsOptimize(),
+                NumberBasicEncrypt(),
+                LocalVarRenamer(),
+                ClassRenamer(),
+            )
+            val instance = emptyConfig.runPipeline(pipeline)
+            instance.init()
+            instance.execute()
+        }.also { println("$it ms") }
+    }
 }
 
 fun ConfigGroup.runPipeline(pipeline: ProcessPipeline): Grunteon {
@@ -127,10 +121,10 @@ class Grunteon(
     }
 
     fun execute() {
-        // TODO: Profiler
-        context(workRes) {
-            contextOf<Grunteon>().pipeline.execute()
-        }
+//        // TODO: Profiler
+//        context(workRes) {
+//            contextOf<Grunteon>().pipeline.execute()
+//        }
 
         // TODO: make this optional
         JarDumper.dumpJar(Path("output.jar"))

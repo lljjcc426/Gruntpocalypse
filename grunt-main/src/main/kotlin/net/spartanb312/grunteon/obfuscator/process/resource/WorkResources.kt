@@ -12,6 +12,7 @@ import java.net.URI
 import java.nio.file.FileSystemNotFoundException
 import java.nio.file.FileSystems
 import java.nio.file.Path
+import java.util.zip.ZipFile
 import kotlin.io.path.*
 
 class WorkResources private constructor(
@@ -112,32 +113,7 @@ class WorkResources private constructor(
                 launch(Dispatchers.Default) {
                     coroutineScope {
                         allResourceSetList.forEach { resourceSet ->
-                            launch {
-                                val entries = withContext(Dispatchers.IO) {
-                                    resourceSet.root.walk()
-                                        .filter { it.extension == "class" }
-                                        .map { resourceSet[it].first() }
-                                        .toList()
-                                }
-
-                                val isInput = resourceSet === inputResourceSet
-                                entries.forEach { entry ->
-                                    launch {
-                                        runCatching {
-                                            ClassNode().apply {
-                                                ClassReader(entry.content)
-                                                    .accept(this, ClassReader.EXPAND_FRAMES)
-                                            }
-                                        }.onSuccess {
-                                            if (isInput) {
-                                                inputClassNodes.send(it)
-                                            } else {
-                                                libraryNodes.send(it)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            readSourceSetClassNodes(resourceSet, inputResourceSet, inputClassNodes, libraryNodes)
                         }
                     }
                     inputClassNodes.close()
@@ -164,6 +140,73 @@ class WorkResources private constructor(
                 inputClassMap = inputClassMap,
                 generatedClassMap = Object2ObjectOpenHashMap()
             )
+        }
+
+        private fun CoroutineScope.readSourceSetClassNodes(
+            resourceSet: ResourceSet.Single,
+            inputResourceSet: ResourceSet.Single,
+            inputClassNodes: Channel<ClassNode>,
+            libraryNodes: Channel<ClassNode>
+        ) {
+            launch {
+                var uriStr = resourceSet.root.toUri().toString()
+                if (uriStr.startsWith("jar:")) {
+                    uriStr = uriStr.substring(4, uriStr.length - 2)
+                    val entries =
+                        resourceSet.root.walk()
+                            .filter { it.extension == "class" }
+                            .toList()
+                    ZipFile(URI.create(uriStr).toPath().toFile()).use { zip ->
+                        coroutineScope {
+                            val isInput = resourceSet === inputResourceSet
+                            entries.forEach { entry ->
+                                launch {
+                                    runCatching {
+                                        ClassNode().apply {
+                                            val entryPath = entry.pathString.removePrefix("/")
+                                            val data =
+                                                zip.getInputStream(zip.getEntry(entryPath))
+                                                    .use { it.readBytes() }
+                                            ClassReader(data)
+                                                .accept(this, ClassReader.EXPAND_FRAMES)
+                                        }
+                                    }.onSuccess {
+                                        if (isInput) {
+                                            inputClassNodes.send(it)
+                                        } else {
+                                            libraryNodes.send(it)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    val entries = withContext(Dispatchers.IO) {
+                        resourceSet.root.walk()
+                            .filter { it.extension == "class" }
+                            .map { resourceSet[it].first() }
+                            .toList()
+                    }
+                    val isInput = resourceSet === inputResourceSet
+                    entries.forEach { entry ->
+                        launch {
+                            runCatching {
+                                ClassNode().apply {
+                                    ClassReader(entry.content)
+                                        .accept(this, ClassReader.EXPAND_FRAMES)
+                                }
+                            }.onSuccess {
+                                if (isInput) {
+                                    inputClassNodes.send(it)
+                                } else {
+                                    libraryNodes.send(it)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
