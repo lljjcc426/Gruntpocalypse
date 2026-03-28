@@ -8,7 +8,6 @@ import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodNodeKey
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
-import kotlin.streams.asSequence
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -117,7 +116,7 @@ class NewMethodHierarchyTest {
                 // )
 
                 var newRelated =
-                    new.treeCCToTreeIdx[new.methodTreeToConnectedComponent[methodTreeIdx]].stream().asSequence()
+                    new.treeCCToTreeIdx[new.methodTreeToConnectedComponent[methodTreeIdx]].asSequence()
                         .map { treeIdx ->
                             val methodIdx = new.methodTreeRoots[treeIdx]
                             val methodOwner = new.classHierarchy.classNodes[new.methodOwners[methodIdx]]
