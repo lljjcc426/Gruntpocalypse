@@ -1,8 +1,5 @@
 package net.spartanb312.grunteon.obfuscator.process
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.Languages
 import net.spartanb312.grunteon.obfuscator.lang.MultiText
@@ -34,11 +31,6 @@ abstract class Transformer<T : TransformerConfig>(
     context(instance: Grunteon)
     val transformerSeed get() = instance.baseSeed + name.descriptor
 
-    @Suppress("UNCHECKED_CAST")
-    fun execute(instance: Grunteon, config: TransformerConfig) {
-        context(instance) { transform(config as T) }
-    }
-
     protected lateinit var excludePredicate: NamePredicates
     protected lateinit var includePredicate: NamePredicates
 
@@ -63,30 +55,6 @@ abstract class Transformer<T : TransformerConfig>(
         parForEach {
             if (filterClass(it)) action(it)
         }
-    }
-
-    context(instance: Grunteon)
-    open fun transform(config: T) {
-        buildFilterPredicate(config)
-        runBlocking {
-            instance.workRes.inputClassCollection.asSequence()
-                .filter { clazz ->
-                    val include = includePredicate.matchedAllBy(clazz.name)
-                    val exclude = excludePredicate.matchedAnyBy(clazz.name)
-                    val hardExclude = clazz.isExcluded
-                    include && !exclude && !hardExclude
-                }.forEach { clazz ->
-                    if (parallel) launch(Dispatchers.IO) { transformClass(clazz, config) }
-                    else transformClass(clazz, config)
-                }
-        }
-    }
-
-    context(instance: Grunteon)
-    open fun transformClass(
-        classNode: ClassNode,
-        config: T,
-    ) {
     }
 
     context(instance: Grunteon)

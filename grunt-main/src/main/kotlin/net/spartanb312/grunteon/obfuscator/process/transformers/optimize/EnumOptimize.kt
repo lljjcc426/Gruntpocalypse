@@ -14,7 +14,6 @@ import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.findMethod
 import net.spartanb312.grunteon.obfuscator.util.extensions.isEnum
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodInsnNode
 
 class EnumOptimize : Transformer<EnumOptimize.Config>(
@@ -40,35 +39,6 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
     class Config : TransformerConfig()
 
     private val counter = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - EnumOptimize: Optimizing enums...")
-        super.transform(config)
-        Logger.info("    Optimized ${counter.get()} enums")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        if (!classNode.isEnum) return
-        val desc = "[L${classNode.name};"
-        val valuesMethod = classNode.findMethod("values", "()$desc") {
-            it.instructions.size() >= 4
-        }
-        if (valuesMethod != null) {
-            for (instruction in valuesMethod.instructions.toListFast()) {
-                if (instruction is MethodInsnNode) {
-                    if (instruction.opcode == Opcodes.INVOKEVIRTUAL && instruction.name == "clone") {
-                        if (instruction.next.opcode == Opcodes.CHECKCAST) {
-                            valuesMethod.instructions.remove(instruction.next)
-                        }
-                        valuesMethod.instructions.remove(instruction)
-                        counter.add(1)
-                    }
-                }
-            }
-        }
-    }
 
     context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {

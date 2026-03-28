@@ -18,7 +18,6 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
-import org.objectweb.asm.tree.ClassNode
 
 class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     name = enText("process.rename.local_var_renamer", "LocalVarRenamer"),
@@ -67,37 +66,6 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
 
     private val counter = Counter()
     private lateinit var methodExPredicate: NamePredicates
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - LocalVarRenamer: Transforming local variables...")
-        methodExPredicate = buildMethodNamePredicates(config.exclusion)
-        super.transform(config)
-        Logger.info("    Transformed ${counter.get()} local variables")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        val dictionary = NameGenerator.getDictionary(config.dictionary)
-        classNode.methods.asSequence()
-            .filter { !it.isAbstract && !it.isNative }
-            .forEach { method ->
-                val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
-                // if (excluded) println("Excluded method: ${methodFullDesc(classNode, method)}")
-                if (excluded) return@forEach
-                if (config.deleteASMInfo) {
-                    val locals = method.localVariables?.size ?: 0
-                    val params = method.parameters?.size ?: 0
-                    method.parameters?.clear()
-                    method.localVariables?.clear()
-                    counter.add(locals + params)
-                    return@forEach
-                }
-                val nameGenerator = NameGenerator(dictionary)
-                method.localVariables?.forEach { it.name = "${config.prefix}${nameGenerator.nextName()}" }
-                counter.add(method.localVariables?.size ?: 0)
-            }
-    }
 
     context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {

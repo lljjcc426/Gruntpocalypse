@@ -123,34 +123,6 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
     }
 
     context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - ClassRenamer: Renaming classes...")
-        Logger.info("    Generating mappings for classes...")
-        buildFilterPredicate(config)
-        val dictionary = NameGenerator.getDictionary(config.dictionary)
-        val nameGenerator = NameGenerator(dictionary)
-        val mappings = mutableMapOf<String, String>()
-        val classes =
-            if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
-        classes.asSequence()
-            .filter { clazz ->
-                val include = includePredicate.matchedAllBy(clazz.name)
-                val exclude = excludePredicate.matchedAnyBy(clazz.name)
-                val hardExclude = clazz.isExcluded
-                include && !exclude && !hardExclude
-            }.forEach { clazz ->
-                if (clazz.methods.any { it.isMainMethod }) return@forEach
-                if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
-                mappings[clazz.name] =
-                    config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + nameGenerator.nextName()
-                counter.add()
-            }
-        Logger.info("    Applying mappings for classes...")
-        MappingApplier().applyRemap("classes", mappings, true)
-        Logger.info("    Renamed ${counter.get()} classes")
-    }
-
-    context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
         barrier()
         val counter = globalScopeValue { FastCounter() }

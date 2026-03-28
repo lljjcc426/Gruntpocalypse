@@ -17,7 +17,6 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchAnyOp
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.AbstractInsnNode
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.JumpInsnNode
 
 class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
@@ -59,58 +58,6 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
     }
 
     private val counter = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - DeadCodeRemove: Removing dead codes...")
-        super.transform(config)
-        Logger.info("    Removed ${counter.get()} dead codes")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        classNode.methods.toList().asSequence()
-            .filter { !it.isNative && !it.isAbstract }
-            .forEach { methodNode ->
-                for (it in methodNode.instructions.toListFast()) {
-                    when {
-                        config.pop && it.opcode == Opcodes.POP -> {
-                            val pre = it.previous ?: continue
-                            if (pre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
-                                methodNode.instructions.remove(pre)
-                                methodNode.instructions.remove(it)
-                                counter.add(2)
-                            }
-                        }
-
-                        config.pop2 && it.opcode == Opcodes.POP2 -> {
-                            val pre = it.previous ?: continue
-                            if (pre.matchAnyOp(Opcodes.DLOAD, Opcodes.LLOAD)) {
-                                methodNode.instructions.remove(pre)
-                                methodNode.instructions.remove(it)
-                                counter.add(2)
-                            } else if (pre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
-                                val prePre = pre.previous ?: continue
-                                if (prePre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
-                                    methodNode.instructions.remove(prePre)
-                                    methodNode.instructions.remove(pre)
-                                    methodNode.instructions.remove(it)
-                                    counter.add(3)
-                                }
-                            }
-                        }
-
-                        config.fallthrough && it.opcode == Opcodes.GOTO -> {
-                            val next = it.next
-                            if (next == (it as JumpInsnNode).label) {
-                                methodNode.instructions.remove(it)
-                                counter.add(1)
-                            }
-                        }
-                    }
-                }
-            }
-    }
 
     context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {

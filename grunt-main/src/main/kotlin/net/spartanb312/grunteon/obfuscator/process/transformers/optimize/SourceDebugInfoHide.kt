@@ -16,7 +16,6 @@ import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.LineNumberNode
 
 class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
@@ -75,36 +74,6 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
     }
 
     private val counter = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - SourceDebugInfoHide: Removing/Editing debug information...")
-        super.transform(config)
-        Logger.info("    Removed/Edited ${counter.get()} debug information")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))
-        if (config.sourceFiles != SourceFileAction.Off) {
-            if (config.sourceFiles == SourceFileAction.Replace) {
-                classNode.sourceDebug = config.sourceNames.random(randomGen)
-                classNode.sourceFile = config.sourceNames.random(randomGen)
-            } else {
-                classNode.sourceDebug = null
-                classNode.sourceFile = null
-            }
-            counter.add()
-        }
-        if (config.lineNumbers) classNode.methods.forEach { methodNode ->
-            methodNode.instructions.toListFast().forEach {
-                if (it is LineNumberNode) {
-                    methodNode.instructions.remove(it)
-                    counter.add()
-                }
-            }
-        }
-    }
 
     context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {

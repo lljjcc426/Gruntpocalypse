@@ -15,7 +15,6 @@ import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.match
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodInsnNode
 
 class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
@@ -46,60 +45,6 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
     }
 
     private val counter = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - StringEqualsOptimize: Redirecting string equals calls...")
-        super.transform(config)
-        Logger.info("    Redirected ${counter.get()} string equals calls")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        classNode.methods.forEach { methodNode ->
-            for (insnNode in methodNode.instructions.toArray()) {
-                if (insnNode is MethodInsnNode) {
-                    if (insnNode.match(
-                            "java/lang/String",
-                            "equals",
-                            "(Ljava/lang/Object;)Z"
-                        )
-                    ) {
-                        val replacement = instructions {
-                            INVOKEVIRTUAL("java/lang/Object", "hashCode", "()I")
-                            INVOKESTATIC("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;")
-                            SWAP
-                            INVOKEVIRTUAL("java/lang/String", "hashCode", "()I")
-                            INVOKESTATIC("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;")
-                            INVOKEVIRTUAL("java/lang/Integer", "equals", "(Ljava/lang/Object;)Z")
-                        }
-                        methodNode.instructions.insert(insnNode, replacement)
-                        methodNode.instructions.remove(insnNode)
-                        counter.add()
-                    } else if (config.ignoreCase && insnNode.match(
-                            "java/lang/String",
-                            "equalsIgnoreCase",
-                            "(Ljava/lang/String;)Z"
-                        )
-                    ) {
-                        val replacement = instructions {
-                            INVOKEVIRTUAL("java/lang/String", "toUpperCase", "()Ljava/lang/String;")
-                            INVOKEVIRTUAL("java/lang/Object", "hashCode", "()I")
-                            INVOKESTATIC("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;")
-                            SWAP
-                            INVOKEVIRTUAL("java/lang/String", "toUpperCase", "()Ljava/lang/String;")
-                            INVOKEVIRTUAL("java/lang/String", "hashCode", "()I")
-                            INVOKESTATIC("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;")
-                            INVOKEVIRTUAL("java/lang/Integer", "equals", "(Ljava/lang/Object;)Z")
-                        }
-                        methodNode.instructions.insert(insnNode, replacement)
-                        methodNode.instructions.remove(insnNode)
-                        counter.add()
-                    }
-                }
-            }
-        }
-    }
 
 
     context(instance: Grunteon)

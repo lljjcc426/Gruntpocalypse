@@ -62,7 +62,7 @@ fun main(args: Array<String>) {
     // TODO: Plugin initialize
 
     val queue = ArrayDeque<Double>()
-    repeat(100) {
+    repeat(1) {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
             DeadCodeRemove(),

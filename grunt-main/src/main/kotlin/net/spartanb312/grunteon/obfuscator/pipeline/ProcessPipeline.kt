@@ -40,19 +40,12 @@ class ProcessPipeline(
     fun execute() {
         if (!initialized.get()) throw Exception("Pipeline is not initialized")
         Logger.info("Obfuscating...")
-        val old = false
-        if (old) {
-            transformer2Config.forEach { (transformer, config) ->
-                transformer.execute(instance, config)
-            }
-        } else {
-            val pipelineBuilder = PipelineBuilder()
-            transformer2Config.forEach { (transformer, config) ->
-                transformer.buildStageImpl(pipelineBuilder, config)
-            }
-            val workerContext = WorkerContext()
-            workerContext.execute(instance, pipelineBuilder)
+        val pipelineBuilder = PipelineBuilder()
+        transformer2Config.forEach { (transformer, config) ->
+            transformer.buildStageImpl(pipelineBuilder, config)
         }
+        val workerContext = WorkerContext()
+        workerContext.execute(instance, pipelineBuilder)
     }
 
 }
