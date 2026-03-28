@@ -8,6 +8,7 @@ import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.*
 
@@ -128,7 +129,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
         }
         if (config.nopRemove) {
             classNode.methods.forEach { methodNode ->
-                methodNode.instructions.toList().asSequence()
+                methodNode.instructions.toListFast().asSequence()
                     .filter { it.opcode == Opcodes.NOP }
                     .forEach {
                         methodNode.instructions.remove(it)

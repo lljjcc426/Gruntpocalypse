@@ -10,6 +10,7 @@ import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchAnyOp
@@ -69,7 +70,7 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
         classNode.methods.toList().asSequence()
             .filter { !it.isNative && !it.isAbstract }
             .forEach { methodNode ->
-                for (it in methodNode.instructions.toList()) {
+                for (it in methodNode.instructions.toListFast()) {
                     when {
                         config.pop && it.opcode == Opcodes.POP -> {
                             val pre = it.previous ?: continue
@@ -118,7 +119,7 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
             classNode.methods.toList().asSequence()
                 .filter { !it.isNative && !it.isAbstract }
                 .forEach { methodNode ->
-                    for (it in methodNode.instructions.toList()) {
+                    for (it in methodNode.instructions.toListFast()) {
                         val counter = counter.local
                         when {
                             config.pop && it.opcode == Opcodes.POP -> {

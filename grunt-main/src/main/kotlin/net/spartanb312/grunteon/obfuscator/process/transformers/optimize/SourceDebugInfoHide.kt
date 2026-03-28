@@ -10,6 +10,7 @@ import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.collection.random
+import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
@@ -94,7 +95,7 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
             counter.add()
         }
         if (config.lineNumbers) classNode.methods.forEach { methodNode ->
-            methodNode.instructions.toList().forEach {
+            methodNode.instructions.toListFast().forEach {
                 if (it is LineNumberNode) {
                     methodNode.instructions.remove(it)
                     counter.add()

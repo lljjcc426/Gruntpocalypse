@@ -10,6 +10,7 @@ import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.findMethod
 import net.spartanb312.grunteon.obfuscator.util.extensions.isEnum
 import org.objectweb.asm.Opcodes
@@ -55,7 +56,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
             it.instructions.size() >= 4
         }
         if (valuesMethod != null) {
-            for (instruction in valuesMethod.instructions.toList()) {
+            for (instruction in valuesMethod.instructions.toListFast()) {
                 if (instruction is MethodInsnNode) {
                     if (instruction.opcode == Opcodes.INVOKEVIRTUAL && instruction.name == "clone") {
                         if (instruction.next.opcode == Opcodes.CHECKCAST) {
@@ -82,7 +83,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
                 it.instructions.size() >= 4
             }
             if (valuesMethod != null) {
-                for (instruction in valuesMethod.instructions.toList()) {
+                for (instruction in valuesMethod.instructions.toListFast()) {
                     if (instruction is MethodInsnNode) {
                         if (instruction.opcode == Opcodes.INVOKEVIRTUAL && instruction.name == "clone") {
                             if (instruction.next.opcode == Opcodes.CHECKCAST) {

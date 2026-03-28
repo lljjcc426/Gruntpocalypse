@@ -1,6 +1,9 @@
 package net.spartanb312.grunteon.obfuscator.util.collection
 
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import org.apache.commons.rng.UniformRandomProvider
+import org.objectweb.asm.tree.AbstractInsnNode
+import org.objectweb.asm.tree.InsnList
 import java.util.*
 
 const val SHUFFLE_THRESHOLD = 5
@@ -32,4 +35,14 @@ fun <T> swap(arr: Array<T>, i: Int, j: Int) {
 fun <T> Collection<T>.random(randomGen: UniformRandomProvider): T {
     if (isEmpty()) throw NoSuchElementException("Collection is empty.")
     return elementAt(randomGen.nextInt(size))
+}
+
+fun InsnList.toListFast(): List<AbstractInsnNode> {
+    val arr = arrayOfNulls<AbstractInsnNode>(this.size())
+    val result = ObjectArrayList.wrap(arr)
+    this.forEachIndexed { index, node ->
+        arr[index] = node
+    }
+    @Suppress("UNCHECKED_CAST")
+    return result as List<AbstractInsnNode>
 }
