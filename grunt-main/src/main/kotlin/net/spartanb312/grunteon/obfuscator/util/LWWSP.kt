@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -185,7 +186,7 @@ class LWWSP(val workerCount: Int, val threadConfigure: (Thread) -> Unit = {}) : 
             while (pool.isRunning.get()) {
                 val cTask = try {
                     taskQueue.dequeue()
-                } catch (e: InterruptedException) {
+                } catch (_: InterruptedException) {
                     null
                 }
                 if (!pool.isRunning.get()) break
@@ -281,7 +282,7 @@ class LWWSP(val workerCount: Int, val threadConfigure: (Thread) -> Unit = {}) : 
                 val result = action.run()
                 complete(Result.success(result))
             } catch (e: Throwable) {
-                completeFailure(Result.failure(e))
+                completeFailure(Result.failure(ExecutionException("Exception in worker ${worker.name}", e)))
             }
         }
 
@@ -400,7 +401,7 @@ class LWWSP(val workerCount: Int, val threadConfigure: (Thread) -> Unit = {}) : 
                     complete(Result.success(scopes))
                 }
             } catch (e: Throwable) {
-                completeFailure(Result.failure(e))
+                completeFailure(Result.failure(ExecutionException("Exception in worker ${worker.name}", e)))
             }
         }
 
