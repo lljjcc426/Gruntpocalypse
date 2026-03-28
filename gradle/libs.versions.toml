@@ -1,18 +1,18 @@
 [versions]
-kotlin = "2.3.10"
-kotlinDSL = "6.5.3"
+kotlin = "2.3.20"
+kotlinDSL = "6.5.6"
 coroutine = "1.10.2"
 
 compose = "1.9.1"
 compose-fluent = "v0.1.0"
 compose-hot-reload = "1.0.0-beta03"
 
-junit = "6.0.1"
-gson = "2.12.1"
-asm = "9.9"
-fastutil = "8.5.16"
+junit = "6.0.3"
+gson = "2.13.2"
+asm = "9.9.1"
+fastutil = "8.5.18"
 apache-math3 = "3.6.1"
-apache-lang3 = "3.16.0"
+apache-lang3 = "3.20.0"
 apache-commons-rng-simple = "1.6"
 
 [plugins]
