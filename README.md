@@ -21,6 +21,8 @@ Feel free to join our Discord server for suggestions: https://discord.gg/ysB2fMf
 
 ## License
 
+Copyright 2026 Endoqa Inc.
+
 Grunteon is a free and open source obfuscator framework licensed under Apache License 2.0
 
 Yapyap is a grunt extension pack licensed under PolyForm Strict License 1.0.0
