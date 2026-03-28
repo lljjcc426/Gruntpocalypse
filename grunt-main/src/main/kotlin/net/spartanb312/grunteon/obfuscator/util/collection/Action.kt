@@ -37,12 +37,37 @@ fun <T> Collection<T>.random(randomGen: UniformRandomProvider): T {
     return elementAt(randomGen.nextInt(size))
 }
 
-fun InsnList.toListFast(): List<AbstractInsnNode> {
-    val arr = arrayOfNulls<AbstractInsnNode>(this.size())
-    val result = ObjectArrayList.wrap(arr)
+class FastObjectArrayList<T> : ObjectArrayList<T> {
+
+    override var size: Int
+        get() = super.size
+        set(value) {
+            super.size = value
+        }
+
+    fun clearFast() {
+        this.size = 0
+    }
+
+    constructor(arr: Array<T>, dummy: Boolean) : super(arr, true)
+
+    companion object {
+        inline operator fun <reified T> invoke(): FastObjectArrayList<T> = FastObjectArrayList(emptyArray(), true)
+
+        @Suppress("UNCHECKED_CAST")
+        inline operator fun <reified T> invoke(initialCapacity: Int): FastObjectArrayList<T> =
+            FastObjectArrayList(arrayOfNulls<T>(initialCapacity) as Array<T>, true)
+    }
+}
+
+fun InsnList.toListFast(prev: FastObjectArrayList<AbstractInsnNode> = FastObjectArrayList(this.size())): FastObjectArrayList<AbstractInsnNode> {
+    prev.size = 0
+    prev.ensureCapacity(this.size())
+    prev.size = this.size()
+    val arr = prev.elements()
     this.forEachIndexed { index, node ->
         arr[index] = node
     }
     @Suppress("UNCHECKED_CAST")
-    return result as List<AbstractInsnNode>
+    return prev
 }

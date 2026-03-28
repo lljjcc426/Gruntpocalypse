@@ -10,6 +10,7 @@ import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchInvoke
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.*
@@ -142,11 +143,13 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         }
         val intrinsics = reducibleScopeValue { FastCounter() }
         val metadata = reducibleScopeValue { FastCounter() }
+        val pendingReplaceCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
         parForEachFiltered(config) { classNode ->
             if (config.intrinsics) {
                 val intrinsics = intrinsics.local
                 classNode.methods.forEach { methodNode ->
-                    val replace = mutableListOf<AbstractInsnNode>()
+                    val replace = pendingReplaceCache.local
+                    replace.clearFast()
                     methodNode.instructions.forEach { insnNode ->
                         if (insnNode.matchInvoke(Opcodes.INVOKESTATIC, "kotlin/jvm/internal/Intrinsics")) {
                             val removeSize = intrinsicsRemoveMethods[insnNode.name + insnNode.desc] ?: 0
@@ -175,14 +178,16 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
             if (config.metaData) {
                 val metadata = metadata.local
                 fun MutableList<AnnotationNode>.removeCheck() {
-                    toList().forEach {
+                    removeIf {
                         if (
                             it.desc.startsWith("Lkotlin/jvm/internal/SourceDebugExtension") ||
                             it.desc.startsWith("Lkotlin/Metadata") ||
                             it.desc.startsWith("Lkotlin/coroutines/jvm/internal/DebugMetadata")
                         ) {
-                            remove(it)
                             metadata.add()
+                            true
+                        } else {
+                            false
                         }
                     }
                 }

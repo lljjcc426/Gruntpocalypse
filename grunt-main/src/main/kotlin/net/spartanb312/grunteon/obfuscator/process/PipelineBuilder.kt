@@ -11,16 +11,18 @@ import java.util.concurrent.RecursiveTask
 class ScopeValueAccess(
     internal val globals: Array<Any>,
     internal val reducibleGlobal: Array<Mergeable<*>>,
-    internal val reducibleLocal: Array<Mergeable<*>?>
+    internal val reducibleLocal: Array<Mergeable<*>?>,
+    internal val locals: Array<Any?>
 ) {
     constructor(global: ScopeValueGlobal) : this(
         global.globals,
         global.reducibleGlobal,
-        arrayOfNulls(global.reducibleGlobal.size)
+        arrayOfNulls(global.reducibleGlobal.size),
+        arrayOfNulls(global.localCount)
     )
 
     fun fork(): ScopeValueAccess {
-        return ScopeValueAccess(globals, reducibleGlobal, arrayOfNulls(reducibleGlobal.size))
+        return ScopeValueAccess(globals, reducibleGlobal, arrayOfNulls(reducibleGlobal.size), arrayOfNulls(locals.size))
     }
 
     fun mergeToLocal(other: ScopeValueAccess) {
@@ -40,7 +42,8 @@ class ScopeValueAccess(
 
 class ScopeValueGlobal(
     internal val globals: Array<Any>,
-    internal val reducibleGlobal: Array<Mergeable<*>>
+    internal val reducibleGlobal: Array<Mergeable<*>>,
+    internal val localCount: Int
 ) {
     fun mergeToGlobal(other: ScopeValueAccess) {
         for (i in reducibleGlobal.indices) {
@@ -82,6 +85,11 @@ sealed interface ScopeValueKey<T> {
         context(_: Grunteon, _: ScopeValueAccess)
         val local: T
     }
+
+    sealed interface Local<T> : ScopeValueKey<T> {
+        context(_: Grunteon, _: ScopeValueAccess)
+        val local: T
+    }
 }
 
 internal class GlobalScopeValueKeyImpl<T>(val init: context(Grunteon) () -> T, val index: Int) :
@@ -112,9 +120,25 @@ internal class ReducibleScopeValueKeyImpl<T : Mergeable<*>>(val init: context(Gr
         }
 }
 
+internal class LocalScopeValueKeyImpl<T : Any>(val init: context(Grunteon) () -> T, val index: Int) :
+    ScopeValueKey.Local<T> {
+    @Suppress("UNCHECKED_CAST")
+    context(_: Grunteon, access: ScopeValueAccess)
+    override val local: T
+        get() {
+            var value = access.locals[index] as T?
+            if (value == null) {
+                value = init()
+                access.locals[index] = value
+            }
+            return value
+        }
+}
+
 class PipelineBuilder {
     internal val instructions = mutableListOf<Instruction>()
     internal val globalScopeValueKeys = mutableListOf<GlobalScopeValueKeyImpl<*>>()
+    internal val localScopeValueKeys = mutableListOf<LocalScopeValueKeyImpl<*>>()
     internal val reducibleScopeValueKeys = mutableListOf<ReducibleScopeValueKeyImpl<*>>()
 
     fun barrier() {
@@ -153,6 +177,12 @@ class PipelineBuilder {
         return key
     }
 
+    fun <T : Any> localScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Local<T> {
+        val key = LocalScopeValueKeyImpl(init, localScopeValueKeys.size)
+        localScopeValueKeys += key
+        return key
+    }
+
     fun <T : Mergeable<*>> reducibleScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Reducible<T> {
         val key = ReducibleScopeValueKeyImpl(init, reducibleScopeValueKeys.size)
         reducibleScopeValueKeys += key
@@ -183,7 +213,7 @@ internal class WorkerContext {
                         it.init(instance)
                     })
             }
-            val scopeValueGlobal = ScopeValueGlobal(global, reducible)
+            val scopeValueGlobal = ScopeValueGlobal(global, reducible, pipelineBuilder.localScopeValueKeys.size)
 
             val preTasks = ObjectArrayList<Instruction.Pre>()
             val pendingParallelTasks = ObjectArrayList<Instruction.ParForEach>()

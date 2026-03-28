@@ -10,11 +10,13 @@ import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchAnyOp
 import org.objectweb.asm.Opcodes
+import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.JumpInsnNode
 
@@ -116,11 +118,13 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
             Logger.info(" - DeadCodeRemove: Removing dead codes...")
         }
         val counter = reducibleScopeValue { FastCounter() }
+        val instListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
         parForEachFiltered(config) { classNode ->
-            classNode.methods.toList().asSequence()
+            val instListCache = instListCache.local
+            classNode.methods.asSequence()
                 .filter { !it.isNative && !it.isAbstract }
                 .forEach { methodNode ->
-                    for (it in methodNode.instructions.toListFast()) {
+                    for (it in methodNode.instructions.toListFast(instListCache)) {
                         val counter = counter.local
                         when {
                             config.pop && it.opcode == Opcodes.POP -> {
