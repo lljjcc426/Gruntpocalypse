@@ -14,6 +14,8 @@ import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
+import net.spartanb312.grunteon.obfuscator.util.collection.shuffle
 import net.spartanb312.grunteon.obfuscator.util.collection.shuffled
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
@@ -27,10 +29,7 @@ import net.spartanb312.grunteon.obfuscator.util.numerical.asInt
 import net.spartanb312.grunteon.obfuscator.util.numerical.asLong
 import org.apache.commons.rng.UniformRandomProvider
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.tree.ClassNode
-import org.objectweb.asm.tree.InsnList
-import org.objectweb.asm.tree.IntInsnNode
-import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.*
 
 /**
  * Basic number encryption
@@ -246,6 +245,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { FastCounter() }
+        val shuffledListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
         parForEachFiltered(config) { classNode ->
             val counter = counter.local
             classNode.methods.asSequence()
@@ -259,75 +259,77 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                         else 1f).coerceIn(0f, 1f)
 
                     val randomGen = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc))
-                    method.instructions
-                        .filter { it.opcode != Opcodes.NEWARRAY }
-                        .shuffled(randomGen)
-                        .forEach { instruction ->
-                            // Encrypt integer
-                            if (config.integer && randomGen.nextFloat() < chanceModifier * config.integerChance) {
-                                if (instruction.opcode in Opcodes.ICONST_M1..Opcodes.ICONST_5) {
-                                    val value = instruction.opcode - Opcodes.ICONST_0
+                    val shuffledList = shuffledListCache.local
+                    shuffledList.clearFast()
+
+                    method.instructions.filterTo(shuffledList) { it.opcode != Opcodes.NEWARRAY }
+                    shuffledList.shuffle(randomGen)
+                    shuffledList.forEach { instruction ->
+                        // Encrypt integer
+                        if (config.integer && randomGen.nextFloat() < chanceModifier * config.integerChance) {
+                            if (instruction.opcode in Opcodes.ICONST_M1..Opcodes.ICONST_5) {
+                                val value = instruction.opcode - Opcodes.ICONST_0
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
+                                method.instructions.remove(instruction)
+                                counter.add()
+                            } else if (instruction is IntInsnNode) {
+                                method.instructions.insertBefore(
+                                    instruction,
+                                    randomGen.encrypt(instruction.operand)
+                                )
+                                method.instructions.remove(instruction)
+                                counter.add()
+                            } else if (instruction is LdcInsnNode && instruction.cst is Int) {
+                                val value = instruction.cst as Int
+                                if (value < Int.MAX_VALUE - Short.MAX_VALUE * 8) {
                                     method.instructions.insertBefore(instruction, randomGen.encrypt(value))
                                     method.instructions.remove(instruction)
                                     counter.add()
-                                } else if (instruction is IntInsnNode) {
-                                    method.instructions.insertBefore(
-                                        instruction,
-                                        randomGen.encrypt(instruction.operand)
-                                    )
-                                    method.instructions.remove(instruction)
-                                    counter.add()
-                                } else if (instruction is LdcInsnNode && instruction.cst is Int) {
-                                    val value = instruction.cst as Int
-                                    if (value < Int.MAX_VALUE - Short.MAX_VALUE * 8) {
-                                        method.instructions.insertBefore(instruction, randomGen.encrypt(value))
-                                        method.instructions.remove(instruction)
-                                        counter.add()
-                                    }
-                                }
-                            }
-                            // Encrypt long
-                            if (config.long && randomGen.nextFloat() < chanceModifier * config.longChance) {
-                                if (instruction.opcode in Opcodes.LCONST_0..Opcodes.LCONST_1) {
-                                    val value = (instruction.opcode - Opcodes.LCONST_0).toLong()
-                                    method.instructions.insertBefore(instruction, randomGen.encrypt(value))
-                                    method.instructions.remove(instruction)
-                                    counter.add()
-                                } else if (instruction is LdcInsnNode && instruction.cst is Long) {
-                                    val value = instruction.cst as Long
-                                    method.instructions.insertBefore(instruction, randomGen.encrypt(value))
-                                    method.instructions.remove(instruction)
-                                    counter.add()
-                                }
-                            }
-                            // Encrypt float
-                            if (config.float && randomGen.nextFloat() < chanceModifier * config.floatChance) {
-                                fun encryptFloat(float: Float) {
-                                    method.instructions.insertBefore(instruction, randomGen.encrypt(float))
-                                    method.instructions.remove(instruction)
-                                    counter.add()
-                                }
-                                when {
-                                    instruction.opcode == Opcodes.FCONST_0 -> encryptFloat(0f)
-                                    instruction.opcode == Opcodes.FCONST_1 -> encryptFloat(1f)
-                                    instruction.opcode == Opcodes.FCONST_2 -> encryptFloat(2f)
-                                    instruction is LdcInsnNode && instruction.cst is Float -> encryptFloat(instruction.cst as Float)
-                                }
-                            }
-                            // Encrypt double
-                            if (config.double && randomGen.nextFloat() < chanceModifier * config.doubleChance) {
-                                fun encryptDouble(double: Double) {
-                                    method.instructions.insertBefore(instruction, randomGen.encrypt(double))
-                                    method.instructions.remove(instruction)
-                                    counter.add()
-                                }
-                                when {
-                                    instruction.opcode == Opcodes.DCONST_0 -> encryptDouble(0.0)
-                                    instruction.opcode == Opcodes.DCONST_1 -> encryptDouble(1.0)
-                                    instruction is LdcInsnNode && instruction.cst is Double -> encryptDouble(instruction.cst as Double)
                                 }
                             }
                         }
+                        // Encrypt long
+                        if (config.long && randomGen.nextFloat() < chanceModifier * config.longChance) {
+                            if (instruction.opcode in Opcodes.LCONST_0..Opcodes.LCONST_1) {
+                                val value = (instruction.opcode - Opcodes.LCONST_0).toLong()
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
+                                method.instructions.remove(instruction)
+                                counter.add()
+                            } else if (instruction is LdcInsnNode && instruction.cst is Long) {
+                                val value = instruction.cst as Long
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
+                                method.instructions.remove(instruction)
+                                counter.add()
+                            }
+                        }
+                        // Encrypt float
+                        if (config.float && randomGen.nextFloat() < chanceModifier * config.floatChance) {
+                            fun encryptFloat(float: Float) {
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(float))
+                                method.instructions.remove(instruction)
+                                counter.add()
+                            }
+                            when {
+                                instruction.opcode == Opcodes.FCONST_0 -> encryptFloat(0f)
+                                instruction.opcode == Opcodes.FCONST_1 -> encryptFloat(1f)
+                                instruction.opcode == Opcodes.FCONST_2 -> encryptFloat(2f)
+                                instruction is LdcInsnNode && instruction.cst is Float -> encryptFloat(instruction.cst as Float)
+                            }
+                        }
+                        // Encrypt double
+                        if (config.double && randomGen.nextFloat() < chanceModifier * config.doubleChance) {
+                            fun encryptDouble(double: Double) {
+                                method.instructions.insertBefore(instruction, randomGen.encrypt(double))
+                                method.instructions.remove(instruction)
+                                counter.add()
+                            }
+                            when {
+                                instruction.opcode == Opcodes.DCONST_0 -> encryptDouble(0.0)
+                                instruction.opcode == Opcodes.DCONST_1 -> encryptDouble(1.0)
+                                instruction is LdcInsnNode && instruction.cst is Double -> encryptDouble(instruction.cst as Double)
+                            }
+                        }
+                    }
                 }
         }
         post {
