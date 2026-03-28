@@ -73,7 +73,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
         }
         val counter = reducibleScopeValue { FastCounter() }
         val dictionary = globalScopeValue { NameGenerator.getDictionary(config.dictionary) }
-        parForEachFiltered(config) { classNode ->
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
             val dictionary = dictionary.global
             classNode.methods.asSequence()

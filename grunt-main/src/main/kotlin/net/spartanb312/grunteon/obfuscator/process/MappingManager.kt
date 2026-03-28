@@ -4,6 +4,7 @@ import com.google.gson.JsonObject
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.util.filters.FilterStrategy
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.commons.ClassRemapper
 import org.objectweb.asm.commons.SimpleRemapper
@@ -17,8 +18,8 @@ class MappingManager {
 
     context(instance: Grunteon)
     fun addMapping(type: MappingType, prev: String, new: String) {
+        mappings[type.ordinal][prev] = new
         if (instance.configGroup.dumpMappings) {
-            mappings[type.ordinal][prev] = new
             mappingObjects[type.ordinal].addProperty(prev, new)
             classMappings[prev] = new
             revMappings[new] = prev
@@ -26,13 +27,13 @@ class MappingManager {
     }
 
     context(pb: PipelineBuilder)
-    fun applyRemap(type: MappingType) {
+    fun applyRemap(filterStrategy: FilterStrategy, type: MappingType) {
         val mapping = mappings[type.ordinal]
         val remapper = SimpleRemapper(Opcodes.ASM9, mapping)
         val newClasses = reducibleScopeValue {
             MergeableObjectList(ObjectArrayList<ClassNode>())
         }
-        parForEach {
+        parForEachFiltered(filterStrategy) {
             val copy = ClassNode()
             val adapter = ClassRemapper(copy, remapper)
             it.accept(adapter)

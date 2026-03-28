@@ -5,12 +5,8 @@ import net.spartanb312.grunteon.obfuscator.lang.Languages
 import net.spartanb312.grunteon.obfuscator.lang.MultiText
 import net.spartanb312.grunteon.obfuscator.pipeline.OrderRule
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
-import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.FilterStrategy
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
-import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
-import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
-import org.objectweb.asm.tree.ClassNode
 
 abstract class Transformer<T : TransformerConfig>(
     val name: MultiText,
@@ -31,31 +27,11 @@ abstract class Transformer<T : TransformerConfig>(
     context(instance: Grunteon)
     val transformerSeed get() = instance.baseSeed + name.descriptor
 
-    protected lateinit var excludePredicate: NamePredicates
-    protected lateinit var includePredicate: NamePredicates
-
-    fun buildFilterPredicate(config: T) {
-        excludePredicate = buildClassNamePredicates(config.excludeStrategy)
-        includePredicate = buildClassNamePredicates(config.includeStrategy)
-    }
-
-    context(instance: Grunteon)
-    fun filterClass(clazz: ClassNode): Boolean {
-        val include = includePredicate.matchedAllBy(clazz.name)
-        val exclude = excludePredicate.matchedAnyBy(clazz.name)
-        val hardExclude = clazz.isExcluded
-        return include && !exclude && !hardExclude
-    }
-
-    context(_: PipelineBuilder)
-    protected inline fun parForEachFiltered(
-        config: T,
-        crossinline action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
-    ) {
-        buildFilterPredicate(config)
-        parForEach {
-            if (filterClass(it)) action(it)
-        }
+    protected fun buildFilterStrategy(config: T): FilterStrategy {
+        return FilterStrategy(
+            buildClassNamePredicates(config.includeStrategy),
+            buildClassNamePredicates(config.excludeStrategy)
+        )
     }
 
     context(_: Grunteon)

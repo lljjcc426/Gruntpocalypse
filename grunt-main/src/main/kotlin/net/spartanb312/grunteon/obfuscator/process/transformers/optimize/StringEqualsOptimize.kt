@@ -50,7 +50,7 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
             Logger.info(" - StringEqualsOptimize: Redirecting string equals calls...")
         }
         val counter = reducibleScopeValue { FastCounter() }
-        parForEachFiltered(config) { classNode ->
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             classNode.methods.forEach { methodNode ->
                 val counter = counter.local
                 for (insnNode in methodNode.instructions.toArray()) {

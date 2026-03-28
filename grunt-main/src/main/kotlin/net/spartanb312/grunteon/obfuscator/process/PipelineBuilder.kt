@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap
 import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.util.LWWSP
+import net.spartanb312.grunteon.obfuscator.util.filters.FilterStrategy
 import org.objectweb.asm.tree.ClassNode
 
 class ScopeValueAccess(
@@ -302,5 +303,15 @@ internal class WorkerContext {
             }
             flushParallelTasks()
         }
+    }
+}
+
+context(_: PipelineBuilder)
+inline fun parForEachFiltered(
+    strategy: FilterStrategy,
+    crossinline action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
+) {
+    parForEach {
+        if (strategy.testClass(it)) action(it)
     }
 }

@@ -15,6 +15,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.coroutines.CoroutineContext
 
+@Suppress("ATOMIC_REF_WITHOUT_CONSISTENT_IDENTITY", "ATOMIC_REF_CALL_ARGUMENT_WITHOUT_CONSISTENT_IDENTITY")
 class LWWSP(val workerCount: Int, val threadConfigure: (Thread) -> Unit = {}) : CoroutineDispatcher() {
     private val workerCountMinus1 = workerCount - 1
 

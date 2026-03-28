@@ -43,7 +43,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
             Logger.info(" - EnumOptimize: Optimizing enums...")
         }
         val counter = reducibleScopeValue { FastCounter() }
-        parForEachFiltered(config) { classNode ->
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             if (!classNode.isEnum) return@parForEachFiltered
             val counter = counter.local
             val desc = "[L${classNode.name};"

@@ -11,10 +11,8 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.N
 import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
 import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
-import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.commons.ClassRemapper
@@ -129,17 +127,14 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
             val instance = contextOf<Grunteon>()
             Logger.info(" - ClassRenamer: Renaming classes...")
             Logger.info("    Generating mappings for classes...")
-            buildFilterPredicate(config)
+            val strategy = buildFilterStrategy(config)
             val dictionary = NameGenerator.getDictionary(config.dictionary)
             val nameGenerator = NameGenerator(dictionary)
             val classes =
                 if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
             classes.asSequence()
                 .filter { clazz ->
-                    val include = includePredicate.matchedAllBy(clazz.name)
-                    val exclude = excludePredicate.matchedAnyBy(clazz.name)
-                    val hardExclude = clazz.isExcluded
-                    include && !exclude && !hardExclude
+                    strategy.testClass(clazz)
                 }.forEach { clazz ->
                     if (clazz.methods.any { it.isMainMethod }) return@forEach
                     if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
@@ -152,7 +147,8 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
                 }
             Logger.info("    Applying mappings for classes...")
         }
-        instance.mappingManager.applyRemap(MappingManager.MappingType.Classes)
+        val strategy = buildFilterStrategy(config)
+        instance.mappingManager.applyRemap(strategy, MappingManager.MappingType.Classes)
         post {
             Logger.info(" - ClassRenamer:")
             Logger.info("    Renamed ${counter.global.get()} classes")
