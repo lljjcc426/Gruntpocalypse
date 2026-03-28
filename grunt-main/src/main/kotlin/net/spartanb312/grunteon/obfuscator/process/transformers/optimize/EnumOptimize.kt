@@ -4,9 +4,8 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.util.Counter
-import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.findMethod
 import net.spartanb312.grunteon.obfuscator.util.extensions.isEnum
@@ -35,14 +34,12 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
 
     class Config : TransformerConfig()
 
-    private val counter = Counter()
-
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
             Logger.info(" - EnumOptimize: Optimizing enums...")
         }
-        val counter = reducibleScopeValue { FastCounter() }
+        val counter = reducibleScopeValue { MergeableCounter() }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             if (!classNode.isEnum) return@parForEachFiltered
             val counter = counter.local

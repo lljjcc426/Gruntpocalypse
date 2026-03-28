@@ -8,9 +8,8 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.util.Counter
-import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.extensions.match
 import org.objectweb.asm.tree.MethodInsnNode
 
@@ -41,15 +40,12 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
         )
     }
 
-    private val counter = Counter()
-
-
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
             Logger.info(" - StringEqualsOptimize: Redirecting string equals calls...")
         }
-        val counter = reducibleScopeValue { FastCounter() }
+        val counter = reducibleScopeValue { MergeableCounter() }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             classNode.methods.forEach { methodNode ->
                 val counter = counter.local

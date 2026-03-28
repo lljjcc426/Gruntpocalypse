@@ -5,9 +5,8 @@ import net.spartanb312.grunteon.obfuscator.config.at
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.util.Counter
-import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.random
 import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
@@ -70,14 +69,12 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
         Replace("Replace"),
     }
 
-    private val counter = Counter()
-
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
             Logger.info(" - SourceDebugInfoHide: Removing/Editing debug information...")
         }
-        val counter = reducibleScopeValue { FastCounter() }
+        val counter = reducibleScopeValue { MergeableCounter() }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
             val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))

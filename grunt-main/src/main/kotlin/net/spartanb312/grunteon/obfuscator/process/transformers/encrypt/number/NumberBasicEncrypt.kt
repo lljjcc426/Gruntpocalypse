@@ -8,9 +8,8 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.config.whenTrue
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.util.Counter
-import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.collection.shuffle
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
@@ -143,7 +142,6 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         )
     }
 
-    private val counter = Counter()
     private lateinit var methodExPredicate: NamePredicates
 
     context(instance: Grunteon, _: PipelineBuilder)
@@ -153,7 +151,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
             // TODO: there is a better way to do this instead of lateinit var
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
-        val counter = reducibleScopeValue { FastCounter() }
+        val counter = reducibleScopeValue { MergeableCounter() }
         val shuffledListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local

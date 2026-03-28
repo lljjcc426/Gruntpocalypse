@@ -4,9 +4,8 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.util.Counter
-import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchInvoke
 import org.objectweb.asm.Opcodes
@@ -77,16 +76,13 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         )
     }
 
-    private val intrinsics = Counter()
-    private val metadata = Counter()
-
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
             Logger.info(" - KotlinClassShrink: Shrinking kotlin classes...")
         }
-        val intrinsics = reducibleScopeValue { FastCounter() }
-        val metadata = reducibleScopeValue { FastCounter() }
+        val intrinsics = reducibleScopeValue { MergeableCounter() }
+        val metadata = reducibleScopeValue { MergeableCounter() }
         val pendingReplaceCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             if (config.intrinsics) {

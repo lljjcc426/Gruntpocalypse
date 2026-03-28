@@ -6,9 +6,8 @@ import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
-import net.spartanb312.grunteon.obfuscator.util.Counter
-import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
@@ -61,7 +60,6 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
         )
     }
 
-    private val counter = Counter()
     private lateinit var methodExPredicate: NamePredicates
 
     context(instance: Grunteon, _: PipelineBuilder)
@@ -71,7 +69,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
             // TODO: there is a better way to do this instead of lateinit var
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
-        val counter = reducibleScopeValue { FastCounter() }
+        val counter = reducibleScopeValue { MergeableCounter() }
         val dictionary = globalScopeValue { NameGenerator.getDictionary(config.dictionary) }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
