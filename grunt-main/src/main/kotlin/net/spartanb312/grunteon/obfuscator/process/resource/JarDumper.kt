@@ -31,7 +31,7 @@ object JarDumper {
 
         Logger.info("Dumping jar to $outputFile")
         if (outputFile.exists()) Logger.warn("Existing output file will be overridden!")
-        outputFile.parent.createDirectories()
+        outputFile.absolute().parent.createDirectories()
         val outputStream = outputFile.outputStream()
         // Corrupt header
         if (config.corruptHeaders) {
@@ -121,6 +121,15 @@ object JarDumper {
                     }
 
                     Logger.info("Writing resources...")
+                    instance.workRes.inputResourceSet.root.walk()
+                        .filter { it.isDirectory() }
+                        .forEach {
+                            val zipEntry = ZipEntry(it.pathString.removePrefix("/") + "/")
+                            if (config.removeTimeStamps) zipEntry.time = 0
+                            zipOut.putNextEntry(zipEntry)
+                            zipOut.closeEntry()
+                        }
+
                     instance.workRes.inputResourceSet.root.walk()
                         .filter { !it.isDirectory() }
                         .filter { it.extension != "class" }

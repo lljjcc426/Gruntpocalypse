@@ -132,7 +132,8 @@ class Grunteon(
             contextOf<Grunteon>().pipeline.execute()
         }
 
-        JarDumper.dumpJar(Path("obftest/AT/engine/boar-main.jar"))
+        // TODO: make this optional
+        JarDumper.dumpJar(Path("output.jar"))
     }
 
     val mixinExPredicate = buildClassNamePredicates(configGroup.mixinExclusions)
