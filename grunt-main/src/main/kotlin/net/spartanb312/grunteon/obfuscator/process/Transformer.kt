@@ -96,5 +96,5 @@ abstract class Transformer<T : TransformerConfig>(
     }
 
     context(instance: Grunteon)
-    protected open fun PipelineBuilder.buildStageImpl(config: T) {}
+    protected abstract fun PipelineBuilder.buildStageImpl(config: T)
 }

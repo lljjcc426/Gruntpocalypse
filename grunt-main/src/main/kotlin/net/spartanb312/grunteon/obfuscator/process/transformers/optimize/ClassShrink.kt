@@ -8,6 +8,7 @@ import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import org.objectweb.asm.Opcodes
@@ -150,7 +151,18 @@ class ClassShrink : Transformer<ClassShrink.Config>(
 
     context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" - ClassShrink: Shrinking classes...")
+        }
+        val innerClasses = reducibleScopeValue { FastCounter() }
+        val unusedLabels = reducibleScopeValue { FastCounter() }
+        val nops = reducibleScopeValue { FastCounter() }
+        val methodSignatures = reducibleScopeValue { FastCounter() }
         parForEach { classNode ->
+            val innerClasses = innerClasses.local
+            val unusedLabels = unusedLabels.local
+            val nops = nops.local
+            val methodSignatures = methodSignatures.local
             if (config.innerClasses) {
                 classNode.outerClass = null
                 classNode.outerMethod = null
@@ -212,6 +224,12 @@ class ClassShrink : Transformer<ClassShrink.Config>(
                     }
                 }
             }
+        }
+        post {
+            if (config.innerClasses) Logger.info("    Removed ${innerClasses.global.get()} inner classes")
+            if (config.unusedLabels) Logger.info("    Removed ${unusedLabels.global.get()} unused labels")
+            if (config.nopRemove) Logger.info("    Removed ${nops.global.get()} NOP instructions")
+            if (config.methodSignatures) Logger.info("    Removed ${methodSignatures.global.get()} method signatures")
         }
     }
 }

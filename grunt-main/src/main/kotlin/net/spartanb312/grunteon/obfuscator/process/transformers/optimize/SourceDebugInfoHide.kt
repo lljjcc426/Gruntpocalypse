@@ -5,9 +5,11 @@ import net.spartanb312.grunteon.obfuscator.config.at
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.collection.random
 import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
@@ -104,4 +106,36 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
         }
     }
 
+    context(instance: Grunteon)
+    override fun PipelineBuilder.buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" - SourceDebugInfoHide: Removing/Editing debug information...")
+        }
+        val counter = reducibleScopeValue { FastCounter() }
+        parForEach { classNode ->
+            val counter = counter.local
+            val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))
+            if (config.sourceFiles != SourceFileAction.Off) {
+                if (config.sourceFiles == SourceFileAction.Replace) {
+                    classNode.sourceDebug = config.sourceNames.random(randomGen)
+                    classNode.sourceFile = config.sourceNames.random(randomGen)
+                } else {
+                    classNode.sourceDebug = null
+                    classNode.sourceFile = null
+                }
+                counter.add()
+            }
+            if (config.lineNumbers) classNode.methods.forEach { methodNode ->
+                methodNode.instructions.toListFast().forEach {
+                    if (it is LineNumberNode) {
+                        methodNode.instructions.remove(it)
+                        counter.add()
+                    }
+                }
+            }
+        }
+        post {
+            Logger.info("    Removed/Edited ${counter.global.get()} debug information")
+        }
+    }
 }

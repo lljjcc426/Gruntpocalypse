@@ -9,6 +9,7 @@ import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.util.FastCounter
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
 import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
@@ -152,6 +153,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
     context(instance: Grunteon)
     override fun PipelineBuilder.buildStageImpl(config: Config) {
         barrier()
+        val counter = globalScopeValue { FastCounter() }
         seq {
             val instance = contextOf<Grunteon>()
             Logger.info(" - ClassRenamer: Renaming classes...")
@@ -175,13 +177,13 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
                         clazz.name,
                         config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + nameGenerator.nextName()
                     )
-                    counter.add()
+                    counter.global.add()
                 }
             Logger.info("    Applying mappings for classes...")
         }
         instance.mappingManager.applyRemap(MappingManager.MappingType.Classes)
         post {
-            Logger.info("    Renamed ${counter.get()} classes")
+            Logger.info("    Renamed ${counter.global.get()} classes")
         }
     }
 }
