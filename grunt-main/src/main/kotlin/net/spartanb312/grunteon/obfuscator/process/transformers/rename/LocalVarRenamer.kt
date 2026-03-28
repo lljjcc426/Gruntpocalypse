@@ -4,7 +4,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.StageBuilder
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
@@ -99,8 +99,8 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
             }
     }
 
-    override fun StageBuilder.buildStage(config: Config) {
-        seq {
+    override fun PipelineBuilder.buildStageImpl(config: Config) {
+        pre {
             Logger.info(" - LocalVarRenamer: Transforming local variables...")
             // TODO: there is a better way to do this instead of lateinit var
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
@@ -127,7 +127,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
                     counter.add(method.localVariables?.size ?: 0)
                 }
         }
-        seq {
+        post {
             Logger.info("    Transformed ${counter.global.get()} local variables")
         }
     }

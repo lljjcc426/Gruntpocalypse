@@ -4,7 +4,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.StageBuilder
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
@@ -135,13 +135,13 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         }
     }
 
-    override fun StageBuilder.buildStage(config: Config) {
-        seq {
+    override fun PipelineBuilder.buildStageImpl(config: Config) {
+        pre {
             Logger.info(" - KotlinClassShrink: Shrinking kotlin classes...")
         }
         val intrinsics = reducibleScopeValue { FastCounter() }
         val metadata = reducibleScopeValue { FastCounter() }
-        parForEach { classNode ->
+        parForEachFiltered(config) { classNode ->
             if (config.intrinsics) {
                 val intrinsics = intrinsics.local
                 classNode.methods.forEach { methodNode ->
@@ -189,7 +189,7 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
                 classNode.invisibleAnnotations?.removeCheck()
             }
         }
-        seq {
+        post {
             if (config.metaData) Logger.info("    Removed ${metadata.global.get()} kotlin metadata")
             if (config.intrinsics) Logger.info("    Removed ${intrinsics.global.get()} kotlin intrinsics")
         }

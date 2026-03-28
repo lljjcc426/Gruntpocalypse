@@ -4,7 +4,6 @@ import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.MappingApplier
 import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
@@ -62,6 +61,7 @@ fun main(args: Array<String>) {
     // TODO: Plugin scan
     // TODO: Plugin initialize
 
+    val queue = ArrayDeque<Double>()
     repeat(100) {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
@@ -77,7 +77,14 @@ fun main(args: Array<String>) {
         )
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()
-        instance.execute()
+
+        measureTime {
+            instance.execute()
+        }.toDouble(DurationUnit.MILLISECONDS).also { time ->
+            while (queue.size >= 5) queue.poll()
+            queue.add(time)
+            println("Execution time: ${"%.2f".format(time)} ms (average: ${"%.2f".format(queue.average())} ms)")
+        }
     }
 }
 
@@ -126,14 +133,12 @@ class Grunteon(
 
     fun execute() {
         // TODO: Profiler
-        measureTime {
-            context(workRes) {
-                contextOf<Grunteon>().pipeline.execute()
-            }
-        }.also { println("%.2f ms".format(it.toDouble(DurationUnit.MILLISECONDS))) }
+        context(workRes) {
+            contextOf<Grunteon>().pipeline.execute()
+        }
 
         // TODO: make this optional
-        JarDumper.dumpJar(Path("output.jar"))
+//        JarDumper.dumpJar(Path("output.jar"))
     }
 
     val mixinExPredicate = buildClassNamePredicates(configGroup.mixinExclusions)

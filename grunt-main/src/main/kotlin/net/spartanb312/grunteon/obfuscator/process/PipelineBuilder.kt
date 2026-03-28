@@ -1,5 +1,6 @@
 package net.spartanb312.grunteon.obfuscator.process
 
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap
 import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
@@ -53,7 +54,10 @@ class ScopeValueGlobal(
 }
 
 sealed interface Instruction {
+    object Barrier : Instruction
     class Seq(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
+    class Pre(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
+    class Post(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
     class SeqForEach(val block: context(Grunteon, ScopeValueAccess)  (classNode: ClassNode) -> Unit) : Instruction
     class ParForEach(val block: context(Grunteon, ScopeValueAccess)  (classNode: ClassNode) -> Unit) : Instruction
 }
@@ -101,13 +105,25 @@ internal class ReducibleScopeValueKeyImpl<T : Mergeable<*>>(val init: context(Gr
         }
 }
 
-class StageBuilder {
+class PipelineBuilder {
     internal val instructions = mutableListOf<Instruction>()
     internal val globalScopeValueKeys = mutableListOf<GlobalScopeValueKeyImpl<*>>()
     internal val reducibleScopeValueKeys = mutableListOf<ReducibleScopeValueKeyImpl<*>>()
 
+    fun barrier() {
+        instructions += Instruction.Barrier
+    }
+
     fun seq(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
         instructions += Instruction.Seq(block)
+    }
+
+    fun pre(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
+        instructions += Instruction.Pre(block)
+    }
+
+    fun post(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
+        instructions += Instruction.Post(block)
     }
 
     fun seqForRach(block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit) {
@@ -139,63 +155,100 @@ internal class WorkerContext {
     val globalKeys = Reference2ObjectOpenHashMap<GlobalScopeValueKeyImpl<*>, Any>()
     val reducibleKeys = Reference2ObjectOpenHashMap<ReducibleScopeValueKeyImpl<*>, Mergeable<*>>()
 
-    fun execute(instance: Grunteon, stages: List<StageBuilder>) {
+    fun execute(instance: Grunteon, pipelineBuilder: PipelineBuilder) {
         runBlocking {
-            stages.forEach { stage ->
-                val global = Array(stage.globalScopeValueKeys.size) { index ->
-                    // WTF fastutil Reference2ObjectFunction is broken and doesn't give correctly typed parameter
-                    globalKeys.computeIfAbsent(stage.globalScopeValueKeys[index], java.util.function.Function {
+            val global = Array(pipelineBuilder.globalScopeValueKeys.size) { index ->
+                // WTF fastutil Reference2ObjectFunction is broken and doesn't give correctly typed parameter
+                globalKeys.computeIfAbsent(pipelineBuilder.globalScopeValueKeys[index], java.util.function.Function {
+                    it.init(instance)
+                })
+            }
+            val reducible = Array(pipelineBuilder.reducibleScopeValueKeys.size) { index ->
+                reducibleKeys.computeIfAbsent(
+                    pipelineBuilder.reducibleScopeValueKeys[index],
+                    java.util.function.Function {
                         it.init(instance)
                     })
+            }
+            val scopeValueGlobal = ScopeValueGlobal(global, reducible)
+
+            val preTasks = ObjectArrayList<Instruction.Pre>()
+            val pendingParallelTasks = ObjectArrayList<Instruction.ParForEach>()
+            val postTasks = ObjectArrayList<Instruction.Post>()
+
+            suspend fun flushParallelTasks() {
+                preTasks.forEach {
+                    val access = ScopeValueAccess(scopeValueGlobal)
+                    it.block.invoke(instance, access)
+                    scopeValueGlobal.mergeToGlobal(access)
                 }
-                val reducible = Array(stage.reducibleScopeValueKeys.size) { index ->
-                    reducibleKeys.computeIfAbsent(stage.reducibleScopeValueKeys[index], java.util.function.Function {
-                        it.init(instance)
-                    })
-                }
-                val scopeValueGlobal = ScopeValueGlobal(global, reducible)
-                stage.instructions.forEach { inst ->
-                    val access = when (inst) {
-                        is Instruction.Seq -> {
-                            ScopeValueAccess(scopeValueGlobal).apply {
-                                inst.block.invoke(instance, this)
-                            }
-                        }
-                        is Instruction.SeqForEach -> {
-                            ScopeValueAccess(scopeValueGlobal).apply {
-                                instance.workRes.inputClassCollection.forEach { classNode ->
-                                    inst.block.invoke(instance, this, classNode)
+                preTasks.clear()
+                if (!pendingParallelTasks.isEmpty) {
+                    val tasks = pendingParallelTasks.toTypedArray()
+                    pendingParallelTasks.clear()
+                    val classArray = instance.workRes.inputClassCollection.toTypedArray()
+                    val access = LWWSP.iterativeTask(
+                        size = classArray.size,
+                        batchSize = 128,
+                        newScope = { ScopeValueAccess(scopeValueGlobal) },
+                        action = { start, end ->
+                            for (i in start..<end) {
+                                val node = classArray[i]
+                                @Suppress("ReplaceManualRangeWithIndicesCalls")
+                                for (j in 0..<tasks.size) {
+                                    tasks[j].block.invoke(
+                                        instance,
+                                        this,
+                                        node
+                                    )
                                 }
                             }
                         }
-                        is Instruction.ParForEach -> {
-                            val sharedResources = ParForEachTask.SharedResources(
-                                instance,
-                                inst,
-                                instance.workRes.inputClassCollection.toTypedArray()
-                            )
-                            LWWSP.iterativeTask(
-                                size = sharedResources.classArray.size,
-                                batchSize = 128,
-                                newScope = { ScopeValueAccess(scopeValueGlobal) },
-                                action = { start, end ->
-                                    for (i in start until end) {
-                                        sharedResources.instruction.block.invoke(
-                                            instance,
-                                            this,
-                                            sharedResources.classArray[i]
-                                        )
-                                    }
-                                }
-                            ).submit(lwwsp).await().getOrThrow().reduce { a, b ->
-                                a.mergeToLocal(b)
-                                a
-                            }
-                        }
+                    ).submit(lwwsp).await().getOrThrow().reduce { a, b ->
+                        a.mergeToLocal(b)
+                        a
                     }
                     scopeValueGlobal.mergeToGlobal(access)
                 }
+                postTasks.forEach {
+                    val access = ScopeValueAccess(scopeValueGlobal)
+                    it.block.invoke(instance, access)
+                    scopeValueGlobal.mergeToGlobal(access)
+                }
+                postTasks.clear()
             }
+
+            pipelineBuilder.instructions.forEach { inst ->
+                when (inst) {
+                    is Instruction.Seq -> {
+                        flushParallelTasks()
+                        val access = ScopeValueAccess(scopeValueGlobal)
+                        inst.block.invoke(instance, access)
+                        scopeValueGlobal.mergeToGlobal(access)
+                    }
+                    is Instruction.SeqForEach -> {
+                        flushParallelTasks()
+                        val access = ScopeValueAccess(scopeValueGlobal)
+                        instance.workRes.inputClassCollection.forEach { classNode ->
+                            inst.block.invoke(instance, access, classNode)
+                        }
+                        scopeValueGlobal.mergeToGlobal(access)
+                    }
+                    is Instruction.ParForEach -> {
+                        pendingParallelTasks.add(inst)
+                    }
+                    is Instruction.Pre -> {
+                        preTasks.add(inst)
+                    }
+                    is Instruction.Post -> {
+                        postTasks.add(inst)
+                    }
+                    is Instruction.Barrier -> {
+                        flushParallelTasks()
+                    }
+                }
+            }
+            flushParallelTasks()
         }
     }
 

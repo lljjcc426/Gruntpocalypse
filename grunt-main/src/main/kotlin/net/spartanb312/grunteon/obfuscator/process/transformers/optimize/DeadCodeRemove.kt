@@ -4,7 +4,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.StageBuilder
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
@@ -110,8 +110,8 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
             }
     }
 
-    override fun StageBuilder.buildStage(config: Config) {
-        seq {
+    override fun PipelineBuilder.buildStageImpl(config: Config) {
+        pre {
             Logger.info(" - DeadCodeRemove: Removing dead codes...")
         }
         val counter = reducibleScopeValue { FastCounter() }
@@ -159,7 +159,7 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
                     }
                 }
         }
-        seq {
+        post {
             Logger.info("    Removed ${counter.global.get()} dead codes")
         }
     }

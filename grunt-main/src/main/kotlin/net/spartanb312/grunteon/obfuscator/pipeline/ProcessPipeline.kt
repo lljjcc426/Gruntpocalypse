@@ -2,6 +2,7 @@ package net.spartanb312.grunteon.obfuscator.pipeline
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.process.WorkerContext
@@ -45,11 +46,12 @@ class ProcessPipeline(
                 transformer.execute(instance, config)
             }
         } else {
-            val stages = transformer2Config.map { (transformer, config) ->
-                transformer.buildStage(config)
+            val pipelineBuilder = PipelineBuilder()
+            transformer2Config.forEach { (transformer, config) ->
+                transformer.buildStageImpl(pipelineBuilder, config)
             }
             val workerContext = WorkerContext()
-            workerContext.execute(instance, stages)
+            workerContext.execute(instance, pipelineBuilder)
         }
     }
 

@@ -55,7 +55,7 @@ abstract class Transformer<T : TransformerConfig>(
         return include && !exclude && !hardExclude
     }
 
-    protected inline fun StageBuilder.parForEachFiltered(
+    protected inline fun PipelineBuilder.parForEachFiltered(
         config: T,
         crossinline action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
     ) {
@@ -89,12 +89,10 @@ abstract class Transformer<T : TransformerConfig>(
     ) {
     }
 
-    fun buildStage(config: TransformerConfig): StageBuilder {
-        val stageBuilder = StageBuilder()
+    internal fun buildStageImpl(pipelineBuilder: PipelineBuilder, config: TransformerConfig) {
         @Suppress("UNCHECKED_CAST")
-        stageBuilder.buildStage(config as T)
-        return stageBuilder
+        pipelineBuilder.buildStageImpl(config as T)
     }
 
-    protected open fun StageBuilder.buildStage(config: T) {}
+    protected open fun PipelineBuilder.buildStageImpl(config: T) {}
 }

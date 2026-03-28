@@ -4,7 +4,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.StageBuilder
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
@@ -112,7 +112,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         Logger.info("    Renamed ${counter.get()} classes")
     }
 
-    override fun StageBuilder.buildStage(config: Config) {
+    override fun PipelineBuilder.buildStageImpl(config: Config) {
         seq {
             val instance = contextOf<Grunteon>()
             Logger.info(" - ClassRenamer: Renaming classes...")

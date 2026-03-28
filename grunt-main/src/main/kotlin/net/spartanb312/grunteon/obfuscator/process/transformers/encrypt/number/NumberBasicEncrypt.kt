@@ -8,7 +8,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.config.whenTrue
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.StageBuilder
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
@@ -238,8 +238,8 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
             }
     }
 
-    override fun StageBuilder.buildStage(config: Config) {
-        seq {
+    override fun PipelineBuilder.buildStageImpl(config: Config) {
+        pre {
             Logger.info(" - NumberBasicEncrypt: Encrypting numbers...")
             // TODO: there is a better way to do this instead of lateinit var
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
@@ -329,7 +329,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                         }
                 }
         }
-        seq {
+        post {
             Logger.info("    Encrypted ${counter.global.get()} numbers")
         }
     }

@@ -4,7 +4,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.StageBuilder
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.util.Counter
@@ -70,8 +70,8 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
         }
     }
 
-    override fun StageBuilder.buildStage(config: Config) {
-        seq {
+    override fun PipelineBuilder.buildStageImpl(config: Config) {
+        pre {
             Logger.info(" - EnumOptimize: Optimizing enums...")
         }
         val counter = reducibleScopeValue { FastCounter() }
@@ -96,7 +96,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
                 }
             }
         }
-        seq {
+        post {
             Logger.info("    Optimized ${counter.global.get()} enums")
         }
     }
