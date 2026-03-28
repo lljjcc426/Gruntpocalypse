@@ -135,6 +135,7 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
             }
         }
         post {
+            Logger.info(" - SourceDebugInfoHide:")
             Logger.info("    Removed/Edited ${counter.global.get()} debug information")
         }
     }

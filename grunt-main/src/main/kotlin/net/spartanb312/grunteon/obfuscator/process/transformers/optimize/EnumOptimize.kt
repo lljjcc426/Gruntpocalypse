@@ -98,6 +98,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
             }
         }
         post {
+            Logger.info(" - EnumOptimize:")
             Logger.info("    Optimized ${counter.global.get()} enums")
         }
     }

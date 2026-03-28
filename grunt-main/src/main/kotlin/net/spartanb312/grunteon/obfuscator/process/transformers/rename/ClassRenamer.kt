@@ -183,6 +183,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         }
         instance.mappingManager.applyRemap(MappingManager.MappingType.Classes)
         post {
+            Logger.info(" - ClassRenamer:")
             Logger.info("    Renamed ${counter.global.get()} classes")
         }
     }

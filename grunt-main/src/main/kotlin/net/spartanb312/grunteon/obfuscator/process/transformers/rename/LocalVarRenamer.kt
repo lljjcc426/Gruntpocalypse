@@ -131,6 +131,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
                 }
         }
         post {
+            Logger.info(" - LocalVarRenamer:")
             Logger.info("    Transformed ${counter.global.get()} local variables")
         }
     }

@@ -165,6 +165,7 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
                 }
         }
         post {
+            Logger.info(" - DeadCodeRemove:")
             Logger.info("    Removed ${counter.global.get()} dead codes")
         }
     }

@@ -333,6 +333,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                 }
         }
         post {
+            Logger.info(" - NumberBasicEncrypt:")
             Logger.info("    Encrypted ${counter.global.get()} numbers")
         }
     }

@@ -226,6 +226,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
             }
         }
         post {
+            Logger.info(" - ClassShrink:")
             if (config.innerClasses) Logger.info("    Removed ${innerClasses.global.get()} inner classes")
             if (config.unusedLabels) Logger.info("    Removed ${unusedLabels.global.get()} unused labels")
             if (config.nopRemove) Logger.info("    Removed ${nops.global.get()} NOP instructions")

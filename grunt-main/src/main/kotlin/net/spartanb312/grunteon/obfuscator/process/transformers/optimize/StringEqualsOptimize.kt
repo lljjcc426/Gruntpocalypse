@@ -155,6 +155,7 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
             }
         }
         post {
+            Logger.info(" - StringEqualsOptimize:")
             Logger.info("    Redirected ${counter.global.get()} string equals calls")
         }
     }

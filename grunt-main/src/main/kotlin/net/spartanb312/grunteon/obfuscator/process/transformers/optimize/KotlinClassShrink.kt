@@ -196,6 +196,7 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
             }
         }
         post {
+            Logger.info(" - KotlinClassShrink:")
             if (config.metaData) Logger.info("    Removed ${metadata.global.get()} kotlin metadata")
             if (config.intrinsics) Logger.info("    Removed ${intrinsics.global.get()} kotlin intrinsics")
         }
