@@ -7,10 +7,7 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
 
-sealed class NameGenerator(val name: String) {
-
-    abstract val elements: List<String>
-    private val size get() = elements.size
+class NameGenerator(private val dictionary: Dictionary) {
     private val index = AtomicInteger(0/*dictionaryStartIndex*/)
     private val methodOverloads = hashMapOf<String, MutableList<String>>() // Name Descs
 
@@ -19,12 +16,12 @@ sealed class NameGenerator(val name: String) {
 
     fun nextName(): String {
         var index = index.getAndIncrement()
-        return if (index == 0) elements[0]
+        return if (index == 0) dictionary.elements[0]
         else {
             val charArray = mutableListOf<String>()
             while (true) {
-                charArray.add(elements[index % size])
-                index /= size
+                charArray.add(dictionary.elements[index % dictionary.elements.size])
+                index /= dictionary.elements.size
                 if (index == 0) break
                 index -= 1
             }
@@ -52,63 +49,79 @@ sealed class NameGenerator(val name: String) {
         }
     }
 
-    class Alphabet : NameGenerator("Alphabet") {
-        override val elements = (('a'..'z') + ('A'..'Z')).map { it.toString() }
-    }
-
-    class Numbers : NameGenerator("Numbers") {
-        override val elements = ('0'..'9').map { it.toString() }
-    }
-
-    class ConfuseIL : NameGenerator("ConfuseIL") {
-        override val elements = listOf("I", "i", "l", "1")
-    }
-
-    class Confuse0O : NameGenerator("Confuse0O") {
-        override val elements = listOf("O", "o", "0")
-    }
-
-    class ConfuseS5 : NameGenerator("ConfuseS5") {
-        override val elements = listOf("S", "s", "5", "$")
-    }
-
-    class Arabic : NameGenerator("Arabic") {
-        override val elements = ('\u0600'..'\u06ff').asSequence().map { it.toString() }.toList()
-    }
-
-    class CustomIncr(instance: Grunteon) : NameGenerator("CustomIncr") {
-        override val elements = instance.configGroup.customIncrementalDictionary
-    }
-
-    class Custom(instance: Grunteon) : NameGenerator("Custom") {
-        override val elements: List<String> = run {
-            val file = File(instance.configGroup.customDictionary)
-            if (!file.exists()) {
-                // Dictionary file does not exist, use default dictionary
-                Logger.error("Could not find custom dictionary ${file.name}")
-                Logger.error("Using default fallback dictionary!")
-                return@run Alphabet().elements
-            }
-            Files.readAllLines(file.toPath())
-        }
-    }
-
     companion object {
         context(instance: Grunteon)
-        fun getDictionary(dictionary: Dictionary): NameGenerator =
+        private fun alphabet() = Dictionary(
+            "Alphabet",
+            (('a'..'z') + ('A'..'Z')).map { it.toString() }
+        )
+
+        context(instance: Grunteon)
+        private fun numbers() = Dictionary(
+            "Numbers",
+            ('0'..'9').map { it.toString() }
+        )
+
+        context(instance: Grunteon)
+        private fun confuseIL() = Dictionary(
+            "ConfuseIL",
+            listOf("I", "i", "l", "1")
+        )
+
+        context(instance: Grunteon)
+        private fun confuse0O() = Dictionary(
+            "Confuse0O",
+            listOf("O", "o", "0")
+        )
+
+        context(instance: Grunteon)
+        private fun confuseS5() = Dictionary(
+            "ConfuseS5",
+            listOf("S", "s", "5", "$")
+        )
+
+        context(instance: Grunteon)
+        private fun arabic() = Dictionary(
+            "Arabic",
+            ('\u0600'..'\u06ff').asSequence().map { it.toString() }.toList()
+        )
+
+        context(instance: Grunteon)
+        private fun customIncr() = Dictionary(
+            "CustomIncrementable",
+            instance.configGroup.customIncrementalDictionary
+        )
+
+        context(instance: Grunteon)
+        private fun custom() = Dictionary(
+            "Custom",
+            run {
+                val file = File(instance.configGroup.customDictionary)
+                if (!file.exists()) {
+                    // Dictionary file does not exist, use default dictionary
+                    Logger.error("Could not find custom dictionary ${file.name}")
+                    Logger.error("Using default fallback dictionary!")
+                    return@run alphabet().elements
+                }
+                Files.readAllLines(file.toPath())
+            }
+        )
+
+        context(instance: Grunteon)
+        fun getDictionary(dictionary: DictionaryType): Dictionary =
             when (dictionary) {
-                Dictionary.Alphabet -> Alphabet()
-                Dictionary.Numbers -> Numbers()
-                Dictionary.ConfuseIL -> ConfuseIL()
-                Dictionary.Confuse0O -> Confuse0O()
-                Dictionary.ConfuseS5 -> ConfuseS5()
-                Dictionary.Arabic -> Arabic()
-                Dictionary.CustomIncrementable -> CustomIncr(instance)
-                Dictionary.CustomDictionary -> Custom(instance)
+                DictionaryType.Alphabet -> alphabet()
+                DictionaryType.Numbers -> numbers()
+                DictionaryType.ConfuseIL -> confuseIL()
+                DictionaryType.Confuse0O -> confuse0O()
+                DictionaryType.ConfuseS5 -> confuseS5()
+                DictionaryType.Arabic -> arabic()
+                DictionaryType.CustomIncrementable -> customIncr()
+                DictionaryType.CustomDictionary -> custom()
             }
     }
 
-    enum class Dictionary(override val displayName: CharSequence) : DisplayEnum {
+    enum class DictionaryType(override val displayName: CharSequence) : DisplayEnum {
         Alphabet("Alphabet"),
         Numbers("Numbers"),
         ConfuseIL("ConfuseIL"),
@@ -119,4 +132,5 @@ sealed class NameGenerator(val name: String) {
         CustomDictionary("CustomDictionary")
     }
 
+    class Dictionary(val name: String, val elements: List<String>)
 }

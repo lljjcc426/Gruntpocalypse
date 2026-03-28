@@ -35,7 +35,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     class Config : TransformerConfig() {
         val dictionary by setting(
             name = enText("process.rename.local_var_renamer.dictionary", "Dictionary"),
-            value = NameGenerator.Dictionary.Alphabet,
+            value = NameGenerator.DictionaryType.Alphabet,
             desc = enText("process.rename.local_var_renamer.dictionary.desc", "Dictionary for renamer")
         )
         val prefix by setting(
@@ -76,6 +76,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
 
     context(instance: Grunteon)
     override fun transformClass(classNode: ClassNode, config: Config) {
+        val dictionary = NameGenerator.getDictionary(config.dictionary)
         classNode.methods.asSequence()
             .filter { !it.isAbstract && !it.isNative }
             .forEach { method ->
@@ -90,8 +91,8 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
                     counter.add(locals + params)
                     return@forEach
                 }
-                val dictionary = NameGenerator.getDictionary(config.dictionary)
-                method.localVariables?.forEach { it.name = "${config.prefix}${dictionary.nextName()}" }
+                val nameGenerator = NameGenerator(dictionary)
+                method.localVariables?.forEach { it.name = "${config.prefix}${nameGenerator.nextName()}" }
                 counter.add(method.localVariables?.size ?: 0)
             }
     }

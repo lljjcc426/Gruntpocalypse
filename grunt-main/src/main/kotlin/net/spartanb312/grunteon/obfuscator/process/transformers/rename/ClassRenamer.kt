@@ -32,7 +32,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
     class Config : TransformerConfig() {
         val dictionary by setting(
             name = enText("process.rename.class_renamer.dictionary", "Dictionary"),
-            value = NameGenerator.Dictionary.Alphabet,
+            value = NameGenerator.DictionaryType.Alphabet,
             desc = enText("process.rename.class_renamer.dictionary.desc", "Dictionary for renamer")
         )
         val parent by setting(
@@ -81,7 +81,6 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         val reversePrefix get() = if (reversed) "\u202E" else ""
     }
 
-    lateinit var dictionary: NameGenerator
     private val counter = Counter()
 
     context(instance: Grunteon)
@@ -89,7 +88,8 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         Logger.info(" - ClassRenamer: Renaming classes...")
         Logger.info("    Generating mappings for classes...")
         buildFilterPredicate(config)
-        dictionary = NameGenerator.getDictionary(config.dictionary)
+        val dictionary = NameGenerator.getDictionary(config.dictionary)
+        val nameGenerator = NameGenerator(dictionary)
         val mappings = mutableMapOf<String, String>()
         val classes =
             if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
@@ -103,7 +103,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
                 if (clazz.methods.any { it.isMainMethod }) return@forEach
                 if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
                 mappings[clazz.name] =
-                    config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + dictionary.nextName()
+                    config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + nameGenerator.nextName()
                 counter.add()
             }
         Logger.info("    Applying mappings for classes...")
