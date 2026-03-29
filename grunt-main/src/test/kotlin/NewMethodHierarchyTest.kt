@@ -6,7 +6,6 @@ import net.spartanb312.grunteon.obfuscator.process.hierarchy.HeavyHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy.Hierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodNodeKey
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -67,70 +66,60 @@ class NewMethodHierarchyTest {
         old: Hierarchy,
         new: MethodHierarchy
     ) {
-        new.sourceMethodConnectedComponents.forEach {
-            assertEquals(it.distinct().size, it.size, "Connected component contains duplicate method trees")
-        }
+        context(new) {
+            new.sourceMethodConnectedComponents.forEach {
+                assertEquals(it.indices.distinct().size, it.size, "Connected component contains duplicate method trees")
+            }
 
-        old.instance.workRes.inputClassCollection.forEach { node ->
-            val classInfo = old.classInfos[node.name]!!
-            val classIdx = new.classHierarchy.classNameLookUp.getInt(classInfo.name)
-            classInfo.methods.forEach { methodInfo ->
-                if (methodInfo.virtual) return@forEach
-                if (methodInfo.methodNode.isInitializer) return@forEach
-                val key = MethodNodeKey(methodInfo.name, methodInfo.desc)
-                val methodIdx = new.classNodeMethodLookup[classIdx].getInt(key)
-                assertEquals(
-                    methodInfo.isSourceMethod,
-                    new.isSourceMethod[methodIdx],
-                    "Source method flag mismatch for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
-                )
-
-                if (!methodInfo.isSourceMethod) {
+            old.instance.workRes.inputClassCollection.forEach { node ->
+                val classInfo = old.classInfos[node.name]!!
+                val classIdx = new.classHierarchy.classNameLookUp.getInt(classInfo.name)
+                classInfo.methods.forEach { methodInfo ->
+                    if (methodInfo.virtual) return@forEach
+                    if (methodInfo.methodNode.isInitializer) return@forEach
+                    val methodEntry = new.findMethod(classIdx, methodInfo.name, methodInfo.desc)
                     assertTrue(
-                        methodInfo.competitors.isEmpty(),
-                        "WTF old hierarchy is broken, competitors should be empty since ${methodInfo.full} is not a source method"
+                        methodEntry.isValid,
+                        "Method ${classInfo.name}.${methodInfo.name}${methodInfo.desc} not found in new hierarchy"
                     )
-                    assertTrue(
-                        methodInfo.relatedMethods.isEmpty(),
-                        "WTF old hierarchy is broken, relatedMethods should be empty since ${methodInfo.full} is not a source method"
+                    assertEquals(
+                        methodInfo.isSourceMethod,
+                        methodEntry.isSourceMethod,
+                        "Source method flag mismatch for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
                     )
-                    return@forEach
-                }
-                val methodTreeIdx = new.sourceMethodToMethodTreeIdxLookup[methodIdx]
-                assert(methodTreeIdx != -1) { "Method ${classInfo.name}.${methodInfo.name}${methodInfo.desc} is not a method tree root" }
 
-                // Note: Old hierarchy analysis is not very stable with competitors and it is only a intermediate
-                // result. So we skip this and compare related methods instead.
-                //
-                // val newCompetitors = new.methodTreeAdjList[methodTreeIdx].stream().asSequence()
-                //     .map {
-                //         val methodIdx = new.methodTreeRoots[it]
-                //         val methodOwner = new.classHierarchy.classNodes[new.methodOwners[methodIdx]]
-                //         val methodNode = new.methodNodes[methodIdx]
-                //         "${methodOwner.name}.${methodNode.name}${methodNode.desc}"
-                //     }.toSet()
-                // assertEquals(
-                //     methodInfo.competitors.map { it.full }.toSet(),
-                //     newCompetitors,
-                //     "Competitors mismatch for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
-                // )
+                    if (!methodInfo.isSourceMethod) {
+                        assertTrue(
+                            methodInfo.competitors.isEmpty(),
+                            "WTF old hierarchy is broken, competitors should be empty since ${methodInfo.full} is not a source method"
+                        )
+                        assertTrue(
+                            methodInfo.relatedMethods.isEmpty(),
+                            "WTF old hierarchy is broken, relatedMethods should be empty since ${methodInfo.full} is not a source method"
+                        )
+                        return@forEach
+                    }
 
-                var newRelated =
-                    new.sourceMethodConnectedComponents[new.methodTreeToConnectedComponent[methodTreeIdx]].asSequence()
-                        .map { treeIdx ->
-                            val methodIdx = new.methodTreeRoots[treeIdx]
-                            val methodOwner = new.classHierarchy.classNodes[new.methodOwners[methodIdx]]
-                            val methodNode = new.methodNodes[methodIdx]
-                            "${methodOwner.name}.${methodNode.name}${methodNode.desc}"
-                        }.toSet()
-                if (newRelated.size == 1) {
-                    newRelated = emptySet()
+                    val newRelatedList = methodEntry.connectedComponent.indices.map { methodIdx ->
+                        val methodOwner = new.classHierarchy.classNodes[new.methodOwners[methodIdx]]
+                        val methodNode = new.methodNodes[methodIdx]
+                        "${methodOwner.name}.${methodNode.name}${methodNode.desc}"
+                    }
+                    var newRelated = newRelatedList.toSet()
+                    assertEquals(
+                        newRelatedList.size,
+                        newRelated.size,
+                        "Related methods contain duplicate entries for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
+                    )
+                    if (newRelated.size == 1) {
+                        newRelated = emptySet()
+                    }
+                    assertEquals(
+                        methodInfo.relatedMethods.map { it.full }.toSet(),
+                        newRelated,
+                        "Related methods mismatch for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
+                    )
                 }
-                assertEquals(
-                    methodInfo.relatedMethods.map { it.full }.toSet(),
-                    newRelated,
-                    "Related methods mismatch for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
-                )
             }
         }
     }

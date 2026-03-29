@@ -66,19 +66,21 @@ class NewFieldHierarchyTest {
         old: Hierarchy,
         new: FieldHierarchy
     ) {
-        old.instance.workRes.inputClassCollection.forEach { node ->
-            val classInfo = old.classInfos[node.name]!!
-            val classIdx = new.classHierarchy.classNameLookUp.getInt(classInfo.name)
-            classInfo.fields.forEach { fieldInfo ->
-                val fieldName = fieldInfo.name
-                val fieldDesc = fieldInfo.fieldNode.desc
-                val fieldIdx = new.findField(classIdx, fieldName, fieldDesc)
-                assertTrue(fieldIdx != -1, "Field not found for ${classInfo.name}.$fieldName$fieldDesc")
-                assertEquals(
-                    fieldInfo.isSourceField,
-                    new.isSourceField(fieldIdx),
-                    "Source method flag mismatch for ${classInfo.name}.$fieldName$fieldDesc"
-                )
+        context(new) {
+            old.instance.workRes.inputClassCollection.forEach { node ->
+                val classInfo = old.classInfos[node.name]!!
+                val classIdx = new.classHierarchy.classNameLookUp.getInt(classInfo.name)
+                classInfo.fields.forEach { fieldInfo ->
+                    val fieldName = fieldInfo.name
+                    val fieldDesc = fieldInfo.fieldNode.desc
+                    val fieldEntry = new.findField(classIdx, fieldName, fieldDesc)
+                    assertTrue(fieldEntry.isValid, "Field not found for ${classInfo.name}.$fieldName$fieldDesc")
+                    assertEquals(
+                        fieldInfo.isSourceField,
+                        fieldEntry.isSourceField,
+                        "Source method flag mismatch for ${classInfo.name}.$fieldName$fieldDesc"
+                    )
+                }
             }
         }
     }
