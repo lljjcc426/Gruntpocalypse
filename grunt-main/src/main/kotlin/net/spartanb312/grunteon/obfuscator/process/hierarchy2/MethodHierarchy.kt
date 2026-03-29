@@ -35,71 +35,98 @@ class MethodHierarchy(
      */
     val methodOwners: IntArray,
     /**
+     * Class node methods, indexed by class index, returns internal method indices of the class's methods
+     */
+    val classNodeMethods: Array<IntArray>,
+    /**
      * Lookup for methods in a class, indexed by class index, then by method key, returns internal method index
      */
     val classNodeMethodLookup: Array<Object2IntOpenHashMap<MethodNodeKey>>,
+    /**
+     * Lookup for source methods of a method, indexed by method index, returns source methods' internal indices
+     */
+    val methodToSource: Array<EntryArray>,
     /**
      * Whether a method is a source method, indexed by internal method index
      *
      * A source method is a method that is either private or has no parent method (not inherited from any parent class).
      * Each source method is the root of a method tree.
      */
-    val sourceMethod: BooleanArray,
+    val isSourceMethod: BooleanArray,
     /**
-     * All method tree roots (aka. source methods), indexed by method tree index, returns internal method index
+     * All source method indices, indexed by method index, returns source method index
      */
-    val methodTreeRoots: IntArray,
+    val sourceMethodIndexLookUp: Int2IntMap,
     /**
-     * Lookup for source method to method tree index, indexed by internal method index, returns method tree index
+     * All source methods (aka. method tree roots), indexed by source method index, returns internal method index
      */
-    val sourceMethodToMethodTreeIdxLookup: Int2IntOpenHashMap,
+    val sourceMethods: EntryArray,
     /**
-     * Adjacency list for method tree graph, indexed by method tree index, returns adjacent method tree indices
-     */
-    val methodTreeAdjList: Array<IntArray>,
-    /**
-     * Connected component index for each method tree, indexed by method tree index
-     */
-    val methodTreeToConnectedComponent: IntArray,
-    /**
-     * Method tree indices for each connected component, indexed by connected component index,
+     * Method tree indices for each connected component, indexed by source method index,
      * returns indices of method trees in the connected component
      */
-    val treeCCToTreeIdx: Array<IntArray>
+    val sourceMethodConnectedComponents: Array<EntryArray>
 ) {
-    fun findMethod(className: String, methodName: String, methodDesc: String): Int {
+    /**
+     * Validate entry using .isValid before using the returned entry
+     */
+    fun findMethod(className: String, methodName: String, methodDesc: String): Entry {
         val classIdx = classHierarchy.findClass(className)
-        if (classIdx == -1) return -1
+        if (classIdx == -1) return Entry(-1)
         return findMethod(classIdx, methodName, methodDesc)
     }
 
-    fun findMethod(classIdx: Int, methodName: String, methodDesc: String): Int {
+    /**
+     * Validate entry using .isValid before using the returned entry
+     */
+    fun findMethod(classIdx: Int, methodName: String, methodDesc: String): Entry {
         val methodLookup = classNodeMethodLookup[classIdx]
         val methodKey = MethodNodeKey(methodName, methodDesc)
-        return methodLookup.getInt(methodKey)
+        return Entry(methodLookup.getInt(methodKey))
     }
 
-    /**
-     * Check if a method is a source method, indexed by internal method index
-     *
-     * A source method is a method that is either private or has no parent method (not inherited from any parent class).
-     */
-    fun isSourceMethod(methodIdx: Int): Boolean {
-        return sourceMethod[methodIdx]
+    @JvmInline
+    value class EntryArray(val indices: IntArray) {
+        val size get() = indices.size
+
+        operator fun get(index: Int): Entry {
+            return Entry(indices[index])
+        }
+
+        inline fun forEach(action: (Entry) -> Unit) {
+            for (i in indices.indices) {
+                action(Entry(indices[i]))
+            }
+        }
+
+        companion object {
+            val EMPTY = EntryArray(IntArray(0))
+        }
     }
 
-    /**
-     * Get a source method's method tree connected component, indexed by internal method index
-     *
-     * Returns internal method indices of all methods in the same connected component as the source method
-     * Connected components are source methods that their owner class have common descendents
-     */
-    fun getSourceMethodTreeCCs(methodIdx: Int): IntArray? {
-        val methodTreeIdx = sourceMethodToMethodTreeIdxLookup.get(methodIdx)
-        if (methodTreeIdx == -1) return null
-        val ccIdx = methodTreeToConnectedComponent[methodTreeIdx]
-        if (ccIdx == -1) return null
-        return treeCCToTreeIdx[ccIdx]
+    @JvmInline
+    value class Entry(val index: Int) {
+        val isValid: Boolean get() = index != -1
+
+        context(mh: MethodHierarchy)
+        val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(mh.methodOwners[index])
+
+        context(mh: MethodHierarchy)
+        val node: MethodNode get() = mh.methodNodes[index]
+
+        context(mh: MethodHierarchy)
+        val isSourceMethod: Boolean get() = mh.isSourceMethod[index]
+
+        context(mh: MethodHierarchy)
+        val connectedComponent: EntryArray
+            get() {
+                val sourceMethodIdx = mh.sourceMethodIndexLookUp.get(index)
+                if (sourceMethodIdx == -1) return EntryArray.EMPTY
+                return mh.sourceMethodConnectedComponents[sourceMethodIdx]
+            }
+
+        context(mh: MethodHierarchy)
+        val sourceMethods: EntryArray get() = mh.methodToSource[index]
     }
 
     companion object {
@@ -264,17 +291,45 @@ class MethodHierarchy(
 
             buildMethodTreeGraphConnectedComponents()
 
+            val sourceMethodConnectedComponents = Array(methodTreeRoots.size) { idx ->
+                val treeIdx = idx
+                val connectedComponentIdx = methodTreeToConnectedComponent[treeIdx]
+                val methodTreeIndices = treeGraphConnectedComponents[connectedComponentIdx]
+                val methodIndices = IntArray(methodTreeIndices.size)
+                for (i in methodTreeIndices.indices) {
+                    val methodTreeIdx = methodTreeIndices.getInt(i)
+                    methodIndices[i] = methodTreeRoots.getInt(methodTreeIdx)
+                }
+                EntryArray(methodIndices)
+            }
+
+            val methodToSourceMethod = Array(methodCount) {
+                val list = IntArrayList()
+                val methodCode = methodCode[it]
+                val ownerIdx = methodOwner.getInt(it)
+                val methodTreeIndices = methodToMethodTree[ownerIdx][methodCode]
+                if (methodTreeIndices != null) {
+                    val iterator = methodTreeIndices.intIterator()
+                    while (iterator.hasNext()) {
+                        val methodTreeIdx = iterator.nextInt()
+                        val sourceMethodIdx = methodTreeRoots.getInt(methodTreeIdx)
+                        list.add(sourceMethodIdx)
+                    }
+                }
+                EntryArray(list.toIntArray())
+            }
+
             return MethodHierarchy(
                 classHierarchy,
                 methodNodes.toTypedArray(),
                 methodOwner.toIntArray(),
+                Array(classHierarchy.realClassCount) { classToMethod[it].toIntArray() },
                 classMethodNodeLookup,
+                methodToSourceMethod,
                 isSourceMethod,
-                methodTreeRoots.toIntArray(),
                 sourceMethodToMethodTreeIdxLookup,
-                Array(methodTreeAdjList.size) { methodTreeAdjList[it].toIntArray() },
-                methodTreeToConnectedComponent,
-                Array(treeGraphConnectedComponents.size) { treeGraphConnectedComponents[it].toIntArray() }
+                EntryArray(methodTreeRoots.toIntArray()),
+                sourceMethodConnectedComponents
             )
         }
     }

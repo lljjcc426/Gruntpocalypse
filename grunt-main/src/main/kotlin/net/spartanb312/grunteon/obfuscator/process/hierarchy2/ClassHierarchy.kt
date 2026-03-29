@@ -171,6 +171,41 @@ class ClassHierarchy(
         return missingReference
     }
 
+
+    @JvmInline
+    value class Entry(val index: Int) {
+        context(ch: ClassHierarchy)
+        val classNode get() = ch.classNodes[index]
+
+        context(ch: ClassHierarchy)
+        val name get() = ch.classNames[index]
+
+        context(ch: ClassHierarchy)
+        val parents get() = ch.parents[index]
+
+        context(ch: ClassHierarchy)
+        val children get() = ch.children[index]
+
+        context(ch: ClassHierarchy)
+        val ancestors get() = ch.ancestors[index]
+
+        context(ch: ClassHierarchy)
+        val descendants get() = ch.descendants[index]
+
+        context(ch: ClassHierarchy)
+        val isBroken get() = ch.broken[index]
+
+        context(ch: ClassHierarchy)
+        val hasMissingDependency get() = ch.missingDependencies[index]
+
+        context(fh: FieldHierarchy)
+        val fields: FieldHierarchy.EntryArray get() = FieldHierarchy.EntryArray(fh.classNodeFields[index])
+
+        context(mh: MethodHierarchy)
+        val methods: MethodHierarchy.EntryArray get() = MethodHierarchy.EntryArray(mh.classNodeMethods[index])
+    }
+
+
     companion object {
         const val JAVA_OBJECT = "java/lang/Object"
         val MISSING_CLASSNODE = ClassNode()

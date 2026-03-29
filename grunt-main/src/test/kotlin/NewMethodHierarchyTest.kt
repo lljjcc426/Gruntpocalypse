@@ -67,7 +67,7 @@ class NewMethodHierarchyTest {
         old: Hierarchy,
         new: MethodHierarchy
     ) {
-        new.treeCCToTreeIdx.forEach {
+        new.sourceMethodConnectedComponents.forEach {
             assertEquals(it.distinct().size, it.size, "Connected component contains duplicate method trees")
         }
 
@@ -81,7 +81,7 @@ class NewMethodHierarchyTest {
                 val methodIdx = new.classNodeMethodLookup[classIdx].getInt(key)
                 assertEquals(
                     methodInfo.isSourceMethod,
-                    new.sourceMethod[methodIdx],
+                    new.isSourceMethod[methodIdx],
                     "Source method flag mismatch for ${classInfo.name}.${methodInfo.name}${methodInfo.desc}"
                 )
 
@@ -116,7 +116,7 @@ class NewMethodHierarchyTest {
                 // )
 
                 var newRelated =
-                    new.treeCCToTreeIdx[new.methodTreeToConnectedComponent[methodTreeIdx]].asSequence()
+                    new.sourceMethodConnectedComponents[new.methodTreeToConnectedComponent[methodTreeIdx]].asSequence()
                         .map { treeIdx ->
                             val methodIdx = new.methodTreeRoots[treeIdx]
                             val methodOwner = new.classHierarchy.classNodes[new.methodOwners[methodIdx]]

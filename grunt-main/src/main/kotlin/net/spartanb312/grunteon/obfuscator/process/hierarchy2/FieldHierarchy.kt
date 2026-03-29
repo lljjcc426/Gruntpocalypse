@@ -37,31 +37,64 @@ class FieldHierarchy(
      */
     val fieldOwner: IntArray,
     /**
+     * Class node fields, indexed by class index
+     */
+    val classNodeFields: Array<IntArray>,
+    /**
      * Lookup for fields in a class, indexed by class index, then by field key, returns internal field index
      */
-    val classNodeMethodLookup: Array<Object2IntOpenHashMap<FieldNodeKey>>,
+    val classNodeFieldLookup: Array<Object2IntOpenHashMap<FieldNodeKey>>,
     /**
      * Whether a field is a source field, indexed by internal field index
      *
      * A source field is a either a private field,
      * or its owner class does not have an ancestor class that has the same field (same name and descriptor).
      */
-    val sourceField: BooleanArray,
+    val isSourceField: BooleanArray,
 ) {
-    fun findField(className: String, fieldName: String, fieldDesc: String): Int {
+    /**
+     * Validate entry using .isValid before using the returned entry
+     */
+    fun findField(className: String, fieldName: String, fieldDesc: String): Entry {
         val classIdx = classHierarchy.findClass(className)
-        if (classIdx == -1) return -1
+        if (classIdx == -1) return Entry(-1)
         return findField(classIdx, fieldName, fieldDesc)
     }
 
-    fun findField(classIdx: Int, fieldName: String, fieldDesc: String): Int {
-        val fieldLookup = classNodeMethodLookup[classIdx]
+    /**
+     * Validate entry using .isValid before using the returned entry
+     */
+    fun findField(classIdx: Int, fieldName: String, fieldDesc: String): Entry {
+        val fieldLookup = classNodeFieldLookup[classIdx]
         val fieldKey = FieldNodeKey(fieldName, fieldDesc)
-        return fieldLookup.getInt(fieldKey)
+        return Entry(fieldLookup.getInt(fieldKey))
     }
 
-    fun isSourceField(fieldIdx: Int): Boolean {
-        return sourceField[fieldIdx]
+    @JvmInline
+    value class EntryArray(val indices: IntArray) {
+        val size get() = indices.size
+
+        operator fun get(index: Int): Entry {
+            return Entry(indices[index])
+        }
+
+        inline fun forEach(action: (Entry) -> Unit) {
+            for (i in indices.indices) {
+                action(Entry(indices[i]))
+            }
+        }
+    }
+
+    @JvmInline
+    value class Entry(val index: Int) {
+        context(fh: FieldHierarchy)
+        val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(fh.fieldOwner[index])
+
+        context(fh: FieldHierarchy)
+        val node: FieldNode get() = fh.fieldNodes[index]
+
+        context(fh: FieldHierarchy)
+        val isSource: Boolean get() = fh.isSourceField[index]
     }
 
     companion object {
@@ -176,6 +209,7 @@ class FieldHierarchy(
                 classHierarchy,
                 fieldNodes.toTypedArray(),
                 fieldOwner.toIntArray(),
+                Array(classHierarchy.realClassCount) { classToField[it].toIntArray() },
                 classFieldNodeLookup,
                 isSourceField
             )
