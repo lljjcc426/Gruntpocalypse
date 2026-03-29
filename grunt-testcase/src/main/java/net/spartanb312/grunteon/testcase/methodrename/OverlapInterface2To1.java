@@ -24,9 +24,9 @@ public class OverlapInterface2To1 {
         checkFather1(o);
         checkFather2(o);
 
-        String n1 = ParameterMarkerDummy.findFirstMethodWithMarker(Father1.class).getName();
-        String n2 = ParameterMarkerDummy.findFirstMethodWithMarker(Father2.class).getName();
-        String n3 = ParameterMarkerDummy.findFirstMethodWithMarker(Child.class).getName();
+        String n1 = ParameterMarkerDummy.findFirstDeclaredMethodWithMarker(Father1.class).getName();
+        String n2 = ParameterMarkerDummy.findFirstDeclaredMethodWithMarker(Father2.class).getName();
+        String n3 = ParameterMarkerDummy.findFirstDeclaredMethodWithMarker(Child.class).getName();
         assertTrue(n1.equals(n2) && n2.equals(n3), "Test failed: Method names do not match: " + String.join(", ", n1, n2, n3));
     }
 

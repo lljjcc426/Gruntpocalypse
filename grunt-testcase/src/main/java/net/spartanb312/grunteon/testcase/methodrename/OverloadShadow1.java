@@ -40,8 +40,8 @@ public class OverloadShadow1 {
         assertEquals(94, c2.c(ParameterMarkerDummy.INSTANCE, 1, 80));
         assertEquals(129, c2.d(ParameterMarkerDummy.INSTANCE, 20, 5, 15));
 
-        String c1n1 = ParameterMarkerDummy.findMethodsWithMarker(C1.class).filter(e -> e.getParameterCount() == 2).findAny().get().getName();
-        String c1n2 = ParameterMarkerDummy.findMethodsWithMarker(C1.class).filter(e -> e.getParameterCount() == 3).findAny().get().getName();
+        String c1n1 = ParameterMarkerDummy.findDeclaredMethodsWithMarker(C1.class).filter(e -> e.getParameterCount() == 2).findAny().get().getName();
+        String c1n2 = ParameterMarkerDummy.findDeclaredMethodsWithMarker(C1.class).filter(e -> e.getParameterCount() == 3).findAny().get().getName();
         assertEquals(c1n1, c1n2, "Method names in Child1 not equal");
 
         String c2n1 = Arrays.stream(C2.class.getMethods()).filter(e -> e.getParameterCount() == 2).findAny().get().getName();
