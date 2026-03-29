@@ -5,9 +5,11 @@ import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
-import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.collection.shuffled
+import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
+import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
 import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
@@ -22,7 +24,14 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
     override val confType: Class<Config> get() = Config::class.java
 
     init {
-        after(NumberBasicEncrypt::class.java, "Renamer should run after encryptor")
+        after(Category.Encryption, "Renamer should run after encryption category")
+        after(Category.Controlflow, "Renamer should run after controlflow category")
+        after(Category.AntiDebug, "Renamer should run after anti debug category")
+        after(Category.Authentication, "Renamer should run after authentication category")
+        after(Category.Exploit, "Renamer should run after exploit category")
+        after(Category.Miscellaneous, "Renamer should run after miscellaneous category")
+        after(Category.Optimization, "Renamer should run after optimization category")
+        after(Category.Redirect, "Renamer should run after redirect category")
     }
 
     class Config : TransformerConfig() {
@@ -87,12 +96,12 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
             val strategy = buildFilterStrategy(config)
             val dictionary = NameGenerator.getDictionary(config.dictionary)
             val nameGenerator = NameGenerator(dictionary)
-            val classes =
-                if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
+            val randomGen = Xoshiro256PPRandom(getSeed("Global"))
+            val classes = if (config.shuffled) instance.workRes.inputClassCollection.shuffled(randomGen)
+            else instance.workRes.inputClassCollection
             classes.asSequence()
-                .filter { clazz ->
-                    strategy.testClass(clazz)
-                }.forEach { clazz ->
+                .filter { strategy.testClass(it) }
+                .forEach { clazz ->
                     if (clazz.methods.any { it.isMainMethod }) return@forEach
                     if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
                     instance.mappingManager.addMapping(

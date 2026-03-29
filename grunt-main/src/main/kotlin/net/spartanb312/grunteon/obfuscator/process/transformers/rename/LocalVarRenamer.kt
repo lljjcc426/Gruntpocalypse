@@ -25,8 +25,14 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     override val confType: Class<Config> get() = Config::class.java
 
     init {
-        after(NumberBasicEncrypt::class.java, "Renamer should run after encryptor")
-        // before(ReferenceRedirect::class.java, "Renamer should run before invokedynamic")
+        after(Category.Encryption, "Renamer should run after encryption category")
+        after(Category.Controlflow, "Renamer should run after controlflow category")
+        after(Category.AntiDebug, "Renamer should run after anti debug category")
+        after(Category.Authentication, "Renamer should run after authentication category")
+        after(Category.Exploit, "Renamer should run after exploit category")
+        after(Category.Miscellaneous, "Renamer should run after miscellaneous category")
+        after(Category.Optimization, "Renamer should run after optimization category")
+        after(Category.Redirect, "Renamer should run after redirect category")
     }
 
     class Config : TransformerConfig() {

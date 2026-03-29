@@ -91,7 +91,7 @@ class MethodHierarchy(
 
     @JvmInline
     value class EntryArray(val indices: IntArray) {
-        val size get() = indices.size
+        inline val size get() = indices.size
 
         operator fun get(index: Int): Entry {
             return Entry(indices[index])
@@ -112,17 +112,26 @@ class MethodHierarchy(
     value class Entry(val index: Int) {
         val isValid: Boolean get() = index != -1
 
-        context(mh: MethodHierarchy)
-        val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(mh.methodOwners[index])
+        context(mh: MethodHierarchy, ch: ClassHierarchy)
+        inline val full: String get() = "${owner.name}.$name$desc"
 
         context(mh: MethodHierarchy)
-        val node: MethodNode get() = mh.methodNodes[index]
+        inline val name: String get() = mh.methodNodes[index].name
 
         context(mh: MethodHierarchy)
-        val isSourceMethod: Boolean get() = mh.isSourceMethod[index]
+        inline val desc: String get() = mh.methodNodes[index].desc
 
         context(mh: MethodHierarchy)
-        val connectedComponent: EntryArray
+        inline val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(mh.methodOwners[index])
+
+        context(mh: MethodHierarchy)
+        inline val node: MethodNode get() = mh.methodNodes[index]
+
+        context(mh: MethodHierarchy)
+        inline val isSourceMethod: Boolean get() = mh.isSourceMethod[index]
+
+        context(mh: MethodHierarchy)
+        inline val connectedComponent: EntryArray
             get() {
                 val sourceMethodIdx = mh.sourceMethodIndexLookUp.get(index)
                 if (sourceMethodIdx == -1) return EntryArray.EMPTY
@@ -130,7 +139,7 @@ class MethodHierarchy(
             }
 
         context(mh: MethodHierarchy)
-        val sourceMethods: EntryArray get() = mh.methodToSource[index]
+        inline val sourceMethods: EntryArray get() = mh.methodToSource[index]
 
         /**
          * Get all override methods of this source method, empty if this method is not a source method

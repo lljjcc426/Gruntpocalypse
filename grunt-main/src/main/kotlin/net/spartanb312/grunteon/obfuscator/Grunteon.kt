@@ -4,11 +4,13 @@ import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.MappingManager
 import net.spartanb312.grunteon.obfuscator.process.Transformer
+import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MethodRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
@@ -73,6 +75,7 @@ fun main(args: Array<String>) {
             StringEqualsOptimize(),
             NumberBasicEncrypt(),
             LocalVarRenamer(),
+            MethodRenamer(),
             ClassRenamer(),
         )
         val instance = emptyConfig.runPipeline(pipeline)
@@ -138,7 +141,7 @@ class Grunteon(
         }
 
         // TODO: make this optional
-//        JarDumper.dumpJar(Path("output.jar"))
+        JarDumper.dumpJar(Path("obftest/AT/engine/boar-main.jar"))
     }
 
     val mixinExPredicate = buildClassNamePredicates(configGroup.mixinExclusions)
