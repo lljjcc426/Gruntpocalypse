@@ -65,7 +65,11 @@ class MethodHierarchy(
      * Method tree indices for each connected component, indexed by source method index,
      * returns indices of method trees in the connected component
      */
-    val sourceMethodConnectedComponents: Array<EntryArray>
+    val sourceMethodConnectedComponents: Array<EntryArray>,
+    /**
+     * Each source method's overrides, indexed by source method index, returns internal method indices of the override methods
+     */
+    val sourceMethodOverrides: Array<EntryArray>
 ) {
     /**
      * Validate entry using .isValid before using the returned entry
@@ -127,6 +131,17 @@ class MethodHierarchy(
 
         context(mh: MethodHierarchy)
         val sourceMethods: EntryArray get() = mh.methodToSource[index]
+
+        /**
+         * Get all override methods of this source method, empty if this method is not a source method
+         */
+        context(mh: MethodHierarchy)
+        val overrideMethods: EntryArray
+            get() {
+                val sourceMethodIdx = mh.sourceMethodIndexLookUp.get(index)
+                if (sourceMethodIdx == -1) return EntryArray.EMPTY
+                return mh.sourceMethodOverrides[sourceMethodIdx]
+            }
     }
 
     companion object {
@@ -303,10 +318,11 @@ class MethodHierarchy(
                 EntryArray(methodIndices)
             }
 
-            val methodToSourceMethod = Array(methodCount) {
+            val sourceMethodOverrides = Array(methodTreeRoots.size) { IntArrayList() }
+            val methodToSourceMethod = Array(methodCount) { methodIdx ->
                 val list = IntArrayList()
-                val methodCode = methodCode[it]
-                val ownerIdx = methodOwner.getInt(it)
+                val methodCode = methodCode[methodIdx]
+                val ownerIdx = methodOwner.getInt(methodIdx)
                 val methodTreeIndices = methodToMethodTree[ownerIdx][methodCode]
                 if (methodTreeIndices != null) {
                     val iterator = methodTreeIndices.intIterator()
@@ -314,6 +330,7 @@ class MethodHierarchy(
                         val methodTreeIdx = iterator.nextInt()
                         val sourceMethodIdx = methodTreeRoots.getInt(methodTreeIdx)
                         list.add(sourceMethodIdx)
+                        sourceMethodOverrides[methodTreeIdx].add(methodIdx)
                     }
                 }
                 EntryArray(list.toIntArray())
@@ -329,7 +346,10 @@ class MethodHierarchy(
                 isSourceMethod,
                 sourceMethodToMethodTreeIdxLookup,
                 EntryArray(methodTreeRoots.toIntArray()),
-                sourceMethodConnectedComponents
+                sourceMethodConnectedComponents,
+                Array(sourceMethodOverrides.size) { idx ->
+                    EntryArray(sourceMethodOverrides[idx].toIntArray())
+                }
             )
         }
     }
