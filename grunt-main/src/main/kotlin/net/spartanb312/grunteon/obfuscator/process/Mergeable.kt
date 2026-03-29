@@ -11,10 +11,12 @@ interface Mergeable<T : Mergeable<T>> {
 }
 
 fun <T : Mergeable<T>> Mergeable<T>.merge(other: Mergeable<*>) {
+    require(other.javaClass == this.javaClass) {
+        "Cannot merge different types! ${this.javaClass} vs ${other.javaClass}"
+    }
     @Suppress("UNCHECKED_CAST")
-    other as T
-    require(other.javaClass == this.javaClass) { "Cannot merge different types! ${this.javaClass} vs ${other.javaClass}" }
-    this.merge(other)
+    val typedOther = other as T
+    this.merge(typedOther)
 }
 
 class MergeableObject2ObjectMap<K, V>(private val delegate: Object2ObjectMap<K, V>) :
