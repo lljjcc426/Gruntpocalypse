@@ -137,7 +137,7 @@ class Grunteon(
     fun execute() {
         // TODO: Profiler
         context(workRes) {
-            contextOf<Grunteon>().pipeline.execute()
+            pipeline.execute()
         }
 
         // TODO: make this optional
