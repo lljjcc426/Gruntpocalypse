@@ -13,20 +13,60 @@ import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import java.util.function.ToIntFunction
 
+/**
+ * Class hierarchy info, data is stored in parallel array for better performance.
+ *
+ * It uses internal class indices to read data
+ */
 class ClassHierarchy(
+    /**
+     * All classNode, indexed by internal class index
+     */
     val classNodes: Array<ClassNode>,
+    /**
+     * Class names, indexed by internal class index
+     */
     val classNames: Array<String>,
+    /**
+     * Internal class index looked up by class name, -1 if not found
+     */
     val classNameLookUp: Object2IntOpenHashMap<String>,
+    /**
+     * Direct parents indices, indexed by internal class index
+     */
     val parents: Array<IntArray>,
+    /**
+     * Direct children indices, indexed by internal class index
+     */
     val children: Array<IntArray>,
+    /**
+     * All ancestors indices, indexed by internal class index, including direct parents and indirect parents
+     */
     val ancestors: Array<IntArray>,
+    /**
+     * All descendants indices, indexed by internal class indexm including direct children and indirect children
+     */
     val descendants: Array<IntArray>,
+    /**
+     * Whether the class is broken (missing dependency), indexed by internal class index
+     */
     val broken: BooleanArray,
+    /**
+     * Whether the class itself is broken or any of its ancestors is broken, indexed by internal class index
+     */
     val missingDependencies: BooleanArray,
+    /**
+     * Number of classes in the input, excluding phantom classes added by lookup function
+     */
     val realClassCount: Int,
+    /**
+     * Total number of classes, including phantom classes added by lookup function
+     */
     val classCount: Int
 ) {
-    // utils
+    /**
+     * Find internal class index by class name, return -1 if not found
+     */
     fun findClass(className: String): Int {
         return classNameLookUp.getInt(className)
     }

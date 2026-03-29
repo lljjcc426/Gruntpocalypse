@@ -8,25 +8,102 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
 import org.objectweb.asm.tree.MethodNode
 import java.util.function.ToIntFunction
 
+/**
+ * Key for method lookup, contains method name, desc and access flags (to distinguish private/protected/public)
+ */
 data class MethodNodeKey(
     val name: String,
-    val desc: String,
-    val access: Int
+    val desc: String
 )
 
+/**
+ * Method hierarchy built on top of class hierarchy, data is stored in parallel array for better performance.
+ *
+ * It uses internal method indices to read data
+ */
 class MethodHierarchy(
+    /**
+     * Class hierarchy this method hierarchy is built on
+     */
     val classHierarchy: ClassHierarchy,
+    /**
+     * All method nodes in this method hierarchy, indexed by internal method index
+     */
     val methodNodes: Array<MethodNode>,
+    /**
+     * Owner class index for each method, indexed by internal method index
+     */
     val methodOwners: IntArray,
+    /**
+     * Lookup for methods in a class, indexed by class index, then by method key, returns internal method index
+     */
     val classNodeMethodLookup: Array<Object2IntOpenHashMap<MethodNodeKey>>,
+    /**
+     * Whether a method is a source method, indexed by internal method index
+     *
+     * A source method is a method that is either private or has no parent method (not inherited from any parent class).
+     * Each source method is the root of a method tree.
+     */
     val sourceMethod: BooleanArray,
+    /**
+     * All method tree roots (aka. source methods), indexed by method tree index, returns internal method index
+     */
     val methodTreeRoots: IntArray,
+    /**
+     * Lookup for source method to method tree index, indexed by internal method index, returns method tree index
+     */
     val sourceMethodToMethodTreeIdxLookup: Int2IntOpenHashMap,
+    /**
+     * Adjacency list for method tree graph, indexed by method tree index, returns adjacent method tree indices
+     */
     val methodTreeAdjList: Array<IntArray>,
+    /**
+     * Connected component index for each method tree, indexed by method tree index
+     */
     val methodTreeToConnectedComponent: IntArray,
+    /**
+     * Method tree indices for each connected component, indexed by connected component index,
+     * returns indices of method trees in the connected component
+     */
     val treeCCToTreeIdx: Array<IntArray>
 ) {
+    fun findMethod(className: String, methodName: String, methodDesc: String): Int {
+        val classIdx = classHierarchy.findClass(className)
+        if (classIdx == -1) return -1
+        return findMethod(classIdx, methodName, methodDesc)
+    }
+
+    fun findMethod(classIdx: Int, methodName: String, methodDesc: String): Int {
+        val methodLookup = classNodeMethodLookup[classIdx]
+        val methodKey = MethodNodeKey(methodName, methodDesc)
+        return methodLookup.getInt(methodKey)
+    }
+
+    /**
+     * Check if a method is a source method, indexed by internal method index
+     *
+     * A source method is a method that is either private or has no parent method (not inherited from any parent class).
+     */
+    fun isSourceMethod(methodIdx: Int): Boolean {
+        return sourceMethod[methodIdx]
+    }
+
+    /**
+     * Get a source method's method tree connected component, indexed by internal method index
+     *
+     * Returns internal method indices of all methods in the same connected component as the source method
+     * Connected components are source methods that their owner class have common descendents
+     */
+    fun getSourceMethodTreeCCs(methodIdx: Int): IntArray? {
+        val methodTreeIdx = sourceMethodToMethodTreeIdxLookup.get(methodIdx)
+        if (methodTreeIdx == -1) return null
+        val ccIdx = methodTreeToConnectedComponent[methodTreeIdx]
+        if (ccIdx == -1) return null
+        return treeCCToTreeIdx[ccIdx]
+    }
+
     companion object {
+        @Suppress("UNCHECKED_CAST")
         fun build(classHierarchy: ClassHierarchy): MethodHierarchy {
             val methodNodes = ObjectArrayList<MethodNode>(classHierarchy.realClassCount)
             val methodOwner = IntArrayList(classHierarchy.realClassCount)
@@ -46,7 +123,7 @@ class MethodHierarchy(
                         if (methodNode.isInitializer) continue
                         val index = methodNodes.size
                         methodNodes.add(methodNode)
-                        val key = MethodNodeKey(methodNode.name, methodNode.desc, methodNode.access)
+                        val key = MethodNodeKey(methodNode.name, methodNode.desc)
                         methodLookup[key] = index
                         methodOwner.add(i)
                         methodList.add(index)
@@ -78,7 +155,7 @@ class MethodHierarchy(
                     val methodOwnerIdx = methodOwner.getInt(methodIdx)
                     methodToMethodTree[methodOwnerIdx].put(myMethodCode, IntArraySet())
                     val descendents = classHierarchy.descendants[methodOwnerIdx]
-                    for (i in 0..<descendents.size) {
+                    for (i in descendents.indices) {
                         val descendentIdx = descendents[i]
                         if (descendentIdx < classHierarchy.realClassCount) {
                             methodToMethodTree[descendentIdx].put(myMethodCode, IntArraySet())
@@ -130,7 +207,7 @@ class MethodHierarchy(
 
                     val myMethods = classToMethod[classIdx]
                     val myMethodArray = myMethods.elements()
-                    for (j in 0..<myMethods.size) {
+                    for (j in myMethods.indices) {
                         val myMethod = myMethodArray[j]
                         if (!methodAccess[myMethod].isPrivate) continue
                         setSource(myMethod)
@@ -138,7 +215,7 @@ class MethodHierarchy(
 
                     val parentIndices = classHierarchy.parents[classIdx]
                     val allParentMethodCodeBits = IntOpenHashSet()
-                    for (i in 0..<parentIndices.size) {
+                    for (i in parentIndices.indices) {
                         val parentIdx = parentIndices[i]
                         if (parentIdx >= classHierarchy.realClassCount) continue
                         val parentCodeBits = methodToMethodTree[parentIdx]

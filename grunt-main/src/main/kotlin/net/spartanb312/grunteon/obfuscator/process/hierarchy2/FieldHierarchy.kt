@@ -10,16 +10,42 @@ import net.spartanb312.genesis.kotlin.extensions.*
 import org.objectweb.asm.tree.FieldNode
 import java.util.function.ToIntFunction
 
+/**
+ * Key for field lookup, consisting of field name and descriptor.
+ */
 data class FieldNodeKey(
     val name: String,
     val desc: String
 )
 
+/**
+ * Field hierarchy built on top of class hierarchy, data is stored in parallel array for better performance.
+ *
+ * It uses internal field indices to read data
+ */
 class FieldHierarchy(
+    /**
+     * Class hierarchy this field hierarchy is built on
+     */
     val classHierarchy: ClassHierarchy,
+    /**
+     * All field nodes in this field hierarchy, indexed by internal field index
+     */
     val fieldNodes: Array<FieldNode>,
+    /**
+     * Owner class index of each field, indexed by internal field index
+     */
     val fieldOwner: IntArray,
+    /**
+     * Lookup for fields in a class, indexed by class index, then by field key, returns internal field index
+     */
     val classNodeMethodLookup: Array<Object2IntOpenHashMap<FieldNodeKey>>,
+    /**
+     * Whether a field is a source field, indexed by internal field index
+     *
+     * A source field is a either a private field,
+     * or its owner class does not have an ancestor class that has the same field (same name and descriptor).
+     */
     val sourceField: BooleanArray,
 ) {
     fun findField(className: String, fieldName: String, fieldDesc: String): Int {
@@ -118,7 +144,7 @@ class FieldHierarchy(
 
                     val myFields = classToField[classIdx]
                     val myFieldArray = myFields.elements()
-                    for (j in 0..<myFields.size) {
+                    for (j in myFields.indices) {
                         val myField = myFieldArray[j]
                         if (!fieldAccess[myField].isPrivate) continue
                         setSource(myField)
@@ -126,14 +152,14 @@ class FieldHierarchy(
 
                     val parentIndices = classHierarchy.parents[classIdx]
                     val allParentFieldCodeBits = IntOpenHashSet()
-                    for (i in 0..<parentIndices.size) {
+                    for (i in parentIndices.indices) {
                         val parentIdx = parentIndices[i]
                         if (parentIdx >= classHierarchy.realClassCount) continue
                         val parentCodeBits = fieldToFieldTree[parentIdx]
                         allParentFieldCodeBits.addAll(parentCodeBits.keys)
                     }
 
-                    for (j in 0..<myFields.size) {
+                    for (j in myFields.indices) {
                         val myField = myFieldArray[j]
                         if (fieldAccess[myField].isPrivate) continue
                         val myFieldCode = fieldCode[myField]

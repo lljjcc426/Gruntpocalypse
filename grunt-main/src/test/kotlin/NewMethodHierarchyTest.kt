@@ -77,7 +77,7 @@ class NewMethodHierarchyTest {
             classInfo.methods.forEach { methodInfo ->
                 if (methodInfo.virtual) return@forEach
                 if (methodInfo.methodNode.isInitializer) return@forEach
-                val key = MethodNodeKey(methodInfo.name, methodInfo.desc, methodInfo.methodNode.access)
+                val key = MethodNodeKey(methodInfo.name, methodInfo.desc)
                 val methodIdx = new.classNodeMethodLookup[classIdx].getInt(key)
                 assertEquals(
                     methodInfo.isSourceMethod,
