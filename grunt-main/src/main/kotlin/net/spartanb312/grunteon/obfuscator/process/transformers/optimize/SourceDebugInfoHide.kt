@@ -4,16 +4,14 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.config.at
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.random
+import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.LineNumberNode
 
 class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
@@ -71,36 +69,37 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
         Replace("Replace"),
     }
 
-    private val counter = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - SourceDebugInfoHide: Removing/Editing debug information...")
-        super.transform(config)
-        Logger.info("    Removed/Edited ${counter.get()} debug information")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))
-        if (config.sourceFiles != SourceFileAction.Off) {
-            if (config.sourceFiles == SourceFileAction.Replace) {
-                classNode.sourceDebug = config.sourceNames.random(randomGen)
-                classNode.sourceFile = config.sourceNames.random(randomGen)
-            } else {
-                classNode.sourceDebug = null
-                classNode.sourceFile = null
-            }
-            counter.add()
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" - SourceDebugInfoHide: Removing/Editing debug information...")
         }
-        if (config.lineNumbers) classNode.methods.forEach { methodNode ->
-            methodNode.instructions.toList().forEach {
-                if (it is LineNumberNode) {
-                    methodNode.instructions.remove(it)
-                    counter.add()
+        val counter = reducibleScopeValue { MergeableCounter() }
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+            val counter = counter.local
+            val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))
+            if (config.sourceFiles != SourceFileAction.Off) {
+                if (config.sourceFiles == SourceFileAction.Replace) {
+                    classNode.sourceDebug = config.sourceNames.random(randomGen)
+                    classNode.sourceFile = config.sourceNames.random(randomGen)
+                } else {
+                    classNode.sourceDebug = null
+                    classNode.sourceFile = null
+                }
+                counter.add()
+            }
+            if (config.lineNumbers) classNode.methods.forEach { methodNode ->
+                methodNode.instructions.toListFast().forEach {
+                    if (it is LineNumberNode) {
+                        methodNode.instructions.remove(it)
+                        counter.add()
+                    }
                 }
             }
         }
+        post {
+            Logger.info(" - SourceDebugInfoHide:")
+            Logger.info("    Removed/Edited ${counter.global.get()} debug information")
+        }
     }
-
 }

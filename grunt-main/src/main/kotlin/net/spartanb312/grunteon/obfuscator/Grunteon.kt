@@ -2,9 +2,8 @@ package net.spartanb312.grunteon.obfuscator
 
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
-import net.spartanb312.grunteon.obfuscator.process.MappingApplier
+import net.spartanb312.grunteon.obfuscator.process.MappingManager
 import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
@@ -21,7 +20,8 @@ import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
 import kotlin.io.path.walk
 import kotlin.random.Random
-import kotlin.system.measureTimeMillis
+import kotlin.time.DurationUnit
+import kotlin.time.measureTime
 
 /**
  * Grunteon
@@ -32,11 +32,13 @@ const val VERSION = "3.0.0"
 const val SUBTITLE = "build 260327"
 const val GITHUB = "https://github.com/SpartanB312/Grunt"
 
-fun main() {
-    Logger = SimpleLogger(
-        "Grunteon",
-        "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
-    )
+fun main(args: Array<String>) {
+    if ("--silent" !in args) {
+        Logger = SimpleLogger(
+            "Grunteon",
+            "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
+        )
+    }
     println(
         """
              ________  __________   ____ ___   _______    ___________
@@ -59,7 +61,8 @@ fun main() {
     // TODO: Plugin scan
     // TODO: Plugin initialize
 
-    measureTimeMillis {
+    val queue = ArrayDeque<Double>()
+    repeat(1) {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
             DeadCodeRemove(),
@@ -74,8 +77,15 @@ fun main() {
         )
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()
-        instance.execute()
-    }.also { println("$it ms") }
+
+        measureTime {
+            instance.execute()
+        }.toDouble(DurationUnit.MILLISECONDS).also { time ->
+            while (queue.size >= 5) queue.poll()
+            queue.add(time)
+            println("Execution time: ${"%.2f".format(time)} ms (average: ${"%.2f".format(queue.average())} ms)")
+        }
+    }
 }
 
 fun ConfigGroup.runPipeline(pipeline: ProcessPipeline): Grunteon {
@@ -96,7 +106,7 @@ class Grunteon(
      * Resources
      */
     lateinit var workRes: WorkResources
-    val mappingApplier = MappingApplier(this)
+    val mappingManager = MappingManager()
     val baseSeed get() = if (configGroup.controllableRandom) configGroup.inputSeed else Random.nextInt().toString()
 
     fun init() {
@@ -128,7 +138,7 @@ class Grunteon(
         }
 
         // TODO: make this optional
-        JarDumper.dumpJar(Path("output.jar"))
+//        JarDumper.dumpJar(Path("output.jar"))
     }
 
     val mixinExPredicate = buildClassNamePredicates(configGroup.mixinExclusions)

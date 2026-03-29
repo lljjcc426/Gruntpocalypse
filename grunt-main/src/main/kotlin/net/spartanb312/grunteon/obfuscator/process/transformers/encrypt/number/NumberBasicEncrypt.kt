@@ -7,12 +7,11 @@ import net.spartanb312.genesis.kotlin.instructions
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.config.whenTrue
 import net.spartanb312.grunteon.obfuscator.lang.enText
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.collection.shuffled
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
+import net.spartanb312.grunteon.obfuscator.util.collection.shuffle
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
@@ -25,10 +24,11 @@ import net.spartanb312.grunteon.obfuscator.util.numerical.asInt
 import net.spartanb312.grunteon.obfuscator.util.numerical.asLong
 import org.apache.commons.rng.UniformRandomProvider
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.InsnList
 import org.objectweb.asm.tree.IntInsnNode
 import org.objectweb.asm.tree.LdcInsnNode
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Basic number encryption
@@ -143,34 +143,37 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         )
     }
 
-    private val counter = Counter()
     private lateinit var methodExPredicate: NamePredicates
 
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - NumberBasicEncrypt: Encrypting numbers...")
-        methodExPredicate = buildMethodNamePredicates(config.exclusion)
-        super.transform(config)
-        Logger.info("    Encrypted ${counter.get()} numbers")
-    }
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" - NumberBasicEncrypt: Encrypting numbers...")
+            // TODO: there is a better way to do this instead of lateinit var
+            methodExPredicate = buildMethodNamePredicates(config.exclusion)
+        }
+        val counter = reducibleScopeValue { MergeableCounter() }
+        val shuffledListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
+        val shit = AtomicBoolean()
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+            val counter = counter.local
+            classNode.methods.asSequence()
+                .filter { !it.isAbstract && !it.isNative }
+                .forEach { method ->
+                    val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
+                    if (excluded) return@forEach
+                    if ((method.instructions?.size() ?: 0) >= config.maxInstructions) return@forEach
+                    val chanceModifier =
+                        (if (config.dynamicStrength) (config.maxInstructions - method.instructions.size()).toFloat() / config.maxInstructions
+                        else 1f).coerceIn(0f, 1f)
 
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        classNode.methods.asSequence()
-            .filter { !it.isAbstract && !it.isNative }
-            .forEach { method ->
-                val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
-                if (excluded) return@forEach
-                if ((method.instructions?.size() ?: 0) >= config.maxInstructions) return@forEach
-                val chanceModifier =
-                    (if (config.dynamicStrength) (config.maxInstructions - method.instructions.size()).toFloat() / config.maxInstructions
-                    else 1f).coerceIn(0f, 1f)
+                    val randomGen = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc))
+                    val shuffledList = shuffledListCache.local
+                    shuffledList.clearFast()
 
-                val randomGen = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc))
-                method.instructions
-                    .filter { it.opcode != Opcodes.NEWARRAY }
-                    .shuffled(randomGen)
-                    .forEach { instruction ->
+                    method.instructions.filterTo(shuffledList) { it.opcode != Opcodes.NEWARRAY }
+                    shuffledList.shuffle(randomGen)
+                    shuffledList.forEach { instruction ->
                         // Encrypt integer
                         if (config.integer && randomGen.nextFloat() < chanceModifier * config.integerChance) {
                             if (instruction.opcode in Opcodes.ICONST_M1..Opcodes.ICONST_5) {
@@ -179,7 +182,10 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                                 method.instructions.remove(instruction)
                                 counter.add()
                             } else if (instruction is IntInsnNode) {
-                                method.instructions.insertBefore(instruction, randomGen.encrypt(instruction.operand))
+                                method.instructions.insertBefore(
+                                    instruction,
+                                    randomGen.encrypt(instruction.operand)
+                                )
                                 method.instructions.remove(instruction)
                                 counter.add()
                             } else if (instruction is LdcInsnNode && instruction.cst is Int) {
@@ -233,7 +239,12 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                             }
                         }
                     }
-            }
+                }
+        }
+        post {
+            Logger.info(" - NumberBasicEncrypt:")
+            Logger.info("    Encrypted ${counter.global.get()} numbers")
+        }
     }
 
     fun UniformRandomProvider.encrypt(value: Float): InsnList {

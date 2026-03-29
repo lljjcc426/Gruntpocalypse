@@ -3,15 +3,13 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.findMethod
 import net.spartanb312.grunteon.obfuscator.util.extensions.isEnum
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodInsnNode
 
 class EnumOptimize : Transformer<EnumOptimize.Config>(
@@ -36,35 +34,36 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
 
     class Config : TransformerConfig()
 
-    private val counter = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - EnumOptimize: Optimizing enums...")
-        super.transform(config)
-        Logger.info("    Optimized ${counter.get()} enums")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        if (!classNode.isEnum) return
-        val desc = "[L${classNode.name};"
-        val valuesMethod = classNode.findMethod("values", "()$desc") {
-            it.instructions.size() >= 4
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" - EnumOptimize: Optimizing enums...")
         }
-        if (valuesMethod != null) {
-            for (instruction in valuesMethod.instructions.toList()) {
-                if (instruction is MethodInsnNode) {
-                    if (instruction.opcode == Opcodes.INVOKEVIRTUAL && instruction.name == "clone") {
-                        if (instruction.next.opcode == Opcodes.CHECKCAST) {
-                            valuesMethod.instructions.remove(instruction.next)
+        val counter = reducibleScopeValue { MergeableCounter() }
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+            if (!classNode.isEnum) return@parForEachFiltered
+            val counter = counter.local
+            val desc = "[L${classNode.name};"
+            val valuesMethod = classNode.findMethod("values", "()$desc") {
+                it.instructions.size() >= 4
+            }
+            if (valuesMethod != null) {
+                for (instruction in valuesMethod.instructions.toListFast()) {
+                    if (instruction is MethodInsnNode) {
+                        if (instruction.opcode == Opcodes.INVOKEVIRTUAL && instruction.name == "clone") {
+                            if (instruction.next.opcode == Opcodes.CHECKCAST) {
+                                valuesMethod.instructions.remove(instruction.next)
+                            }
+                            valuesMethod.instructions.remove(instruction)
+                            counter.add(1)
                         }
-                        valuesMethod.instructions.remove(instruction)
-                        counter.add(1)
                     }
                 }
             }
         }
+        post {
+            Logger.info(" - EnumOptimize:")
+            Logger.info("    Optimized ${counter.global.get()} enums")
+        }
     }
-
 }

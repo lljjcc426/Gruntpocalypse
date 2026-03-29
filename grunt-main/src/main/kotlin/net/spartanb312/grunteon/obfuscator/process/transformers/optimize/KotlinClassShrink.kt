@@ -3,16 +3,14 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchInvoke
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.AnnotationNode
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InsnNode
 import org.objectweb.asm.tree.LdcInsnNode
 
@@ -78,62 +76,69 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         )
     }
 
-    private val intrinsics = Counter()
-    private val metadata = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - KotlinClassShrink: Shrinking kotlin classes...")
-        super.transform(config)
-        if (config.metaData) Logger.info("    Removed ${metadata.get()} kotlin metadata")
-        if (config.intrinsics) Logger.info("    Removed ${intrinsics.get()} kotlin intrinsics")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        if (config.intrinsics) {
-            classNode.methods.forEach { methodNode ->
-                val replace = mutableListOf<AbstractInsnNode>()
-                methodNode.instructions.forEach { insnNode ->
-                    if (insnNode.matchInvoke(Opcodes.INVOKESTATIC, "kotlin/jvm/internal/Intrinsics")) {
-                        val removeSize = intrinsicsRemoveMethods[insnNode.name + insnNode.desc] ?: 0
-                        if (removeSize > 0 && config.intrinsicsRemoval.contains(insnNode.name)) {
-                            replace.removeLast()
-                            repeat(removeSize) {
-                                replace.add(InsnNode(Opcodes.POP))
-                            }
-                            intrinsics.add()
-                        } else {
-                            if (config.replaceLDC && intrinsicsReplaceMethods.contains(insnNode.name + insnNode.desc)) {
-                                val ldc = replace.last()
-                                if (ldc is LdcInsnNode) {
-                                    ldc.cst = "REMOVED BY GRUNT"
-                                    intrinsics.add()
-                                }
-                            }
-                            replace.add(insnNode)
-                        }
-                    } else replace.add(insnNode)
-                }
-                methodNode.instructions.clear()
-                replace.forEach { methodNode.instructions.add(it) }
-            }
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" - KotlinClassShrink: Shrinking kotlin classes...")
         }
-        if (config.metaData) {
-            fun MutableList<AnnotationNode>.removeCheck() {
-                toList().forEach {
-                    if (
-                        it.desc.startsWith("Lkotlin/jvm/internal/SourceDebugExtension") ||
-                        it.desc.startsWith("Lkotlin/Metadata") ||
-                        it.desc.startsWith("Lkotlin/coroutines/jvm/internal/DebugMetadata")
-                    ) {
-                        remove(it)
-                        metadata.add()
+        val intrinsics = reducibleScopeValue { MergeableCounter() }
+        val metadata = reducibleScopeValue { MergeableCounter() }
+        val pendingReplaceCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+            if (config.intrinsics) {
+                val intrinsics = intrinsics.local
+                classNode.methods.forEach { methodNode ->
+                    val replace = pendingReplaceCache.local
+                    replace.clearFast()
+                    methodNode.instructions.forEach { insnNode ->
+                        if (insnNode.matchInvoke(Opcodes.INVOKESTATIC, "kotlin/jvm/internal/Intrinsics")) {
+                            val removeSize = intrinsicsRemoveMethods[insnNode.name + insnNode.desc] ?: 0
+                            if (removeSize > 0 && config.intrinsicsRemoval.contains(insnNode.name)) {
+                                replace.removeLast()
+                                repeat(removeSize) {
+                                    replace.add(InsnNode(Opcodes.POP))
+                                }
+                                intrinsics.add()
+                            } else {
+                                if (config.replaceLDC && intrinsicsReplaceMethods.contains(insnNode.name + insnNode.desc)) {
+                                    val ldc = replace.last()
+                                    if (ldc is LdcInsnNode) {
+                                        ldc.cst = "REMOVED BY GRUNT"
+                                        intrinsics.add()
+                                    }
+                                }
+                                replace.add(insnNode)
+                            }
+                        } else replace.add(insnNode)
+                    }
+                    methodNode.instructions.clear()
+                    replace.forEach { methodNode.instructions.add(it) }
+                }
+            }
+            if (config.metaData) {
+                val metadata = metadata.local
+                fun MutableList<AnnotationNode>.removeCheck() {
+                    removeIf {
+                        if (
+                            it.desc.startsWith("Lkotlin/jvm/internal/SourceDebugExtension") ||
+                            it.desc.startsWith("Lkotlin/Metadata") ||
+                            it.desc.startsWith("Lkotlin/coroutines/jvm/internal/DebugMetadata")
+                        ) {
+                            metadata.add()
+                            true
+                        } else {
+                            false
+                        }
                     }
                 }
+                classNode.visibleAnnotations?.removeCheck()
+                classNode.invisibleAnnotations?.removeCheck()
             }
-            classNode.visibleAnnotations?.removeCheck()
-            classNode.invisibleAnnotations?.removeCheck()
+        }
+        post {
+            Logger.info(" - KotlinClassShrink:")
+            if (config.metaData) Logger.info("    Removed ${metadata.global.get()} kotlin metadata")
+            if (config.intrinsics) Logger.info("    Removed ${intrinsics.global.get()} kotlin intrinsics")
         }
     }
 

@@ -3,17 +3,13 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
-import net.spartanb312.grunteon.obfuscator.util.Counter
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.extensions.isExcluded
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
-import net.spartanb312.grunteon.obfuscator.util.filters.matchedAllBy
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 
 class ClassRenamer : Transformer<ClassRenamer.Config>(
@@ -81,35 +77,37 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         val reversePrefix get() = if (reversed) "\u202E" else ""
     }
 
-    private val counter = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - ClassRenamer: Renaming classes...")
-        Logger.info("    Generating mappings for classes...")
-        buildFilterPredicate(config)
-        val dictionary = NameGenerator.getDictionary(config.dictionary)
-        val nameGenerator = NameGenerator(dictionary)
-        val mappings = mutableMapOf<String, String>()
-        val classes =
-            if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
-        classes.asSequence()
-            .filter { clazz ->
-                val include = includePredicate.matchedAllBy(clazz.name)
-                val exclude = excludePredicate.matchedAnyBy(clazz.name)
-                val hardExclude = clazz.isExcluded
-                include && !exclude && !hardExclude
-            }.forEach { clazz ->
-                if (clazz.methods.any { it.isMainMethod }) return@forEach
-                if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
-                mappings[clazz.name] =
-                    config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + nameGenerator.nextName()
-                counter.add()
-            }
-        Logger.info("    Applying mappings for classes...")
-        instance.mappingApplier.applyRemap("classes", mappings, true)
-        Logger.info("    Renamed ${counter.get()} classes")
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        val counter = globalScopeValue { MergeableCounter() }
+        seq {
+            val instance = contextOf<Grunteon>()
+            Logger.info(" - ClassRenamer: Renaming classes...")
+            Logger.info("    Generating mappings for classes...")
+            val strategy = buildFilterStrategy(config)
+            val dictionary = NameGenerator.getDictionary(config.dictionary)
+            val nameGenerator = NameGenerator(dictionary)
+            val classes =
+                if (config.shuffled) instance.workRes.inputClassCollection.shuffled() else instance.workRes.inputClassCollection
+            classes.asSequence()
+                .filter { clazz ->
+                    strategy.testClass(clazz)
+                }.forEach { clazz ->
+                    if (clazz.methods.any { it.isMainMethod }) return@forEach
+                    if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
+                    instance.mappingManager.addMapping(
+                        MappingManager.MappingType.Classes,
+                        clazz.name,
+                        config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + nameGenerator.nextName()
+                    )
+                    counter.global.add()
+                }
+            Logger.info("    Applying mappings for classes...")
+        }
+        instance.mappingManager.applyRemap(MappingManager.MappingType.Classes)
+        post {
+            Logger.info(" - ClassRenamer:")
+            Logger.info("    Renamed ${counter.global.get()} classes")
+        }
     }
-
-
 }

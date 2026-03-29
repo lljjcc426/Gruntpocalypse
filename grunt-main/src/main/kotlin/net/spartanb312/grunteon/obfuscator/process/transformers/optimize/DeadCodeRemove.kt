@@ -3,16 +3,16 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.util.Counter
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
+import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchAnyOp
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.JumpInsnNode
 
 class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
@@ -53,58 +53,61 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
         )
     }
 
-    private val counter = Counter()
-
-    context(instance: Grunteon)
-    override fun transform(config: Config) {
-        Logger.info(" - DeadCodeRemove: Removing dead codes...")
-        super.transform(config)
-        Logger.info("    Removed ${counter.get()} dead codes")
-    }
-
-    context(instance: Grunteon)
-    override fun transformClass(classNode: ClassNode, config: Config) {
-        classNode.methods.toList().asSequence()
-            .filter { !it.isNative && !it.isAbstract }
-            .forEach { methodNode ->
-                for (it in methodNode.instructions.toList()) {
-                    when {
-                        config.pop && it.opcode == Opcodes.POP -> {
-                            val pre = it.previous ?: continue
-                            if (pre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
-                                methodNode.instructions.remove(pre)
-                                methodNode.instructions.remove(it)
-                                counter.add(2)
-                            }
-                        }
-
-                        config.pop2 && it.opcode == Opcodes.POP2 -> {
-                            val pre = it.previous ?: continue
-                            if (pre.matchAnyOp(Opcodes.DLOAD, Opcodes.LLOAD)) {
-                                methodNode.instructions.remove(pre)
-                                methodNode.instructions.remove(it)
-                                counter.add(2)
-                            } else if (pre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
-                                val prePre = pre.previous ?: continue
-                                if (prePre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
-                                    methodNode.instructions.remove(prePre)
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" - DeadCodeRemove: Removing dead codes...")
+        }
+        val counter = reducibleScopeValue { MergeableCounter() }
+        val instListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+            val instListCache = instListCache.local
+            classNode.methods.asSequence()
+                .filter { !it.isNative && !it.isAbstract }
+                .forEach { methodNode ->
+                    for (it in methodNode.instructions.toListFast(instListCache)) {
+                        val counter = counter.local
+                        when {
+                            config.pop && it.opcode == Opcodes.POP -> {
+                                val pre = it.previous ?: continue
+                                if (pre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
                                     methodNode.instructions.remove(pre)
                                     methodNode.instructions.remove(it)
-                                    counter.add(3)
+                                    counter.add(2)
                                 }
                             }
-                        }
 
-                        config.fallthrough && it.opcode == Opcodes.GOTO -> {
-                            val next = it.next
-                            if (next == (it as JumpInsnNode).label) {
-                                methodNode.instructions.remove(it)
-                                counter.add(1)
+                            config.pop2 && it.opcode == Opcodes.POP2 -> {
+                                val pre = it.previous ?: continue
+                                if (pre.matchAnyOp(Opcodes.DLOAD, Opcodes.LLOAD)) {
+                                    methodNode.instructions.remove(pre)
+                                    methodNode.instructions.remove(it)
+                                    counter.add(2)
+                                } else if (pre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
+                                    val prePre = pre.previous ?: continue
+                                    if (prePre.matchAnyOp(Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD, Opcodes.LDC)) {
+                                        methodNode.instructions.remove(prePre)
+                                        methodNode.instructions.remove(pre)
+                                        methodNode.instructions.remove(it)
+                                        counter.add(3)
+                                    }
+                                }
+                            }
+
+                            config.fallthrough && it.opcode == Opcodes.GOTO -> {
+                                val next = it.next
+                                if (next == (it as JumpInsnNode).label) {
+                                    methodNode.instructions.remove(it)
+                                    counter.add(1)
+                                }
                             }
                         }
                     }
                 }
-            }
+        }
+        post {
+            Logger.info(" - DeadCodeRemove:")
+            Logger.info("    Removed ${counter.global.get()} dead codes")
+        }
     }
-
 }
