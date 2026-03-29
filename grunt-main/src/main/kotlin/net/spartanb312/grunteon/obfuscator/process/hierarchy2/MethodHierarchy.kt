@@ -3,7 +3,7 @@ package net.spartanb312.grunteon.obfuscator.process.hierarchy2
 import it.unimi.dsi.fastutil.ints.*
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
-import net.spartanb312.genesis.kotlin.extensions.isPrivate
+import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
 import org.objectweb.asm.tree.MethodNode
 import java.util.function.ToIntFunction
@@ -41,7 +41,7 @@ class MethodHierarchy(
                     classToMethod[i] = methodList
                     val methodLookup = classMethodNodeLookup[i]
                     methodLookup.defaultReturnValue(-1)
-                    for (j in 0..<methods.size) {
+                    for (j in methods.indices) {
                         val methodNode = methods[j]
                         if (methodNode.isInitializer) continue
                         val index = methodNodes.size

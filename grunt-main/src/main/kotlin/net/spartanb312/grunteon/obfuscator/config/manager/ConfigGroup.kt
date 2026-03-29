@@ -4,9 +4,7 @@ import net.spartanb312.grunteon.obfuscator.config.Configurable
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import java.io.File
 import java.util.zip.Deflater
-import kotlin.random.Random
 
 class ConfigGroup : Configurable() {
 

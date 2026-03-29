@@ -100,7 +100,8 @@ object JarDumper {
                     // File remove
                     if (classNode.name == "module-info" || checkFileNameRemove(classNode.name)) continue
                     val missingList = hierarchy.checkMissing(classNode)
-                    val classInfo = hierarchy.findClass(classNode.name)!!
+                    val classInfo = hierarchy.findClass(classNode.name)
+                    check(classInfo != -1) { "Class ${classNode.name} not found in hierarchy!" }
                     launch(Dispatchers.Default) {
                         // Dependency check
                         val missingRef = missingList.isNotEmpty()
