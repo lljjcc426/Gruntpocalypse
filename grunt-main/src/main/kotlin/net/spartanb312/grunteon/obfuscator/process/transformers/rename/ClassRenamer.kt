@@ -105,7 +105,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
             Logger.info("    Applying mappings for classes...")
         }
         val strategy = buildFilterStrategy(config)
-        instance.mappingManager.applyRemap(strategy, MappingManager.MappingType.Classes)
+        instance.mappingManager.applyRemap(MappingManager.MappingType.Classes)
         post {
             Logger.info(" - ClassRenamer:")
             Logger.info("    Renamed ${counter.global.get()} classes")
