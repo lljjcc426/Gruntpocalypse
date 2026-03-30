@@ -16,6 +16,7 @@ import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.collection.forEachFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.*
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
+import org.objectweb.asm.Type
 
 /**
  * Renaming methods
@@ -184,13 +185,35 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     var findCommon = false
                     treeSearch@ for (sources in relatedGroups) {
                         val first = sources.first.first()
-                        val inCommonSourceOwner = first.owner.name == bridge.owner.name && first.name == bridge.name
-                        if (inCommonSourceOwner) {
-                            findCommon = true
-                            println("Bridge link: ${first.full} and ${bridge.full}")
-                            sources.first.add(bridge)
-                            sources.second.add(bridge.desc)
-                            break@treeSearch
+                        // Try to link bridge method on override tree
+                        val inSameOverrideTree = first.owner.name == bridge.owner.name || classHierarchy.isSubType(
+                            bridge.owner.name,
+                            first.owner.name
+                        )
+                        // Must have the same name
+                        val inSameTreeAndSameName = inSameOverrideTree && first.name == bridge.name
+                        if (inSameTreeAndSameName) {
+                            var descTypeMatch = true
+                            val bridgeTypes = Type.getArgumentTypes(bridge.desc)
+                            val firstTypes = Type.getArgumentTypes(bridge.desc)
+                            if (bridgeTypes.size == firstTypes.size) {
+                                // Check bridge method types, must same type or subtype
+                                descTypeCheck@ for (i in firstTypes.indices) {
+                                    val bType = bridgeTypes[i]
+                                    val fType = firstTypes[i]
+                                    val isCommonType = bType.descriptor != fType.descriptor
+                                    val isSubType = classHierarchy.isSubType(fType.descriptor, bType.descriptor)
+                                    if (!isCommonType && !isSubType) descTypeMatch = false
+                                }
+                            } else descTypeMatch = false
+                            // Here we link this bridge method on the tree
+                            if (descTypeMatch) {
+                                findCommon = true
+                                println("Bridge link: ${first.full} and ${bridge.full}")
+                                sources.first.add(bridge)
+                                sources.second.add(bridge.desc)
+                                break@treeSearch
+                            }
                         }
                     }
                     if (!findCommon) {
