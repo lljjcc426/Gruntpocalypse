@@ -10,7 +10,7 @@ class FilterStrategy(
 ) {
     context(_: Grunteon)
     fun testClass(classNode: ClassNode): Boolean {
-        val include = includeStrategy.matchedAllBy(classNode.name)
+        val include = includeStrategy.matchedAnyBy(classNode.name)
         val exclude = excludeStrategy.matchedAnyBy(classNode.name)
         val hardExclude = classNode.isExcluded
         return include && !exclude && !hardExclude
