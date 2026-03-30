@@ -73,10 +73,18 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         )
         val heavyOverloads by setting(
             name = enText("process.rename.method_renamer.heavy_overloads", "Heavy overloads"),
-            value = false,
+            value = true,
             desc = enText(
                 "process.rename.method_renamer.heavy_overloads.desc",
                 "Overload method names as much as possible"
+            )
+        )
+        val aggressiveShadowNames by setting(
+            name = enText("process.rename.method_renamer.aggressive_shadow_names", "Aggressive shadow names"),
+            value = true,
+            desc = enText(
+                "process.rename.method_renamer.aggressive_shadow_names.desc",
+                "Shadow method names as much as possible"
             )
         )
     }
@@ -109,9 +117,9 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
             val nonExcluded = instance.workRes.inputClassCollection
                 .filter {
                     strategy.testClass(it)
-                        && !it.isAnnotation
-                        && (config.enums || !it.isEnum)
-                        && (config.interfaces || !it.isInterface)
+                            && !it.isAnnotation
+                            && (config.enums || !it.isEnum)
+                            && (config.interfaces || !it.isInterface)
                 }
                 .sortedBy { it.name } // TODO: find a better way to keep naming deterministic without sorting
                 .toList()
@@ -179,8 +187,12 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     val checkSet = IntLinkedOpenHashSet()
                     group.forEach { source ->
                         checkSet.add(source.owner.index)
-                        source.owner.descendants.forEach {
-                            checkSet.add(it.index)
+                        // Disable up check for static and private fields TODO: check this
+                        if ((!source.node.isStatic && !source.node.isPrivate) || !config.aggressiveShadowNames) {
+                            // println("Disable up check for ${source.name}.${source.name}${source.desc}")
+                            source.owner.descendants.forEach {
+                                checkSet.add(it.index)
+                            }
                         }
                     }
                     val checkList = ClassHierarchy.EntryArray(checkSet.toIntArray())

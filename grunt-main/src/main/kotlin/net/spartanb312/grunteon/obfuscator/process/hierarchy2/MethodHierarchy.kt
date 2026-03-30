@@ -287,7 +287,7 @@ class MethodHierarchy(
                     val myMethodArray = myMethods.elements()
                     for (j in myMethods.indices) {
                         val myMethod = myMethodArray[j]
-                        if (!methodAccess[myMethod].isPrivate) continue
+                        if (!methodAccess[myMethod].isPrivate && !methodAccess[myMethod].isStatic) continue
                         setSource(myMethod)
                     }
 
@@ -302,7 +302,7 @@ class MethodHierarchy(
 
                     for (j in 0..<myMethods.size) {
                         val myMethod = myMethodArray[j]
-                        if (methodAccess[myMethod].isPrivate) continue
+                        if (methodAccess[myMethod].isPrivate || methodAccess[myMethod].isStatic) continue
                         val myMethodCode = methodCode[myMethod]
                         if (!allParentMethodCodeBits.contains(myMethodCode)) {
                             setSource(myMethod)

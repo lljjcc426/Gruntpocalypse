@@ -187,7 +187,7 @@ class FieldHierarchy(
                     val myFieldArray = myFields.elements()
                     for (j in myFields.indices) {
                         val myField = myFieldArray[j]
-                        if (!fieldAccess[myField].isPrivate) continue
+                        if (!fieldAccess[myField].isPrivate && !fieldAccess[myField].isStatic) continue
                         setSource(myField)
                     }
 
@@ -202,7 +202,7 @@ class FieldHierarchy(
 
                     for (j in myFields.indices) {
                         val myField = myFieldArray[j]
-                        if (fieldAccess[myField].isPrivate) continue
+                        if (fieldAccess[myField].isPrivate || fieldAccess[myField].isStatic) continue
                         val myFieldCode = fieldCode[myField]
                         if (!allParentFieldCodeBits.contains(myFieldCode)) {
                             setSource(myField)

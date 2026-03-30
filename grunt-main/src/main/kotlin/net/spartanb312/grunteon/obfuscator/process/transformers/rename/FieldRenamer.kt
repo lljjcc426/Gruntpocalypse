@@ -13,6 +13,7 @@ import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isPrivate
 import net.spartanb312.grunteon.obfuscator.util.extensions.isProtected
+import net.spartanb312.grunteon.obfuscator.util.extensions.isStatic
 
 class FieldRenamer : Transformer<FieldRenamer.Config>(
     name = enText("process.rename.field_renamer", "FieldRenamer"),
@@ -41,7 +42,8 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
         val prefix = ""
         val reversed = false
         val shuffled = true
-        val heavyOverloads = false
+        val heavyOverloads = true
+        val aggressiveShadowNames = true
         val excludedNames = listOf("INSTANCE", "Companion")
 
         // getter
@@ -55,6 +57,11 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
         pre {
             Logger.info(" - FieldRenamer: Renaming fields...")
         }
+        buildFull(config)
+    }
+
+    context(instance: Grunteon, _: PipelineBuilder)
+    private fun buildFull(config: Config) {
         val fieldHierarchy = globalScopeValue {
             Logger.info("    Building field hierarchies...")
             val classHierarchy = ClassHierarchy.build(
@@ -75,17 +82,20 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                 .sortedBy { it.name }
                 .toList()
 
-            // TODO: heavy overloads
-            // val nonExcludedNameSet = nonExcluded.mapTo(ObjectOpenHashSet()) { it.name }
             val existedNameMap = Int2ObjectOpenHashMap<MutableSet<String>>()
-            val nameGenerator = NameGenerator(NameGenerator.getDictionary(config.dictionary))
+            //val nameGenerator = NameGenerator(NameGenerator.getDictionary(config.dictionary))
+            val dictionary = NameGenerator.getDictionary(config.dictionary)
             context(classHierarchy, fieldHierarchy) {
                 Logger.info("    Generating field mappings...")
+                val nameGenerators = mutableMapOf<ClassHierarchy.Entry, NameGenerator>()
                 nonExcluded.forEach { classNode ->
                     val classIndex = classHierarchy.findClass(classNode.name)
                     if (classIndex == -1) throw Exception("你妈${classNode.name}死了，hierarchy里面找不到你妈")
                     val classEntry = ClassHierarchy.Entry(classIndex)
                     if (!classEntry.hasMissingDependency) {
+                        val dic = nameGenerators.getOrPut(classEntry) {
+                            NameGenerator(dictionary)
+                        }
                         for (fieldIndex in classEntry.fields.array) {
                             val fieldEntry = FieldHierarchy.Entry(fieldIndex)
                             // Source check
@@ -104,18 +114,29 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                             // Avoid shadow names
                             val checkSet = IntLinkedOpenHashSet()
                             checkSet.add(classEntry.index)
-                            classEntry.descendants.forEach {
-                                checkSet.add(it.index)
+                            // Disable up check for static and private fields TODO: check this
+                            if ((!fieldEntry.node.isStatic && !fieldEntry.node.isPrivate) || !config.aggressiveShadowNames) {
+                                //println("Disable up check for ${classEntry.name}.${fieldEntry.name}${fieldEntry.desc}")
+                                classEntry.descendants.forEach {
+                                    checkSet.add(it.index)
+                                }
                             }
                             val checkList = ClassHierarchy.EntryArray(checkSet.toIntArray())
                             var newName: String
                             loop@ while (true) {
-                                newName = config.malPrefix + nameGenerator.nextName() + config.suffix
+                                newName = config.malPrefix + dic.nextName(
+                                    config.heavyOverloads,
+                                    fieldEntry.desc
+                                ) + config.suffix
                                 var keepThisName = true
                                 check@ for (check in checkList.array) {
                                     val nameSet = existedNameMap.getOrPut(check) { mutableSetOf() }
-                                    if (nameSet.contains(newName)) {
+                                    if (nameSet.contains(newName + fieldEntry.desc)) {
                                         keepThisName = false
+                                        //println(
+                                        //    "discard name $newName for ${classEntry.name}.${fieldEntry.name}${fieldEntry.desc} " +
+                                        //            "due to ${ClassHierarchy.Entry(check).name}"
+                                        //)
                                         break@check
                                     }
                                 }
@@ -123,7 +144,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                             }
                             checkList.forEach { check ->
                                 val nameSet = existedNameMap.getOrPut(check.index) { mutableSetOf() }
-                                nameSet.add(newName)
+                                nameSet.add(newName + fieldEntry.desc)
                             }
                             val upApply = !fieldEntry.node.isPrivate || fieldEntry.node.isProtected
                             // Apply to children
@@ -153,6 +174,5 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
             Logger.info("    Renamed ${instance.mappingManager.mappings[MappingManager.MappingType.Fields.ordinal].size} fields")
         }
     }
-
 
 }
