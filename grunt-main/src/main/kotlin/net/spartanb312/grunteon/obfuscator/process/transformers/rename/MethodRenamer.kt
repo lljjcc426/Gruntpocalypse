@@ -216,12 +216,8 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     group.forEach { sourceMethod ->
                         sourceAndOverridesMapping[sourceMethod.index] = newName
                         sourceMapping[sourceMethod.index] = newName
-                        val sourceMethodCode = sourceMethod.methodCode
-                        sourceMethod.owner.descendants.forEach { owner ->
-                            val exist = owner.findMethod(sourceMethodCode)
-                            if (exist.isValid) {
-                                sourceAndOverridesMapping[exist.index] = newName
-                            }
+                        sourceMethod.overrideMethods.forEach {
+                            sourceAndOverridesMapping[it.index] = newName
                         }
                     }
                 }
