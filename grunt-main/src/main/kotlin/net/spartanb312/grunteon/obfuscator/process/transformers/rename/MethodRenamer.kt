@@ -83,6 +83,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
+        barrier()
         pre {
             Logger.info(" - MethodRenamer[${config.mode.displayName}]: Renaming methods...")
         }

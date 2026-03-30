@@ -10,8 +10,8 @@ import net.spartanb312.grunteon.obfuscator.util.filters.FilterStrategy
 import org.objectweb.asm.tree.ClassNode
 
 class ScopeValueAccess(
-    internal val globals: Array<Any>,
-    internal val reducibleGlobal: Array<Mergeable<*>>,
+    internal val globals: Array<Any?>,
+    internal val reducibleGlobal: Array<Mergeable<*>?>,
     internal val reducibleLocal: Array<Mergeable<*>?>,
     internal val locals: Array<Any?>
 ) {
@@ -42,8 +42,8 @@ class ScopeValueAccess(
 }
 
 class ScopeValueGlobal(
-    internal val globals: Array<Any>,
-    internal val reducibleGlobal: Array<Mergeable<*>>,
+    internal val globals: Array<Any?>,
+    internal val reducibleGlobal: Array<Mergeable<*>?>,
     internal val localCount: Int
 ) {
     fun mergeToGlobal(other: ScopeValueAccess) {
@@ -51,7 +51,7 @@ class ScopeValueGlobal(
             val mine = reducibleGlobal[i]
             val yours = other.reducibleLocal[i]
             if (yours != null) {
-                mine.merge(yours)
+                mine?.merge(yours)
             }
         }
     }
@@ -59,6 +59,8 @@ class ScopeValueGlobal(
 
 sealed interface Instruction {
     object Barrier : Instruction
+    class InitGlobal(val index: Int) : Instruction
+    class InitReducible(val index: Int) : Instruction
     class Seq(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
     class Pre(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
     class Post(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
@@ -170,6 +172,7 @@ context(pb: PipelineBuilder)
 fun <T> globalScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Global<T> {
     val key = GlobalScopeValueKeyImpl(init, pb.globalScopeValueKeys.size)
     pb.globalScopeValueKeys += key
+    pb.instructions += Instruction.InitGlobal(key.index)
     return key
 }
 
@@ -184,6 +187,7 @@ context(pb: PipelineBuilder)
 fun <T : Mergeable<*>> reducibleScopeValue(init: context(Grunteon) () -> T): ScopeValueKey.Reducible<T> {
     val key = ReducibleScopeValueKeyImpl(init, pb.reducibleScopeValueKeys.size)
     pb.reducibleScopeValueKeys += key
+    pb.instructions += Instruction.InitReducible(key.index)
     return key
 }
 
@@ -197,32 +201,14 @@ internal class WorkerContext {
 
     fun execute(instance: Grunteon, pipelineBuilder: PipelineBuilder) {
         runBlocking {
-            val global = Array(pipelineBuilder.globalScopeValueKeys.size) { index ->
-                // WTF fastutil Reference2ObjectFunction is broken and doesn't give correctly typed parameter
-                globalKeys.computeIfAbsent(pipelineBuilder.globalScopeValueKeys[index], java.util.function.Function {
-                    it.init(instance)
-                })
-            }
-            val reducible = Array(pipelineBuilder.reducibleScopeValueKeys.size) { index ->
-                reducibleKeys.computeIfAbsent(
-                    pipelineBuilder.reducibleScopeValueKeys[index],
-                    java.util.function.Function {
-                        it.init(instance)
-                    })
-            }
+            val global = arrayOfNulls<Any>(pipelineBuilder.globalScopeValueKeys.size)
+            val reducible = arrayOfNulls<Mergeable<*>>(pipelineBuilder.reducibleScopeValueKeys.size)
             val scopeValueGlobal = ScopeValueGlobal(global, reducible, pipelineBuilder.localScopeValueKeys.size)
 
-            val preTasks = ObjectArrayList<Instruction.Pre>()
             val pendingParallelTasks = ObjectArrayList<Instruction.ParForEach>()
             val postTasks = ObjectArrayList<Instruction.Post>()
 
             suspend fun flushParallelTasks() {
-                preTasks.forEach {
-                    val access = ScopeValueAccess(scopeValueGlobal)
-                    it.block.invoke(instance, access)
-                    scopeValueGlobal.mergeToGlobal(access)
-                }
-                preTasks.clear()
                 if (!pendingParallelTasks.isEmpty) {
                     Logger.debug("Flushing ${pendingParallelTasks.size} parallel tasks...")
                     val tasks = pendingParallelTasks.toTypedArray()
@@ -261,8 +247,27 @@ internal class WorkerContext {
 
             pipelineBuilder.instructions.forEach { inst ->
                 when (inst) {
+                    is Instruction.InitGlobal -> {
+                        val key = pipelineBuilder.globalScopeValueKeys[inst.index]
+                        global[inst.index] = globalKeys.computeIfAbsent(
+                            key,
+                            java.util.function.Function { it.init(instance) }
+                        )
+                    }
+                    is Instruction.InitReducible -> {
+                        val key = pipelineBuilder.reducibleScopeValueKeys[inst.index]
+                        reducible[inst.index] = reducibleKeys.computeIfAbsent(
+                            key,
+                            java.util.function.Function { it.init(instance) }
+                        )
+                    }
                     is Instruction.Seq -> {
                         flushParallelTasks()
+                        val access = ScopeValueAccess(scopeValueGlobal)
+                        inst.block.invoke(instance, access)
+                        scopeValueGlobal.mergeToGlobal(access)
+                    }
+                    is Instruction.Pre -> {
                         val access = ScopeValueAccess(scopeValueGlobal)
                         inst.block.invoke(instance, access)
                         scopeValueGlobal.mergeToGlobal(access)
@@ -277,9 +282,6 @@ internal class WorkerContext {
                     }
                     is Instruction.ParForEach -> {
                         pendingParallelTasks.add(inst)
-                    }
-                    is Instruction.Pre -> {
-                        preTasks.add(inst)
                     }
                     is Instruction.Post -> {
                         postTasks.add(inst)
