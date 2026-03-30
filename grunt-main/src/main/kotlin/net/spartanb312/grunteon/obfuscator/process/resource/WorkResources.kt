@@ -88,6 +88,7 @@ class WorkResources private constructor(
         fun read(input: Path, libs: List<Path> = emptyList()): WorkResources {
             Logger.info("Reading...")
             Logger.info("Input: ${input.absolutePathString()}")
+            require(input.exists()) { "Input file does not exist: ${input.absolutePathString()}" }
             Logger.debug("Libraries:")
             libs.forEach {
                 Logger.debug(" - ${it.absolutePathString()}")
