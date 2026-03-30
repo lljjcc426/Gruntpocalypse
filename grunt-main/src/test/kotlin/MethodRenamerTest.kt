@@ -106,4 +106,8 @@ class MethodRenamerTest {
     @Test
     fun FunctionalInterfaceCapturing() =
         runTestClass("net.spartanb312.grunteon.testcase.methodrename.functional.Capturing")
+
+    @Test
+    fun FunctionalInterfaceObjectCapturing() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.functional.ObjectCapturing")
 }
