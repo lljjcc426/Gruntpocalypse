@@ -1,5 +1,6 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import net.spartanb312.grunteon.obfuscator.Grunteon
@@ -97,7 +98,8 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
             )
             MethodHierarchy.build(classHierarchy)
         }
-        val infoMappings = globalScopeValue { Int2ObjectOpenHashMap<String>() }
+        val sourceMapping = globalScopeValue { Int2ObjectLinkedOpenHashMap<String>() }
+        val sourceAndOverridesMapping = globalScopeValue { Int2ObjectOpenHashMap<String>() }
         seq {
             val methodHierarchy = methodHierarchy.global
             val classHierarchy = methodHierarchy.classHierarchy
@@ -123,7 +125,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     val classEntry = ClassHierarchy.Entry(classIndex)
                     if (!classEntry.hasMissingDependency) {
                         val isEnum = classNode.isEnum
-                        for (methodIndex in classEntry.methods.indices) {
+                        for (methodIndex in classEntry.methods.array) {
                             val methodEntry = MethodHierarchy.Entry(methodIndex)
                             // Source check
                             if (!methodEntry.isSourceMethod) continue
@@ -141,7 +143,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             val related = methodEntry.connectedComponent
                             if (related.any { !instance.workRes.inputClassMap.containsKey(it.owner.name) }) continue
                             val group = if (related.size > 1) {
-                                val relationship = related.indices.map { MethodHierarchy.Entry(it) }.toMutableSet()
+                                val relationship = related.array.map { MethodHierarchy.Entry(it) }.toMutableSet()
                                 relationship.add(methodEntry) // idk
                                 Logger.debug("    Found multi source method group (${relationship.size} classes): ")
                                 relationship.forEach {
@@ -158,7 +160,8 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
 
                 Logger.info("    Generating mappings for method groups...")
                 val dictionary = NameGenerator.getDictionary(config.dictionary)
-                val infoMappings = infoMappings.global
+                val sourceAndOverridesMapping = sourceAndOverridesMapping.global
+                val sourceMapping = sourceMapping.global
                 // share a same name in a group
                 val nameGenerators = mutableMapOf<ClassHierarchy.Entry, NameGenerator>()
                 val existedNameMap = mutableMapOf<ClassHierarchy.Entry, MutableSet<String>>() // class, name$desc list
@@ -173,7 +176,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     val checkList = mutableSetOf<Pair<ClassHierarchy.Entry, String>>()
                     group.forEach { source ->
                         checkList.add(source.owner to source.full)
-                        val descendants = source.owner.descendants.map {
+                        val descendants = source.owner.descendants.array.map {
                             val ownerName = classHierarchy.classNames[it]
                             ClassHierarchy.Entry(it) to "${ownerName}.${source.name}${source.desc}"
                         }
@@ -207,41 +210,25 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     }
                     // Apply to all affected
                     group.forEach { sourceMethod ->
-                        infoMappings[sourceMethod.index] = newName
-                        sourceMethod.owner.descendants.forEach { oi ->
-                            val owner = ClassHierarchy.Entry(oi)
-                            val methods = owner.methods.indices.map { MethodHierarchy.Entry(it) }
-                            val exist = methods.find {
-                                it.name == sourceMethod.name && it.desc == sourceMethod.desc
+                        sourceAndOverridesMapping[sourceMethod.index] = newName
+                        sourceMapping[sourceMethod.index] = newName
+                        val sourceMethodCode = sourceMethod.methodCode
+                        sourceMethod.owner.descendants.forEach { owner ->
+                            val exist = owner.findMethod(sourceMethodCode)
+                            if (exist.isValid) {
+                                sourceAndOverridesMapping[exist.index] = newName
                             }
-                            if (exist != null) infoMappings[exist.index] = newName
                         }
                     }
                 }
             }
         }
-        val indyResults = IndyChecker.check(methodHierarchy, infoMappings)
+        val indyResults = IndyChecker.check(methodHierarchy, sourceAndOverridesMapping)
         seq {
             Logger.info("    Applying mappings for methods...")
             val indyResults = indyResults.global
 
             // Remap
-            val mh = methodHierarchy.global
-            val infoMappings = infoMappings.global
-            val ch = mh.classHierarchy
-            Logger.info("    Generated mapping for ${infoMappings.size} methods")
-            context(mh, ch) {
-                infoMappings.forEachFast { methodIdx, newName ->
-                    val method = MethodHierarchy.Entry(methodIdx)
-                    val ownerName = method.owner.name
-                    val full = "${ownerName}.${method.name}${method.desc}"
-                    instance.mappingManager.addMapping(
-                        MappingManager.MappingType.Methods,
-                        full, newName
-                    )
-                }
-            }
-
             Logger.info("    Generated indy mapping for ${indyResults.size} methods")
             indyResults.forEach { implicitInfo ->
                 val key = ".${implicitInfo.indyInsnName}${implicitInfo.indyInsnDesc}"
@@ -250,6 +237,31 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     MappingManager.MappingType.Methods,
                     key, implicitInfo.newName
                 )
+            }
+
+            val mh = methodHierarchy.global
+            val sourceMapping = sourceMapping.global
+            val ch = mh.classHierarchy
+            context(mh, ch) {
+                var count = sourceMapping.size
+                sourceMapping.forEachFast { sourceMethodIdx, newName ->
+                    val method = MethodHierarchy.Entry(sourceMethodIdx)
+                    instance.mappingManager.addMapping(
+                        MappingManager.MappingType.Methods,
+                        method.full, newName
+                    )
+                    val sourceMethod = MethodHierarchy.Entry(sourceMethodIdx)
+                    sourceMethod.owner.descendants.forEach {
+                        val descendantName = it.name
+                        val full = "$descendantName.${sourceMethod.name}${sourceMethod.desc}"
+                        instance.mappingManager.addMapping(
+                            MappingManager.MappingType.Methods,
+                            full, newName
+                        )
+                        count++
+                    }
+                }
+                Logger.info("    Generated mapping for $count methods")
             }
         }
         instance.mappingManager.applyRemap(MappingManager.MappingType.Methods)

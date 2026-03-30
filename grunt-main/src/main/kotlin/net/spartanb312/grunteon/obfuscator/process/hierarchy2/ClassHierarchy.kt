@@ -180,7 +180,28 @@ class ClassHierarchy(
         return missingReference
     }
 
-    private val primitiveTypes = arrayOf("B", "C", "D", "F", "I", "J", "S", "Z", "V")
+    @JvmInline
+    value class EntryArray(val array: IntArray) {
+        inline val size get() = array.size
+
+        operator fun get(index: Int): Entry {
+            return Entry(array[index])
+        }
+
+        inline fun forEach(action: (Entry) -> Unit) {
+            for (i in array.indices) {
+                action(Entry(array[i]))
+            }
+        }
+
+        inline fun any(predicate: (Entry) -> Boolean): Boolean {
+            return array.any { predicate(Entry(it)) }
+        }
+
+        companion object {
+            val EMPTY = EntryArray(IntArray(0))
+        }
+    }
 
     @JvmInline
     value class Entry(val index: Int) {
@@ -202,7 +223,7 @@ class ClassHierarchy(
         val ancestors get() = ch.ancestors[index]
 
         context(ch: ClassHierarchy)
-        val descendants get() = ch.descendants[index]
+        val descendants get() = EntryArray(ch.descendants[index])
 
         context(ch: ClassHierarchy)
         val isBroken get() = ch.broken[index]
@@ -215,12 +236,27 @@ class ClassHierarchy(
 
         context(mh: MethodHierarchy)
         val methods: MethodHierarchy.EntryArray get() = MethodHierarchy.EntryArray(mh.classNodeMethods[index])
+
+        context(mh: MethodHierarchy)
+        fun findMethod(name: String, desc: String): MethodHierarchy.Entry {
+            val codename = "$name$desc"
+            val methodCode = mh.methodCodeLookup.getInt(codename)
+            if (methodCode == -1) return MethodHierarchy.Entry.INVALID
+            return findMethod(methodCode)
+        }
+
+        context(mh: MethodHierarchy)
+        fun findMethod(methodCode: Int): MethodHierarchy.Entry {
+            return MethodHierarchy.Entry(mh.classNodeMethodCodeMethodLookup[index][methodCode])
+        }
     }
 
 
     companion object {
         const val JAVA_OBJECT = "java/lang/Object"
         val MISSING_CLASSNODE = ClassNode()
+
+        private val primitiveTypes = arrayOf("B", "C", "D", "F", "I", "J", "S", "Z", "V")
 
         private fun IntArray.distinctCount(): Int {
             val set = IntOpenHashSet(this)

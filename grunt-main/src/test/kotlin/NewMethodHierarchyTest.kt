@@ -68,7 +68,7 @@ class NewMethodHierarchyTest {
     ) {
         context(new) {
             new.sourceMethodConnectedComponents.forEach {
-                assertEquals(it.indices.distinct().size, it.size, "Connected component contains duplicate method trees")
+                assertEquals(it.array.distinct().size, it.size, "Connected component contains duplicate method trees")
             }
 
             old.instance.workRes.inputClassCollection.forEach { node ->
@@ -100,7 +100,7 @@ class NewMethodHierarchyTest {
                         return@forEach
                     }
 
-                    val newRelatedList = methodEntry.connectedComponent.indices.map { methodIdx ->
+                    val newRelatedList = methodEntry.connectedComponent.array.map { methodIdx ->
                         val methodOwner = new.classHierarchy.classNodes[new.methodOwners[methodIdx]]
                         val methodNode = new.methodNodes[methodIdx]
                         "${methodOwner.name}.${methodNode.name}${methodNode.desc}"

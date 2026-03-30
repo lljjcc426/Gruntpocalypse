@@ -86,17 +86,17 @@ class FieldHierarchy(
     }
 
     @JvmInline
-    value class Entry(val index: Int) {
-        val isValid: Boolean get() = index != -1
+    value class Entry(val array: Int) {
+        val isValid: Boolean get() = array != -1
 
         context(fh: FieldHierarchy)
-        val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(fh.fieldOwner[index])
+        val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(fh.fieldOwner[array])
 
         context(fh: FieldHierarchy)
-        val node: FieldNode get() = fh.fieldNodes[index]
+        val node: FieldNode get() = fh.fieldNodes[array]
 
         context(fh: FieldHierarchy)
-        val isSourceField: Boolean get() = fh.isSourceField[index]
+        val isSourceField: Boolean get() = fh.isSourceField[array]
     }
 
     companion object {

@@ -39,9 +39,9 @@ class MethodHierarchy(
      */
     val classNodeMethods: Array<IntArray>,
     /**
-     * Lookup for methods in a class, indexed by class index, then by method key, returns internal method index
+     * Lookup for methods in a class, indexed by class index, then by method code, returns internal method index
      */
-    val classNodeMethodLookup: Array<Object2IntOpenHashMap<MethodNodeKey>>,
+    val classNodeMethodCodeMethodLookup: Array<Int2IntOpenHashMap>,
     /**
      * Lookup for source methods of a method, indexed by method index, returns source methods' internal indices
      */
@@ -79,7 +79,7 @@ class MethodHierarchy(
      */
     fun findMethod(className: String, methodName: String, methodDesc: String): Entry {
         val classIdx = classHierarchy.findClass(className)
-        if (classIdx == -1) return Entry(-1)
+        if (classIdx == -1) return Entry.INVALID
         return findMethod(classIdx, methodName, methodDesc)
     }
 
@@ -87,27 +87,29 @@ class MethodHierarchy(
      * Validate entry using .isValid before using the returned entry
      */
     fun findMethod(classIdx: Int, methodName: String, methodDesc: String): Entry {
-        val methodLookup = classNodeMethodLookup[classIdx]
-        val methodKey = MethodNodeKey(methodName, methodDesc)
-        return Entry(methodLookup.getInt(methodKey))
+        val codename = methodName + methodDesc
+        val methodCode = methodCodeLookup.getInt(codename)
+        if (methodCode == -1) return Entry.INVALID
+        val methodIdx = classNodeMethodCodeMethodLookup[classIdx].get(methodCode)
+        return Entry(methodIdx)
     }
 
     @JvmInline
-    value class EntryArray(val indices: IntArray) {
-        inline val size get() = indices.size
+    value class EntryArray(val array: IntArray) {
+        inline val size get() = array.size
 
         operator fun get(index: Int): Entry {
-            return Entry(indices[index])
+            return Entry(array[index])
         }
 
         inline fun forEach(action: (Entry) -> Unit) {
-            for (i in indices.indices) {
-                action(Entry(indices[i]))
+            for (i in array.indices) {
+                action(Entry(array[i]))
             }
         }
 
         inline fun any(predicate: (Entry) -> Boolean): Boolean {
-            return indices.any { predicate(Entry(it)) }
+            return array.any { predicate(Entry(it)) }
         }
 
         companion object {
@@ -158,6 +160,13 @@ class MethodHierarchy(
                 if (sourceMethodIdx == -1) return EntryArray.EMPTY
                 return mh.sourceMethodOverrides[sourceMethodIdx]
             }
+
+        context(mh: MethodHierarchy)
+        val methodCode: Int get() = mh.methodToMethodCode[index]
+
+        companion object {
+            val INVALID = Entry(-1)
+        }
     }
 
     companion object {
@@ -199,6 +208,11 @@ class MethodHierarchy(
                 Int2ObjectOpenHashMap<IntArraySet>()
             } // Tells a class's method code belongs to which method tree(s)
             val methodCodeToMethods = ObjectArrayList<IntArrayList>()
+            val classNodeMethodCodeMethodLookup = Array(classHierarchy.realClassCount) {
+                Int2IntOpenHashMap().apply {
+                    defaultReturnValue(-1)
+                }
+            }
 
             fun assignMethodCodeAndBroadcastToDescendants() {
                 for (methodIdx in 0..<methodCount) {
@@ -211,6 +225,8 @@ class MethodHierarchy(
                     methodCode[methodIdx] = myMethodCode
                     methodAccess[methodIdx] = methodNode.access
                     methodCodeToMethods[myMethodCode].add(methodIdx)
+                    val ownerIdx = methodOwner.getInt(methodIdx)
+                    classNodeMethodCodeMethodLookup[ownerIdx][myMethodCode] = methodIdx
 
                     // Fill inherent method bits
                     if (methodNode.access.isPrivate) continue
@@ -361,7 +377,7 @@ class MethodHierarchy(
                 methodNodes.toTypedArray(),
                 methodOwner.toIntArray(),
                 Array(classHierarchy.realClassCount) { classToMethod[it].toIntArray() },
-                classMethodNodeLookup,
+                classNodeMethodCodeMethodLookup,
                 methodToSourceMethod,
                 isSourceMethod,
                 sourceMethodToMethodTreeIdxLookup,
