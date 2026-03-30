@@ -2,6 +2,7 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.ints.IntLinkedOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
@@ -165,7 +166,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                 val sourceMapping = sourceMapping.global
                 // share a same name in a group
                 val nameGenerators = mutableMapOf<ClassHierarchy.Entry, NameGenerator>()
-                val existedNameMap = mutableMapOf<ClassHierarchy.Entry, MutableSet<String>>() // class, name$desc list
+                val existedNameMap = Array(classHierarchy.classCount) { ObjectOpenHashSet<String>() }
                 relatedGroups.forEach { group ->
                     val present = group.first()
                     val namePrefix = "" // (if (randomKeywordPrefix) "$nextBadKeyword " else "") + prefix TODO: prefix
@@ -174,20 +175,19 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     val dic = nameGenerators.getOrPut(present.owner) {
                         NameGenerator(dictionary)
                     }
-                    val checkList = mutableSetOf<Pair<ClassHierarchy.Entry, String>>()
+                    val checkSet = IntLinkedOpenHashSet()
                     group.forEach { source ->
-                        checkList.add(source.owner to source.full)
-                        val descendants = source.owner.descendants.array.map {
-                            val ownerName = classHierarchy.classNames[it]
-                            ClassHierarchy.Entry(it) to "${ownerName}.${source.name}${source.desc}"
+                        checkSet.add(source.owner.index)
+                        source.owner.descendants.forEach {
+                            checkSet.add(it.index)
                         }
-                        checkList.addAll(descendants)
                     }
-                    for ((owner, _) in checkList) {
+                    val checkList = ClassHierarchy.EntryArray(checkSet.toIntArray())
+                    checkList.forEach { owner ->
                         if (!nonExcludedNameSet.contains(owner.classNode.name)) {
                             Logger.debug("${owner.classNode.name} is not included in working range. Discarded all group (${group.size} methods)")
                             checkList.forEach {
-                                Logger.trace(" - ${it.first.name}")
+                                Logger.trace(" - ${it.name}")
                             }
                             return@forEach
                         }
@@ -195,19 +195,22 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     var newName: String
                     loop@ while (true) {
                         newName = namePrefix + dic.nextName(config.heavyOverloads, present.desc) + suffix
+                        // Cache once per outer iteration instead of recomputing for every entry in checkList
+                        val nameWithDesc = newName + present.desc
                         var keepThisName = true
-                        check@ for (check in checkList) {
-                            val nameSet = existedNameMap.getOrPut(check.first) { mutableSetOf() }
-                            if (nameSet.contains(newName + present.desc)) {
-                                keepThisName = false
-                                break@check
+                        run check@{
+                            checkList.forEach { owner ->
+                                if (existedNameMap[owner.index].contains(nameWithDesc)) {
+                                    keepThisName = false
+                                    return@check
+                                }
                             }
                         }
                         if (keepThisName) break
                     }
-                    checkList.forEach { check ->
-                        val nameSet = existedNameMap.getOrPut(check.first) { mutableSetOf() }
-                        nameSet.add(newName + present.desc)
+                    val nameWithDesc = newName + present.desc
+                    checkList.forEach { owner ->
+                        existedNameMap[owner.index].add(nameWithDesc)
                     }
                     // Apply to all affected
                     group.forEach { sourceMethod ->
