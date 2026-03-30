@@ -1,6 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.util.extensions
 
 import net.spartanb312.genesis.kotlin.extensions.*
+import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
@@ -40,6 +41,8 @@ inline val MethodNode.isNative get() = access.isNative
 inline val MethodNode.isAbstract get() = access.isAbstract
 
 inline val MethodNode.isSynthetic get() = access.isSynthetic
+
+inline val MethodNode.isBridge get() = access intersects Opcodes.ACC_BRIDGE
 
 inline val MethodNode.isMainMethod get() = name == "main" && desc == "([Ljava/lang/String;)V"
 

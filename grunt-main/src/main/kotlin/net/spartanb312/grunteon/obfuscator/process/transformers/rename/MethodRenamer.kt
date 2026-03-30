@@ -110,6 +110,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         }
         val sourceMapping = globalScopeValue { Int2ObjectLinkedOpenHashMap<String>() }
         val sourceAndOverridesMapping = globalScopeValue { Int2ObjectOpenHashMap<String>() }
+        val bridgeMethodSources = globalScopeValue { ObjectOpenHashSet<MethodHierarchy.Entry>() }
         seq {
             val methodHierarchy = methodHierarchy.global
             val classHierarchy = methodHierarchy.classHierarchy
@@ -129,7 +130,8 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
             context(classHierarchy, methodHierarchy) {
                 Logger.info("    Splitting method groups...")
                 val blackList = mutableSetOf<MethodHierarchy.Entry>()
-                val relatedGroups = mutableListOf<MutableSet<MethodHierarchy.Entry>>() // as a family
+                val relatedGroups =
+                    mutableListOf<Pair<MutableSet<MethodHierarchy.Entry>, MutableSet<String>>>() // as a family
                 nonExcluded.forEach { classNode ->
                     val classIndex = classHierarchy.findClass(classNode.name)
                     if (classIndex == -1) throw Exception("你妈${classNode.name}死了，hierarchy里面找不到你妈")
@@ -150,6 +152,13 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             // if (methodNode.reflectionExcluded) continue
                             // TODO: method exclusion
                             // val combined = combine(classNode.name, methodNode.name, methodNode.desc)
+                            // Check bridge method
+                            if (methodNode.isSynthetic || methodNode.isBridge) {
+                                bridgeMethodSources.global.add(methodEntry)
+                                //println("Find bridge method ${methodEntry.full}")
+                                continue
+                            }
+
                             // Bind group
                             val related = methodEntry.connectedComponent
                             if (related.any { !instance.workRes.inputClassMap.containsKey(it.owner.name) }) continue
@@ -164,10 +173,33 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             } else mutableSetOf(methodEntry)
                             // apply group
                             blackList.addAll(group)
-                            relatedGroups.add(group)
+                            relatedGroups.add(group to mutableSetOf(methodEntry.desc))
                         }
                     }
                 }
+
+                // Bind synthetic bridge method group
+                val standaloneSyntheticSources = mutableSetOf<MethodHierarchy.Entry>()
+                bridgeMethodSources.global.forEach { bridge ->
+                    var findCommon = false
+                    treeSearch@ for (sources in relatedGroups) {
+                        val first = sources.first.first()
+                        val inCommonSourceOwner = first.owner.name == bridge.owner.name && first.name == bridge.name
+                        if (inCommonSourceOwner) {
+                            findCommon = true
+                            println("Bridge link: ${first.full} and ${bridge.full}")
+                            sources.first.add(bridge)
+                            sources.second.add(bridge.desc)
+                            break@treeSearch
+                        }
+                    }
+                    if (!findCommon) {
+                        //println("Can't find common tree for ${bridge.full}")
+                        standaloneSyntheticSources.add(bridge)
+                    }
+                }
+                // Consider each standalone synthetic method as a standalone group (Kotlin and Scala compiler gen)
+                standaloneSyntheticSources.forEach { relatedGroups.add(mutableSetOf(it) to mutableSetOf(it.desc)) }
 
                 Logger.info("    Generating mappings for method groups...")
                 val dictionary = NameGenerator.getDictionary(config.dictionary)
@@ -177,15 +209,16 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                 val nameGenerators = mutableMapOf<ClassHierarchy.Entry, NameGenerator>()
                 val existedNameMap = Array(classHierarchy.classCount) { ObjectOpenHashSet<String>() }
                 relatedGroups.forEach { group ->
-                    val present = group.first()
+                    //val present = group.first.first()
+                    val first = group.first.first()
                     val namePrefix = "" // (if (randomKeywordPrefix) "$nextBadKeyword " else "") + prefix TODO: prefix
                     val suffix = "" // TODO : suffix
                     // Avoid shadow names
-                    val dic = nameGenerators.getOrPut(present.owner) {
+                    val dic = nameGenerators.getOrPut(first.owner) {
                         NameGenerator(dictionary)
                     }
                     val checkSet = IntLinkedOpenHashSet()
-                    group.forEach { source ->
+                    group.first.forEach { source ->
                         checkSet.add(source.owner.index)
                         // Disable up check for static and private fields TODO: check this
                         if ((!source.node.isStatic && !source.node.isPrivate) || !config.aggressiveShadowNames) {
@@ -198,7 +231,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     val checkList = ClassHierarchy.EntryArray(checkSet.toIntArray())
                     checkList.forEach { owner ->
                         if (!nonExcludedNameSet.contains(owner.classNode.name)) {
-                            Logger.debug("${owner.classNode.name} is not included in working range. Discarded all group (${group.size} methods)")
+                            Logger.debug("${owner.classNode.name} is not included in working range. Discarded all group (${group.first.size} methods)")
                             checkList.forEach {
                                 Logger.trace(" - ${it.name}")
                             }
@@ -207,13 +240,21 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     }
                     var newName: String
                     loop@ while (true) {
-                        newName = namePrefix + dic.nextName(config.heavyOverloads, present.desc) + suffix
+                        newName = namePrefix + dic.nextName(config.heavyOverloads, first.desc) + suffix
                         // Cache once per outer iteration instead of recomputing for every entry in checkList
-                        val nameWithDesc = newName + present.desc
+                        val nameWithDescList = group.second.map { newName + it }
                         var keepThisName = true
                         run check@{
                             checkList.forEach { owner ->
-                                if (existedNameMap[owner.index].contains(nameWithDesc)) {
+                                if (nameWithDescList.any { nameWithDesc ->
+                                        existedNameMap[owner.index].contains(nameWithDesc)
+                                    }) {
+                                    //if (nameWithDescList.size > 1) {
+                                    //    println(
+                                    //        "Bridge method desc collapse first=${first.desc}," +
+                                    //                " desc=${nameWithDescList.joinToString(", ")}"
+                                    //    )
+                                    //}
                                     keepThisName = false
                                     return@check
                                 }
@@ -221,16 +262,17 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                         }
                         if (keepThisName) break
                     }
-                    val nameWithDesc = newName + present.desc
+                    val nameWithDesc = newName + first.desc
                     checkList.forEach { owner ->
                         existedNameMap[owner.index].add(nameWithDesc)
                     }
                     // Apply to all affected
-                    group.forEach { sourceMethod ->
+                    group.first.forEach { sourceMethod ->
                         sourceAndOverridesMapping[sourceMethod.index] = newName
                         sourceMapping[sourceMethod.index] = newName
                         // Disable up apply for private and static
                         if (!sourceMethod.node.isPrivate && !sourceMethod.node.isStatic) {
+                            //println("Disable up apply for ${sourceMethod.full}")
                             sourceMethod.overrideMethods.forEach {
                                 sourceAndOverridesMapping[it.index] = newName
                             }
