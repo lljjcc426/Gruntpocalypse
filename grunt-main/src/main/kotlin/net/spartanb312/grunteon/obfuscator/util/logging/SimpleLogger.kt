@@ -32,6 +32,10 @@ class SimpleLogger(
         return@run null
     }
 
+    override fun trace(msg: String) {
+        if (debug.invoke()) raw(msg, "TRACE")
+    }
+
     override fun debug(msg: String) {
         if (debug.invoke()) raw(msg, "DEBUG")
     }

@@ -138,9 +138,9 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                 val group = if (related.size > 1) {
                                     val relationship = related.indices.map { MethodHierarchy.Entry(it) }.toMutableSet()
                                     relationship.add(methodEntry) // idk
-                                    Logger.info("    Found multi source method group: ")
+                                    Logger.debug("    Found multi source method group (${relationship.size} classes): ")
                                     relationship.forEach {
-                                        Logger.info("     - " + it.full)
+                                        Logger.trace("     - " + it.full)
                                     }
                                     relationship
                                 } else mutableSetOf(methodEntry)
@@ -177,9 +177,9 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     }
                     for ((owner: ClassHierarchy.Entry, _) in checkList) {
                         if (!nonExcluded.contains(owner.classNode)) {
-                            Logger.error("${owner.classNode.name} is not included in working range. Discarded all group")
+                            Logger.debug("${owner.classNode.name} is not included in working range. Discarded all group (${group.size} methods)")
                             checkList.forEach {
-                                Logger.info(" - ${it.first.name}")
+                                Logger.trace(" - ${it.first.name}")
                             }
                             return@forEach
                         }
@@ -230,9 +230,10 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
             val indyResults = indyResults.global
 
             // Remap
+            Logger.info("    Generated indy mapping for ${indyResults.size} methods")
             indyResults.forEach { implicitInfo ->
                 val key = ".${implicitInfo.indyInsnName}${implicitInfo.indyInsnDesc}"
-                Logger.info("    Generated indy mapping for $key")
+                Logger.debug("     - $key")
                 mappings[key] = implicitInfo.newName
             }
 

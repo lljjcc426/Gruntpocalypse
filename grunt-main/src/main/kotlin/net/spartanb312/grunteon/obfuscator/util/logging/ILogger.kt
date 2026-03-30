@@ -2,6 +2,9 @@ package net.spartanb312.grunteon.obfuscator.util.logging
 
 interface ILogger {
 
+    fun trace(msg: String) {
+    }
+
     fun debug(msg: String) {
     }
 
