@@ -1,23 +1,32 @@
 package net.spartanb312.grunteon.obfuscator.util
 
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
+import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InvokeDynamicInsnNode
 
-class IndyChecker(private val classes: Collection<ClassNode>) {
-
-    context(ch: ClassHierarchy, mh: MethodHierarchy)
-    fun check(mappings: MutableMap<MethodHierarchy.Entry, String>): List<IndyImplicitInfo> {
-        val results = mutableListOf<IndyImplicitInfo>()
-        classes.forEach { classNode ->
-            classNode.methods.forEach { methodNode ->
-                methodNode.instructions?.forEach { insnNode ->
-                    if (insnNode is InvokeDynamicInsnNode) {
-                        results.addAll(checkInsn(insnNode, mappings))
+object IndyChecker {
+    context(_: PipelineBuilder)
+    fun check(
+        hierarchyInfo: ScopeValueKey.Global<MethodHierarchy>,
+        infoMappings: ScopeValueKey.Global<MutableMap<MethodHierarchy.Entry, String>>
+    ): ScopeValueKey.Reducible<MergeableObjectList<IndyImplicitInfo>> {
+        val results = reducibleScopeValue { MergeableObjectList<IndyImplicitInfo>(FastObjectArrayList()) }
+        parForEach { classNode ->
+            val mh = hierarchyInfo.global
+            val ch = mh.classHierarchy
+            context(ch, mh) {
+                val results = results.local
+                val mappings = infoMappings.global
+                classNode.methods.forEach { methodNode ->
+                    methodNode.instructions?.forEach { insnNode ->
+                        if (insnNode is InvokeDynamicInsnNode) {
+                            results.addAll(checkInsn(insnNode, mappings))
+                        }
                     }
                 }
             }
@@ -28,7 +37,7 @@ class IndyChecker(private val classes: Collection<ClassNode>) {
     context(ch: ClassHierarchy, mh: MethodHierarchy)
     private fun checkInsn(
         invokeDynamicInsnNode: InvokeDynamicInsnNode,
-        mappings: MutableMap<MethodHierarchy.Entry, String> // Method, new name, desc
+        mappings: Map<MethodHierarchy.Entry, String> // Method, new name, desc
     ): List<IndyImplicitInfo> {
         val results = mutableListOf<IndyImplicitInfo>()
         if (invokeDynamicInsnNode.bsmArgs == null) return results

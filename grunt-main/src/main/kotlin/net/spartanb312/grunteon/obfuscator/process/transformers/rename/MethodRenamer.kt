@@ -9,13 +9,7 @@ import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.util.IndyChecker
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
-import net.spartanb312.grunteon.obfuscator.util.extensions.isAnnotation
-import net.spartanb312.grunteon.obfuscator.util.extensions.isEnum
-import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
-import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
-import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
-import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
+import net.spartanb312.grunteon.obfuscator.util.extensions.*
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
 
 /**
@@ -92,27 +86,30 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     private fun buildFull(config: Config) {
-        val counter = globalScopeValue { MergeableCounter() }
-        seq {
-            val instance = contextOf<Grunteon>()
+        val methodHierarchy = globalScopeValue {
             Logger.info("    Building method hierarchies...")
             val classHierarchy = ClassHierarchy.build(
                 instance.workRes.inputClassCollection, // Only include input classes
                 instance.workRes::getClassNode
             )
-            val methodHierarchy = MethodHierarchy.build(classHierarchy)
-
-            Logger.info("    Splitting method groups...")
-            val strategy = buildFilterStrategy(config)
-            val blackList = mutableSetOf<MethodHierarchy.Entry>()
-            val relatedGroups = mutableListOf<MutableSet<MethodHierarchy.Entry>>() // as a family
+            MethodHierarchy.build(classHierarchy)
+        }
+        val infoMappings = globalScopeValue { mutableMapOf<MethodHierarchy.Entry, String>() }
+        val mappings = globalScopeValue { mutableMapOf<String, String>() } // full name to new name
+        seq {
+            val methodHierarchy = methodHierarchy.global
+            val classHierarchy = methodHierarchy.classHierarchy
             context(classHierarchy, methodHierarchy) {
+                Logger.info("    Splitting method groups...")
+                val strategy = buildFilterStrategy(config)
+                val blackList = mutableSetOf<MethodHierarchy.Entry>()
+                val relatedGroups = mutableListOf<MutableSet<MethodHierarchy.Entry>>() // as a family
                 instance.workRes.inputClassCollection.asSequence()
                     .filter {
                         strategy.testClass(it)
-                                && !it.isAnnotation
-                                && (config.enums || !it.isEnum)
-                                && (config.interfaces || !it.isInterface)
+                            && !it.isAnnotation
+                            && (config.enums || !it.isEnum)
+                            && (config.interfaces || !it.isInterface)
                     }.forEach { classNode ->
                         val classIndex = classHierarchy.findClass(classNode.name)
                         if (classIndex == -1) throw Exception("你妈${classNode.name}死了，hierarchy里面找不到你妈")
@@ -150,16 +147,14 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             }
                         }
                     }
-            }
 
-            Logger.info("    Generating mappings for method groups...")
-            val dictionary = NameGenerator.getDictionary(config.dictionary)
-            val mappings = mutableMapOf<String, String>()
-            val infoMappings = mutableMapOf<MethodHierarchy.Entry, String>()
-            // share a same name in a group
-            val nameGenerators = mutableMapOf<ClassHierarchy.Entry, NameGenerator>()
-            val existedNameMap = mutableMapOf<ClassHierarchy.Entry, MutableSet<String>>() // class, name$desc list
-            context(classHierarchy, methodHierarchy) {
+                Logger.info("    Generating mappings for method groups...")
+                val dictionary = NameGenerator.getDictionary(config.dictionary)
+                val infoMappings = infoMappings.global
+                // share a same name in a group
+                val nameGenerators = mutableMapOf<ClassHierarchy.Entry, NameGenerator>()
+                val existedNameMap = mutableMapOf<ClassHierarchy.Entry, MutableSet<String>>() // class, name$desc list
+                val mappings = mappings.global
                 relatedGroups.forEach { group ->
                     val present = group.first()
                     val namePrefix = "" // (if (randomKeywordPrefix) "$nextBadKeyword " else "") + prefix TODO: prefix
@@ -216,31 +211,31 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     }
                 }
             }
-            // Generate invoke dynamic mapping
-            Logger.info("    Generating invoke dynamic mappings...")
-            context(classHierarchy, methodHierarchy) {
-                val indyResults = IndyChecker(instance.workRes.inputClassCollection).check(infoMappings)
-                indyResults.forEach { implicitInfo ->
-                    val key = ".${implicitInfo.indyInsnName}${implicitInfo.indyInsnDesc}"
-                    Logger.info("    Generated indy mapping for $key")
-                    mappings[key] = implicitInfo.newName
-                }
+        }
+        val indyResults = IndyChecker.check(methodHierarchy, infoMappings)
+        seq {
+            Logger.info("    Applying mappings for methods...")
+            val mappings = mappings.global
+            val indyResults = indyResults.global
+
+            // Remap
+            indyResults.forEach { implicitInfo ->
+                val key = ".${implicitInfo.indyInsnName}${implicitInfo.indyInsnDesc}"
+                Logger.info("    Generated indy mapping for $key")
+                mappings[key] = implicitInfo.newName
             }
 
-            Logger.info("    Applying mappings for methods...")
-            // Remap
             mappings.forEach { mapping ->
                 instance.mappingManager.addMapping(
                     MappingManager.MappingType.Methods,
                     mapping.key, mapping.value
                 )
-                counter.global.add()
             }
         }
         instance.mappingManager.applyRemap(MappingManager.MappingType.Methods)
         post {
             Logger.info(" - MethodRenamer:")
-            Logger.info("    Renamed ${counter.global.get()} methods")
+            Logger.info("    Renamed ${mappings.global.size} methods")
         }
     }
 
