@@ -1,0 +1,96 @@
+import org.jetbrains.kotlin.gradle.utils.extendsFrom
+
+plugins {
+    java
+    kotlin("jvm")
+}
+
+repositories {
+    mavenCentral()
+    maven("https://repo1.maven.org/maven2/")
+    maven("https://mvnrepository.com/artifact/")
+}
+
+val kotlinxCoroutineVersion = "1.7.3"
+val asmVersion = "9.7"
+val ktorVersion = "2.3.7"
+
+val library: Configuration by configurations.creating
+
+configurations {
+    api.extendsFrom(named("library"))
+}
+
+dependencies {
+    library(project(":genesis"))
+    //Kotlin
+    library(kotlin("stdlib"))
+    library("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinxCoroutineVersion")
+
+    //ASM
+    library("org.ow2.asm:asm:$asmVersion")
+    library("org.ow2.asm:asm-tree:$asmVersion")
+    library("org.ow2.asm:asm-commons:$asmVersion")
+    library("org.ow2.asm:asm-analysis:$asmVersion")
+
+    //GSON
+    library("com.google.code.gson:gson:2.10")
+
+    //GUI
+    library("com.miglayout:miglayout-swing:5.3")
+    library("com.github.weisj:darklaf-core:3.0.2")
+
+    library("org.apache.commons:commons-lang3:3.0")
+    library("javassist:javassist:3.12.1.GA")
+
+    //Ktor Web Server
+    library("io.ktor:ktor-server-core:$ktorVersion")
+    library("io.ktor:ktor-server-netty:$ktorVersion")
+    library("io.ktor:ktor-server-content-negotiation:$ktorVersion")
+    library("io.ktor:ktor-serialization-gson:$ktorVersion")
+    library("io.ktor:ktor-server-cors:$ktorVersion")
+    library("io.ktor:ktor-server-websockets:$ktorVersion")
+    library("io.ktor:ktor-server-html-builder:$ktorVersion")
+
+    //CFR Decompiler
+    library("org.benf:cfr:0.152")
+
+//    api(library)
+
+}
+
+tasks {
+
+    compileJava {
+        options.encoding = "UTF-8"
+        sourceCompatibility = "1.8"
+        targetCompatibility = "1.8"
+    }
+
+    compileKotlin {
+        kotlinOptions {
+            jvmTarget = "1.8"
+        }
+    }
+
+    jar {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        archiveBaseName.set(project.name.lowercase())
+
+        manifest {
+            attributes(
+                "Main-Class" to "net.spartanb312.grunt.GruntKt"
+            )
+        }
+
+        from(
+            library.map {
+                if (it.isDirectory) it
+                else zipTree(it)
+            }
+        )
+
+        exclude("META-INF/versions/**", "module-info.class", "**/**.RSA")
+    }
+
+}
