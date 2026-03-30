@@ -71,6 +71,13 @@ class ClassHierarchy(
         return classNameLookUp.getInt(className)
     }
 
+    /**
+     * Validate entry using .isValid before using the returned entry
+     */
+    fun findClassEntry(className: String): Entry {
+        return Entry(classNameLookUp.getInt(className))
+    }
+
     // subtype
     fun isSubType(child: ClassNode, father: ClassNode): Boolean {
         return isSubType(child.name, father.name)
@@ -177,6 +184,8 @@ class ClassHierarchy(
 
     @JvmInline
     value class Entry(val index: Int) {
+        val isValid get() = index != -1
+
         context(ch: ClassHierarchy)
         val classNode get() = ch.classNodes[index]
 

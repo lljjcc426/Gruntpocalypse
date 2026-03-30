@@ -1,5 +1,6 @@
 package net.spartanb312.grunteon.obfuscator.util
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
@@ -13,7 +14,7 @@ object IndyChecker {
     context(_: PipelineBuilder)
     fun check(
         hierarchyInfo: ScopeValueKey.Global<MethodHierarchy>,
-        infoMappings: ScopeValueKey.Global<MutableMap<MethodHierarchy.Entry, String>>
+        infoMappings: ScopeValueKey.Global<out Int2ObjectMap<String>>
     ): ScopeValueKey.Reducible<MergeableObjectList<IndyImplicitInfo>> {
         val results = reducibleScopeValue { MergeableObjectList<IndyImplicitInfo>(FastObjectArrayList()) }
         parForEach { classNode ->
@@ -37,7 +38,7 @@ object IndyChecker {
     context(ch: ClassHierarchy, mh: MethodHierarchy)
     private fun checkInsn(
         invokeDynamicInsnNode: InvokeDynamicInsnNode,
-        infoMappings: Map<MethodHierarchy.Entry, String> // Method, new name, desc
+        infoMappings: Int2ObjectMap<String> // Method, new name, desc
     ): List<IndyImplicitInfo> {
         val results = mutableListOf<IndyImplicitInfo>()
         if (invokeDynamicInsnNode.bsmArgs == null) return results
@@ -50,6 +51,16 @@ object IndyChecker {
         val handleCodename = handle.name + handle.desc
         val handleMethodCode = mh.methodCodeLookup.getInt(handleCodename)
         if (handleMethodCode == -1) return results
+        val insnName = invokeDynamicInsnNode.name
+        val insnOwner = invokeDynamicInsnNode.desc.substringAfter(")L").removeSuffix(";")
+        val indyParams = invokeDynamicInsnNode.desc.substringAfter("(").substringBeforeLast(")")
+        val originParams = handle.desc.substringAfter("(").substringBeforeLast(")")
+        val remainParams = originParams.removePrefix(indyParams)
+        val insnDesc = "(" + remainParams + ")" + handle.desc.substringAfterLast(")")
+        val insnTypes = Type.getArgumentTypes(insnDesc)
+        val insnOwnerClass = ch.findClassEntry(insnOwner)
+        if (!insnOwnerClass.isValid) return results
+        val insnOwnerMethods = insnOwnerClass.methods
         run outer@{
             mh.methodCodeToMethods[handleMethodCode].forEach { prev ->
                 val shouldRemap = when (handle.tag) {
@@ -58,36 +69,28 @@ object IndyChecker {
                     else -> handle.owner == prev.owner.name
                 }
                 if (!shouldRemap) return@forEach
-                val insnName = invokeDynamicInsnNode.name
-                val insnOwner = invokeDynamicInsnNode.desc.substringAfter(")L").removeSuffix(";")
-                val indyParams = invokeDynamicInsnNode.desc.substringAfter("(").substringBeforeLast(")")
-                val originParams = handle.desc.substringAfter("(").substringBeforeLast(")")
-                val remainParams = originParams.removePrefix(indyParams)
-                val insnDesc = "(" + remainParams + ")" + handle.desc.substringAfterLast(")")
-                val insnTypes = Type.getArgumentTypes(insnDesc)
-                infoMappings.forEach { (preMethod, newName) ->
-                    if (preMethod.owner.name == insnOwner) {
-                        val paramsTypes = Type.getArgumentTypes(preMethod.desc)
-                        var typesMatch = paramsTypes.size == insnTypes.size
-                        if (typesMatch) {
-                            for (index in paramsTypes.indices) {
-                                val type1 = insnTypes[index]
-                                val type2 = paramsTypes[index]
-                                if (!(type1.className == type2.className || type2.className == "java.lang.Object")) {
-                                    typesMatch = false
-                                }
+                insnOwnerMethods.forEach { preMethod ->
+                    val paramsTypes = Type.getArgumentTypes(preMethod.desc)
+                    var typesMatch = paramsTypes.size == insnTypes.size
+                    if (typesMatch) {
+                        for (index in paramsTypes.indices) {
+                            val type1 = insnTypes[index]
+                            val type2 = paramsTypes[index]
+                            if (!(type1.className == type2.className || type2.className == "java.lang.Object")) {
+                                typesMatch = false
                             }
                         }
+                    }
 
-                        if (preMethod.name == insnName && (preMethod.desc == insnDesc || typesMatch)) {
-                            results.add(
-                                IndyImplicitInfo(
-                                    invokeDynamicInsnNode.name,
-                                    invokeDynamicInsnNode.desc,
-                                    newName
-                                )
+                    if (preMethod.name == insnName && (preMethod.desc == insnDesc || typesMatch)) {
+                        val newName = infoMappings.get(preMethod.index)
+                        results.add(
+                            IndyImplicitInfo(
+                                invokeDynamicInsnNode.name,
+                                invokeDynamicInsnNode.desc,
+                                newName
                             )
-                        }
+                        )
                     }
                 }
                 return@outer

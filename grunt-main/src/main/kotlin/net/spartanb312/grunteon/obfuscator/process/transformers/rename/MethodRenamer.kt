@@ -1,5 +1,6 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
@@ -95,7 +96,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
             )
             MethodHierarchy.build(classHierarchy)
         }
-        val infoMappings = globalScopeValue { mutableMapOf<MethodHierarchy.Entry, String>() }
+        val infoMappings = globalScopeValue { Int2ObjectOpenHashMap<String>() }
         val mappings = globalScopeValue { mutableMapOf<String, String>() } // full name to new name
         seq {
             val methodHierarchy = methodHierarchy.global
@@ -206,7 +207,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     group.forEach { sourceMethod ->
                         mappings[sourceMethod.full] = newName
                         affectedSet.add(sourceMethod.full)
-                        infoMappings[sourceMethod] = newName
+                        infoMappings[sourceMethod.index] = newName
                         sourceMethod.owner.descendants.forEach { oi ->
                             val ownerName = classHierarchy.classNames[oi]
                             val full = "${ownerName}.${sourceMethod.name}${sourceMethod.desc}"
@@ -217,7 +218,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             val exist = methods.find {
                                 it.name == sourceMethod.name && it.desc == sourceMethod.desc
                             }
-                            if (exist != null) infoMappings[exist] = newName
+                            if (exist != null) infoMappings[exist.index] = newName
                         }
                     }
                 }
