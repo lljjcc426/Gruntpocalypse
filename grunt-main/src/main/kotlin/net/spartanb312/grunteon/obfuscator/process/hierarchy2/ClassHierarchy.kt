@@ -144,6 +144,7 @@ class ClassHierarchy(
             if (insn is FieldInsnNode) {
                 val name = if (!insn.owner.startsWith("[")) insn.owner
                 else insn.owner.substringAfterLast("[").removePrefix("L").removeSuffix(";")
+                if (name in primitiveTypes) return@forEach
                 val info = findClass(name)
                 val node = instance.workRes.getClassNode(name)
                 if (info == -1) {
@@ -157,6 +158,7 @@ class ClassHierarchy(
             if (insn is MethodInsnNode) {
                 val name = if (!insn.owner.startsWith("[")) insn.owner
                 else insn.owner.substringAfterLast("[").removePrefix("L").removeSuffix(";")
+                if (name in primitiveTypes) return@forEach
                 val info = findClass(name)
                 val node = instance.workRes.getClassNode(name)
                 if (info == -1) {
@@ -171,6 +173,7 @@ class ClassHierarchy(
         return missingReference
     }
 
+    private val primitiveTypes = arrayOf("B", "C", "D", "F", "I", "J", "S", "Z", "V")
 
     @JvmInline
     value class Entry(val index: Int) {
