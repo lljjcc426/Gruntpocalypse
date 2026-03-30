@@ -18,7 +18,10 @@ import org.objectweb.asm.tree.JumpInsnNode
 class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
     name = enText("process.optimize.dead_code_remove", "DeadCodeRemove"),
     category = Category.Optimization,
-    parallel = true
+    description = enText(
+        "process.optimize.dead_code_remove.desc",
+        "Remove useless instruction sequences"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -56,7 +59,7 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" - DeadCodeRemove: Removing dead codes...")
+            Logger.info(" > DeadCodeRemove: Removing dead codes...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val instListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }

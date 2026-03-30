@@ -5,7 +5,6 @@ import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
-import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
@@ -15,10 +14,16 @@ import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 
+/**
+ * Last update on 2026/03/31 by FluixCarvin
+ */
 class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     name = enText("process.rename.local_var_renamer", "LocalVarRenamer"),
     category = Category.Renaming,
-    parallel = true
+    description = enText(
+        "process.rename.local_var_renamer.desc",
+        "Renaming local variables"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -71,7 +76,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" - LocalVarRenamer: Transforming local variables...")
+            Logger.info(" > LocalVarRenamer: Transforming local variables...")
             // TODO: there is a better way to do this instead of lateinit var
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }

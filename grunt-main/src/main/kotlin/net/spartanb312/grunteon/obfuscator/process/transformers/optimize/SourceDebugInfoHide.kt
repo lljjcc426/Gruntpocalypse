@@ -17,7 +17,10 @@ import org.objectweb.asm.tree.LineNumberNode
 class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
     name = enText("process.optimize.source_debug_info_hide", "SourceDebugInfoHide"),
     category = Category.Optimization,
-    parallel = true
+    description = enText(
+        "process.optimize.source_debug_info_hide.desc",
+        "Remove source file information and line numbers"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -72,7 +75,7 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" - SourceDebugInfoHide: Removing/Editing debug information...")
+            Logger.info(" > SourceDebugInfoHide: Removing/Editing debug information...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->

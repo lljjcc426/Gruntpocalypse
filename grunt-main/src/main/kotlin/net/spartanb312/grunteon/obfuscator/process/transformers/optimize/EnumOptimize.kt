@@ -15,7 +15,10 @@ import org.objectweb.asm.tree.MethodInsnNode
 class EnumOptimize : Transformer<EnumOptimize.Config>(
     name = enText("process.optimize.enum_optimize", "EnumOptimize"),
     category = Category.Optimization,
-    parallel = true
+    description = enText(
+        "process.optimize.enum_optimize.desc",
+        "Optimize enum values() calls"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -37,7 +40,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" - EnumOptimize: Optimizing enums...")
+            Logger.info(" > EnumOptimize: Optimizing enums...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->

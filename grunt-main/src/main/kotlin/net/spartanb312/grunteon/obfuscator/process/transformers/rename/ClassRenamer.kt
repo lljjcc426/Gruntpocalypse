@@ -14,10 +14,18 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 
+/**
+ * Last update on 2026/03/31 by FluixCarvin
+ * TODO: Reflection remap
+ * TODO: Resource remap
+ */
 class ClassRenamer : Transformer<ClassRenamer.Config>(
     name = enText("process.rename.class_renamer", "ClassRenamer"),
     category = Category.Renaming,
-    parallel = false
+    description = enText(
+        "process.rename.class_renamer.desc",
+        "Renaming classes"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -91,7 +99,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         val counter = globalScopeValue { MergeableCounter() }
         seq {
             val instance = contextOf<Grunteon>()
-            Logger.info(" - ClassRenamer: Renaming classes...")
+            Logger.info(" > ClassRenamer: Renaming classes...")
             Logger.info("    Generating mappings for classes...")
             val strategy = buildFilterStrategy(config)
             val dictionary = NameGenerator.getDictionary(config.dictionary)

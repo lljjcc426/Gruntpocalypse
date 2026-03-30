@@ -19,17 +19,19 @@ import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
 import org.objectweb.asm.Type
 
 /**
- * Renaming methods
  * Last update on 2026/03/31 by FluixCarvin
  * Interface methods overlap √
  * Bridge methods link √
  * Invokedynamic remap √
- * Reflection TODO: implement this
+ * TODO: Reflection remap
  */
 class MethodRenamer : Transformer<MethodRenamer.Config>(
     name = enText("process.rename.method_renamer", "MethodRenamer"),
     category = Category.Renaming,
-    parallel = false,
+    description = enText(
+        "process.rename.method_renamer.desc",
+        "Renaming methods"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -99,7 +101,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
     override fun buildStageImpl(config: Config) {
         barrier()
         pre {
-            Logger.info(" - MethodRenamer[${config.mode.displayName}]: Renaming methods...")
+            Logger.info(" > MethodRenamer[${config.mode.displayName}]: Renaming methods...")
         }
         buildFull(config)
     }
@@ -217,7 +219,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                 // Here we link this bridge method on the tree
                                 if (descTypeMatch) {
                                     findCommon = true
-                                    println("Bridge link: ${first.full} and ${bridge.full}")
+                                    //println("Bridge link: ${first.full} and ${bridge.full}")
                                     sources.first.add(bridge)
                                     sources.second.add(bridge.desc)
                                     break@treeSearch

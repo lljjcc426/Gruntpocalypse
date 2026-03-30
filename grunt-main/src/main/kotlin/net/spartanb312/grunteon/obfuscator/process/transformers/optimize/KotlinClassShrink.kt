@@ -17,7 +17,10 @@ import org.objectweb.asm.tree.LdcInsnNode
 class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
     name = enText("process.optimize.kotlin_class_shrink", "KotlinClassShrink"),
     category = Category.Optimization,
-    parallel = true
+    description = enText(
+        "process.optimize.kotlin_class_shrink.desc",
+        "Remove kotlin metadata and intrinsics check"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -79,7 +82,7 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" - KotlinClassShrink: Shrinking kotlin classes...")
+            Logger.info(" > KotlinClassShrink: Shrinking kotlin classes...")
         }
         val intrinsics = reducibleScopeValue { MergeableCounter() }
         val metadata = reducibleScopeValue { MergeableCounter() }

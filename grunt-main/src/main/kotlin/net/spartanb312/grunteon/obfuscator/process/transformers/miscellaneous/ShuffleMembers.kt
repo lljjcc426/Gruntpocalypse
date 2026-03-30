@@ -1,0 +1,84 @@
+package net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous
+
+import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.lang.enText
+import net.spartanb312.grunteon.obfuscator.process.Category
+import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
+import net.spartanb312.grunteon.obfuscator.process.Transformer
+import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
+import net.spartanb312.grunteon.obfuscator.process.parForEachFiltered
+import net.spartanb312.grunteon.obfuscator.process.post
+import net.spartanb312.grunteon.obfuscator.process.pre
+import net.spartanb312.grunteon.obfuscator.process.reducibleScopeValue
+import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+
+class ShuffleMembers : Transformer<ShuffleMembers.Config>(
+    name = enText("process.optimize.shuffle_members", "ShuffleMembers"),
+    category = Category.Optimization,
+    description = enText(
+        "process.optimize.shuffle_members.desc",
+        "Shuffle members in classes"
+    )
+) {
+
+    override val defConfig: TransformerConfig get() = Config()
+    override val confType: Class<Config> get() = Config::class.java
+
+    class Config : TransformerConfig() {
+        val methods = true
+        val fields = true
+        val annotations = true
+        val exceptions = true
+    }
+
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" > ShuffleMembers: Shuffling members...")
+        }
+        val counter = reducibleScopeValue { MergeableCounter() }
+        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+            val counter = counter.local
+            if (config.methods) classNode.methods?.let {
+                classNode.methods = it.shuffled()
+                counter.add(it.size)
+                it.forEach { method ->
+                    if (config.exceptions) {
+                        method.exceptions?.shuffle()
+                        counter.add(method.exceptions.size)
+                    }
+                }
+            }
+            if (config.fields) classNode.fields?.let {
+                classNode.fields = it.shuffled()
+                counter.add(it.size)
+            }
+            if (config.annotations) {
+                classNode.visibleAnnotations?.let {
+                    classNode.visibleAnnotations = it.shuffled()
+                    counter.add(it.size)
+                }
+                classNode.invisibleAnnotations?.let {
+                    classNode.invisibleAnnotations = it.shuffled()
+                    counter.add(it.size)
+                }
+                classNode.methods?.forEach { methodNode ->
+                    methodNode.visibleAnnotations?.let {
+                        methodNode.visibleAnnotations = it.shuffled()
+                        counter.add(it.size)
+                    }
+                    methodNode.invisibleAnnotations?.let {
+                        methodNode.invisibleAnnotations = it.shuffled()
+                        counter.add(it.size)
+                    }
+                }
+            }
+        }
+        post {
+            Logger.info(" - ShuffleMembers::")
+            Logger.info("    Shuffled ${counter.global.get()} members")
+        }
+    }
+
+}

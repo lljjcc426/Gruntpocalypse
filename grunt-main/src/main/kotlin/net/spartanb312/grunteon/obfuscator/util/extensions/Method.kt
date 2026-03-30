@@ -1,6 +1,9 @@
 package net.spartanb312.grunteon.obfuscator.util.extensions
 
+import net.spartanb312.genesis.kotlin.MethodBuilder
 import net.spartanb312.genesis.kotlin.extensions.*
+import net.spartanb312.genesis.kotlin.method
+import net.spartanb312.genesis.kotlin.modify
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
@@ -70,3 +73,11 @@ fun MethodNode.hasAnnotation(desc: String): Boolean = findAnnotation(desc) != nu
 fun MethodNode.findAnnotation(desc: String): AnnotationNode? {
     return visibleAnnotations?.find { it.desc == desc } ?: invisibleAnnotations?.find { it.desc == desc }
 }
+
+// TODO: migrate to genesis
+fun init(block: (MethodBuilder.() -> Unit)? = null): MethodNode = method(
+    PUBLIC,
+    "<init>",
+    "()V", null,
+    null,
+).apply { if (block != null) modify(block) }

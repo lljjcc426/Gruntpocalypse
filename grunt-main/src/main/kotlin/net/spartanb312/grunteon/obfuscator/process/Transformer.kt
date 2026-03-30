@@ -11,7 +11,7 @@ import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 abstract class Transformer<T : TransformerConfig>(
     val name: MultiText,
     val category: Category,
-    val parallel: Boolean = false
+    val description: MultiText,
 ) {
 
     val engName = name.getLang(Languages.English)

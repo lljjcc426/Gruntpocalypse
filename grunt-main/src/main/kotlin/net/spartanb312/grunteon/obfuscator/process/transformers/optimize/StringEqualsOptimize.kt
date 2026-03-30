@@ -16,7 +16,10 @@ import org.objectweb.asm.tree.MethodInsnNode
 class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
     name = enText("process.optimize.string_equals_optimize", "StringEqualsOptimize"),
     category = Category.Optimization,
-    parallel = true
+    description = enText(
+        "process.optimize.string_equals_optimize.desc",
+        "Redirect string equals() and equalsIgnoreCase()"
+    )
 ) {
     override val defConfig: TransformerConfig get() = Config()
     override val confType: Class<Config> get() = Config::class.java
@@ -43,7 +46,7 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" - StringEqualsOptimize: Redirecting string equals calls...")
+            Logger.info(" > StringEqualsOptimize: Redirecting string equals calls...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachFiltered(buildFilterStrategy(config)) { classNode ->

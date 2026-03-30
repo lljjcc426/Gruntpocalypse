@@ -7,6 +7,7 @@ import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.DeclaredFieldsExtract
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.FieldRenamer
@@ -68,17 +69,23 @@ fun main(args: Array<String>) {
     repeat(1) {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
+            // Optimize
             DeadCodeRemove(),
             EnumOptimize(),
             KotlinClassShrink(),
             ClassShrink(),
             SourceDebugInfoHide(),
             StringEqualsOptimize(),
+            // Misc
+            DeclaredFieldsExtract(),
+            // Encrypt
             NumberBasicEncrypt(),
+            // Renamer
             LocalVarRenamer(),
             FieldRenamer(),
             MethodRenamer(),
             ClassRenamer(),
+            // Other
         )
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()

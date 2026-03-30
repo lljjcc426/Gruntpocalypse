@@ -13,7 +13,10 @@ import org.objectweb.asm.tree.*
 class ClassShrink : Transformer<ClassShrink.Config>(
     name = enText("process.optimize.class_shrink", "ClassShrink"),
     category = Category.Optimization,
-    parallel = true
+    description = enText(
+        "process.optimize.class_shrink.desc",
+        "Shrinking classes by removing inner classes, unused labels, NOPs, method signatures"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -68,7 +71,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" - ClassShrink: Shrinking classes...")
+            Logger.info(" > ClassShrink: Shrinking classes...")
         }
         val innerClasses = reducibleScopeValue { MergeableCounter() }
         val unusedLabels = reducibleScopeValue { MergeableCounter() }

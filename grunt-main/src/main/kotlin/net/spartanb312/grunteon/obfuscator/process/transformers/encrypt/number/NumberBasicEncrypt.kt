@@ -29,13 +29,15 @@ import org.objectweb.asm.tree.IntInsnNode
 import org.objectweb.asm.tree.LdcInsnNode
 
 /**
- * Basic number encryption
  * Last update on 2026/03/25 by FluixCarvin
  */
 class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     name = enText("process.encrypt.number.number_basic_encrypt", "NumberBasicEncrypt"),
     category = Category.Encryption,
-    parallel = true
+    description = enText(
+        "process.encrypt.number.number_basic_encrypt.desc",
+        "Encrypt numbers via some basic methods"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -146,7 +148,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" - NumberBasicEncrypt: Encrypting numbers...")
+            Logger.info(" > NumberBasicEncrypt: Encrypting numbers...")
             // TODO: there is a better way to do this instead of lateinit var
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }

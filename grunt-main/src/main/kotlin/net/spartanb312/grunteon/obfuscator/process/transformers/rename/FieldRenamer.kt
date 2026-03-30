@@ -15,10 +15,17 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isPrivate
 import net.spartanb312.grunteon.obfuscator.util.extensions.isProtected
 import net.spartanb312.grunteon.obfuscator.util.extensions.isStatic
 
+/**
+ * Last update on 2026/03/31 by FluixCarvin
+ * TODO: Reflection remap
+ */
 class FieldRenamer : Transformer<FieldRenamer.Config>(
     name = enText("process.rename.field_renamer", "FieldRenamer"),
     category = Category.Renaming,
-    parallel = false,
+    description = enText(
+        "process.rename.field_renamer.desc",
+        "Renaming fields"
+    )
 ) {
 
     override val defConfig: TransformerConfig get() = Config()
@@ -55,7 +62,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
     override fun buildStageImpl(config: Config) {
         barrier()
         pre {
-            Logger.info(" - FieldRenamer: Renaming fields...")
+            Logger.info(" > FieldRenamer: Renaming fields...")
         }
         buildFull(config)
     }
