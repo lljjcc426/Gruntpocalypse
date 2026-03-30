@@ -72,28 +72,31 @@ object IndyChecker {
                 }
                 if (!shouldRemap) return@forEach
                 insnOwnerMethods.forEach { preMethod ->
-                    val paramsTypes = Type.getArgumentTypes(preMethod.desc)
-                    var typesMatch = paramsTypes.size == insnTypes.size
-                    if (typesMatch) {
-                        for (index in paramsTypes.indices) {
-                            val type1 = insnTypes[index]
-                            val type2 = paramsTypes[index]
-                            if (!(type1.className == type2.className || type2.className == "java.lang.Object")) {
-                                typesMatch = false
+                    if (preMethod.name != insnName) return@forEach
+                    var typesMatch = preMethod.desc == insnDesc
+                    if (!typesMatch) {
+                        val paramsTypes = Type.getArgumentTypes(preMethod.desc)
+                        typesMatch = paramsTypes.size == insnTypes.size
+                        if (typesMatch) {
+                            for (index in paramsTypes.indices) {
+                                val type1 = insnTypes[index]
+                                val type2 = paramsTypes[index]
+                                if (!(type1.className == type2.className || type2.className == "java.lang.Object")) {
+                                    typesMatch = false
+                                }
                             }
                         }
                     }
+                    if (!typesMatch) return@forEach
 
-                    if (preMethod.name == insnName && (preMethod.desc == insnDesc || typesMatch)) {
-                        val newName = infoMappings.get(preMethod.index)
-                        results.add(
-                            IndyImplicitInfo(
-                                invokeDynamicInsnNode.name,
-                                invokeDynamicInsnNode.desc,
-                                newName
-                            )
+                    val newName = infoMappings.get(preMethod.index) ?: return@forEach
+                    results.add(
+                        IndyImplicitInfo(
+                            invokeDynamicInsnNode.name,
+                            invokeDynamicInsnNode.desc,
+                            newName
                         )
-                    }
+                    )
                 }
                 return@outer
             }
