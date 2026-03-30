@@ -48,6 +48,14 @@ class ClassHierarchy(
      */
     val descendants: Array<IntArray>,
     /**
+     * All ancestors indices, indexed by internal class index, including direct parents and indirect parents
+     */
+    val ancestorsSet: Array<IntOpenHashSet>,
+    /**
+     * All descendants indices, indexed by internal class indexm including direct children and indirect children
+     */
+    val descendantsSet: Array<IntOpenHashSet>,
+    /**
      * Whether the class is broken (missing dependency), indexed by internal class index
      */
     val broken: BooleanArray,
@@ -88,12 +96,8 @@ class ClassHierarchy(
         val childInfo = findClass(child)
         val fatherInfo = findClass(father)
         if (childInfo == -1 || fatherInfo == -1) return false
-        val flag1 = ancestors[childInfo].contains(fatherInfo)
-        val flag2 = descendants[fatherInfo].contains(childInfo)
-        if (flag1 != flag2) {
-            Logger.fatal("Class hierarchy error! Flag1=$flag1, Flag2=$flag2, Father=$father, Child=$child")
-        }
-        return flag1 || flag2
+        assert(descendantsSet[fatherInfo].contains(childInfo) == ancestorsSet[childInfo].contains(fatherInfo))
+        return ancestorsSet[fatherInfo].contains(childInfo)
     }
 
     // common superclass
@@ -413,6 +417,8 @@ class ClassHierarchy(
                 finalChildren,
                 finalAncestors,
                 finalDescendants,
+                Array(classCount) { IntOpenHashSet(finalAncestors[it]) },
+                Array(classCount) { IntOpenHashSet(finalDescendants[it]) },
                 broken,
                 missingDependencies,
                 realClassCount,
