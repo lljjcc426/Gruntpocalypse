@@ -69,7 +69,10 @@ class MethodHierarchy(
     /**
      * Each source method's overrides, indexed by source method index, returns internal method indices of the override methods
      */
-    val sourceMethodOverrides: Array<EntryArray>
+    val sourceMethodOverrides: Array<EntryArray>,
+    val methodCodeLookup: Object2IntOpenHashMap<String>,
+    val methodToMethodCode: IntArray,
+    val methodCodeToMethods: Array<EntryArray>
 ) {
     /**
      * Validate entry using .isValid before using the returned entry
@@ -189,21 +192,25 @@ class MethodHierarchy(
 
             val methodCount = methodNodes.size
             val methodCodeLookup = Object2IntOpenHashMap<String>(methodCount)
+            methodCodeLookup.defaultReturnValue(-1)
             val methodCode = IntArray(methodCount)
             val methodAccess = IntArray(methodCount)
             val methodToMethodTree = Array(classHierarchy.realClassCount) {
                 Int2ObjectOpenHashMap<IntArraySet>()
             } // Tells a class's method code belongs to which method tree(s)
+            val methodCodeToMethods = ObjectArrayList<IntArrayList>()
 
             fun assignMethodCodeAndBroadcastToDescendants() {
                 for (methodIdx in 0..<methodCount) {
                     val methodNode = methodNodes[methodIdx]
                     val codename = methodNode.name + methodNode.desc
                     val myMethodCode = methodCodeLookup.computeIfAbsent(codename, ToIntFunction {
+                        methodCodeToMethods.add(IntArrayList())
                         methodCodeLookup.size
                     })
                     methodCode[methodIdx] = myMethodCode
                     methodAccess[methodIdx] = methodNode.access
+                    methodCodeToMethods[myMethodCode].add(methodIdx)
 
                     // Fill inherent method bits
                     if (methodNode.access.isPrivate) continue
@@ -362,7 +369,10 @@ class MethodHierarchy(
                 sourceMethodConnectedComponents,
                 Array(sourceMethodOverrides.size) { idx ->
                     EntryArray(sourceMethodOverrides[idx].toIntArray())
-                }
+                },
+                methodCodeLookup,
+                methodCode,
+                Array(methodCodeToMethods.size) { EntryArray(methodCodeToMethods[it].toIntArray()) }
             )
         }
     }
