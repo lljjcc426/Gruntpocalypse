@@ -140,6 +140,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                 val blackList = mutableSetOf<MethodHierarchy.Entry>()
                 val relatedGroups =
                     mutableListOf<Pair<MutableSet<MethodHierarchy.Entry>, MutableSet<String>>>() // as a family
+                val bridgeMethodSources = bridgeMethodSources.global
                 nonExcluded.forEach { classNode ->
                     val classIndex = classHierarchy.findClass(classNode.name)
                     if (classIndex == -1) throw Exception("你妈${classNode.name}死了，hierarchy里面找不到你妈")
@@ -163,7 +164,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             // Check bridge method
                             if (config.solveBridge) {
                                 if (methodNode.isSynthetic || methodNode.isBridge) {
-                                    bridgeMethodSources.global.add(methodEntry)
+                                    bridgeMethodSources.add(methodEntry)
                                     //println("Find bridge method ${methodEntry.full}")
                                     continue
                                 }
@@ -190,32 +191,52 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
 
                 // Bind synthetic bridge method group
                 if (config.solveBridge) {
+                    // Build a name-indexed map to avoid O(G) linear scan per bridge method
+                    val groupsByName = HashMap<String, MutableList<Int>>()
+                    relatedGroups.forEachIndexed { index, sources ->
+                        groupsByName.getOrPut(sources.first.first().name) { mutableListOf() }.add(index)
+                    }
+
                     val standaloneSyntheticSources = mutableSetOf<MethodHierarchy.Entry>()
-                    bridgeMethodSources.global.forEach { bridge ->
+                    bridgeMethodSources.forEach { bridge ->
+                        // Pre-parse bridge arg types once, outside the group search loop
+                        val bridgeArgTypes = Type.getArgumentTypes(bridge.desc)
                         var findCommon = false
-                        treeSearch@ for (sources in relatedGroups) {
-                            val first = sources.first.first()
-                            // Try to link bridge method on override tree
-                            val inSameOverrideTree = first.owner.name == bridge.owner.name || classHierarchy.isSubType(
-                                bridge.owner.name,
-                                first.owner.name
-                            )
-                            // Must have the same name
-                            val inSameTreeAndSameName = inSameOverrideTree && first.name == bridge.name
-                            if (inSameTreeAndSameName) {
+
+                        // Only visit groups whose source method name matches the bridge name
+                        val candidateIndices = groupsByName[bridge.name]
+                        if (candidateIndices != null) {
+                            treeSearch@ for (groupIndex in candidateIndices) {
+                                val sources = relatedGroups[groupIndex]
+                                val first = sources.first.first()
+                                // Try to link bridge method on override tree
+                                val inSameOverrideTree =
+                                    first.owner.name == bridge.owner.name || classHierarchy.isSubType(
+                                        bridge.owner.name,
+                                        first.owner.name
+                                    )
+                                if (!inSameOverrideTree) continue
+
+                                // Fix: compare against first.desc, not bridge.desc
+                                val firstArgTypes = Type.getArgumentTypes(first.desc)
+                                if (bridgeArgTypes.size != firstArgTypes.size) continue
+
+                                // Check each parameter: fType must be same or a subtype of bType
                                 var descTypeMatch = true
-                                val bridgeTypes = Type.getArgumentTypes(bridge.desc)
-                                val firstTypes = Type.getArgumentTypes(bridge.desc)
-                                if (bridgeTypes.size == firstTypes.size) {
-                                    // Check bridge method types, must same type or subtype
-                                    descTypeCheck@ for (i in firstTypes.indices) {
-                                        val bType = bridgeTypes[i]
-                                        val fType = firstTypes[i]
-                                        val isCommonType = bType.descriptor != fType.descriptor
-                                        val isSubType = classHierarchy.isSubType(fType.descriptor, bType.descriptor)
-                                        if (!isCommonType && !isSubType) descTypeMatch = false
+                                for (i in firstArgTypes.indices) {
+                                    val bType = bridgeArgTypes[i]
+                                    val fType = firstArgTypes[i]
+                                    if (bType.descriptor == fType.descriptor) continue // exact match, fast path
+                                    // Only object types can have a subtype relationship;
+                                    // internalName strips the L…; wrapper required by ClassHierarchy
+                                    if (bType.sort != Type.OBJECT || fType.sort != Type.OBJECT
+                                        || !classHierarchy.isSubType(fType.internalName, bType.internalName)
+                                    ) {
+                                        descTypeMatch = false
+                                        break // Early exit: no need to check remaining params
                                     }
-                                } else descTypeMatch = false
+                                }
+
                                 // Here we link this bridge method on the tree
                                 if (descTypeMatch) {
                                     findCommon = true
