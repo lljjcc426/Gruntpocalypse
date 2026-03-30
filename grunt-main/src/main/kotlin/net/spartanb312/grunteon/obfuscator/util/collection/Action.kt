@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.util.collection
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import org.apache.commons.rng.UniformRandomProvider
 import org.objectweb.asm.tree.AbstractInsnNode
@@ -70,4 +72,16 @@ fun InsnList.toListFast(prev: FastObjectArrayList<AbstractInsnNode> = FastObject
     }
     @Suppress("UNCHECKED_CAST")
     return prev
+}
+
+inline fun <V> Int2ObjectMap<V>.forEachFast(crossinline action: (Int, V) -> Unit) {
+    if (this is Int2ObjectOpenHashMap<V>) {
+        this.int2ObjectEntrySet().fastForEach {
+            action(it.intKey, it.value)
+        }
+    } else {
+        this.int2ObjectEntrySet().forEach { entry ->
+            action(entry.intKey, entry.value)
+        }
+    }
 }
