@@ -229,8 +229,11 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     group.forEach { sourceMethod ->
                         sourceAndOverridesMapping[sourceMethod.index] = newName
                         sourceMapping[sourceMethod.index] = newName
-                        sourceMethod.overrideMethods.forEach {
-                            sourceAndOverridesMapping[it.index] = newName
+                        // Disable up apply for private and static
+                        if (!sourceMethod.node.isPrivate && !sourceMethod.node.isStatic) {
+                            sourceMethod.overrideMethods.forEach {
+                                sourceAndOverridesMapping[it.index] = newName
+                            }
                         }
                     }
                 }

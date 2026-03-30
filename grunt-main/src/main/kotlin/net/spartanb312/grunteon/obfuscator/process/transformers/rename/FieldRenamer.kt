@@ -146,7 +146,9 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                                 val nameSet = existedNameMap.getOrPut(check.index) { mutableSetOf() }
                                 nameSet.add(newName + fieldEntry.desc)
                             }
-                            val upApply = !fieldEntry.node.isPrivate || fieldEntry.node.isProtected
+                            // Disable up apply for private and static
+                            val upApply = (!fieldEntry.node.isPrivate && !fieldEntry.node.isStatic)
+                                    || fieldEntry.node.isProtected
                             // Apply to children
                             if (upApply) {
                                 val affected = mutableSetOf(classEntry.index)
