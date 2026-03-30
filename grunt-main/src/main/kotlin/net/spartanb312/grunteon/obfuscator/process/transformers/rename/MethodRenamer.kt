@@ -20,7 +20,11 @@ import org.objectweb.asm.Type
 
 /**
  * Renaming methods
- * Last update on 2026/03/30 by FluixCarvin
+ * Last update on 2026/03/31 by FluixCarvin
+ * Interface methods overlap √
+ * Bridge methods link √
+ * Invokedynamic remap √
+ * Reflection TODO: implement this
  */
 class MethodRenamer : Transformer<MethodRenamer.Config>(
     name = enText("process.rename.method_renamer", "MethodRenamer"),
@@ -88,6 +92,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                 "Shadow method names as much as possible"
             )
         )
+        val solveBridge = true
     }
 
     context(instance: Grunteon, _: PipelineBuilder)
@@ -154,10 +159,12 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             // TODO: method exclusion
                             // val combined = combine(classNode.name, methodNode.name, methodNode.desc)
                             // Check bridge method
-                            if (methodNode.isSynthetic || methodNode.isBridge) {
-                                bridgeMethodSources.global.add(methodEntry)
-                                //println("Find bridge method ${methodEntry.full}")
-                                continue
+                            if (config.solveBridge) {
+                                if (methodNode.isSynthetic || methodNode.isBridge) {
+                                    bridgeMethodSources.global.add(methodEntry)
+                                    //println("Find bridge method ${methodEntry.full}")
+                                    continue
+                                }
                             }
 
                             // Bind group
@@ -180,49 +187,51 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                 }
 
                 // Bind synthetic bridge method group
-                val standaloneSyntheticSources = mutableSetOf<MethodHierarchy.Entry>()
-                bridgeMethodSources.global.forEach { bridge ->
-                    var findCommon = false
-                    treeSearch@ for (sources in relatedGroups) {
-                        val first = sources.first.first()
-                        // Try to link bridge method on override tree
-                        val inSameOverrideTree = first.owner.name == bridge.owner.name || classHierarchy.isSubType(
-                            bridge.owner.name,
-                            first.owner.name
-                        )
-                        // Must have the same name
-                        val inSameTreeAndSameName = inSameOverrideTree && first.name == bridge.name
-                        if (inSameTreeAndSameName) {
-                            var descTypeMatch = true
-                            val bridgeTypes = Type.getArgumentTypes(bridge.desc)
-                            val firstTypes = Type.getArgumentTypes(bridge.desc)
-                            if (bridgeTypes.size == firstTypes.size) {
-                                // Check bridge method types, must same type or subtype
-                                descTypeCheck@ for (i in firstTypes.indices) {
-                                    val bType = bridgeTypes[i]
-                                    val fType = firstTypes[i]
-                                    val isCommonType = bType.descriptor != fType.descriptor
-                                    val isSubType = classHierarchy.isSubType(fType.descriptor, bType.descriptor)
-                                    if (!isCommonType && !isSubType) descTypeMatch = false
+                if (config.solveBridge) {
+                    val standaloneSyntheticSources = mutableSetOf<MethodHierarchy.Entry>()
+                    bridgeMethodSources.global.forEach { bridge ->
+                        var findCommon = false
+                        treeSearch@ for (sources in relatedGroups) {
+                            val first = sources.first.first()
+                            // Try to link bridge method on override tree
+                            val inSameOverrideTree = first.owner.name == bridge.owner.name || classHierarchy.isSubType(
+                                bridge.owner.name,
+                                first.owner.name
+                            )
+                            // Must have the same name
+                            val inSameTreeAndSameName = inSameOverrideTree && first.name == bridge.name
+                            if (inSameTreeAndSameName) {
+                                var descTypeMatch = true
+                                val bridgeTypes = Type.getArgumentTypes(bridge.desc)
+                                val firstTypes = Type.getArgumentTypes(bridge.desc)
+                                if (bridgeTypes.size == firstTypes.size) {
+                                    // Check bridge method types, must same type or subtype
+                                    descTypeCheck@ for (i in firstTypes.indices) {
+                                        val bType = bridgeTypes[i]
+                                        val fType = firstTypes[i]
+                                        val isCommonType = bType.descriptor != fType.descriptor
+                                        val isSubType = classHierarchy.isSubType(fType.descriptor, bType.descriptor)
+                                        if (!isCommonType && !isSubType) descTypeMatch = false
+                                    }
+                                } else descTypeMatch = false
+                                // Here we link this bridge method on the tree
+                                if (descTypeMatch) {
+                                    findCommon = true
+                                    println("Bridge link: ${first.full} and ${bridge.full}")
+                                    sources.first.add(bridge)
+                                    sources.second.add(bridge.desc)
+                                    break@treeSearch
                                 }
-                            } else descTypeMatch = false
-                            // Here we link this bridge method on the tree
-                            if (descTypeMatch) {
-                                findCommon = true
-                                println("Bridge link: ${first.full} and ${bridge.full}")
-                                sources.first.add(bridge)
-                                sources.second.add(bridge.desc)
-                                break@treeSearch
                             }
                         }
+                        if (!findCommon) {
+                            //println("Can't find common tree for ${bridge.full}")
+                            standaloneSyntheticSources.add(bridge)
+                        }
                     }
-                    if (!findCommon) {
-                        //println("Can't find common tree for ${bridge.full}")
-                        standaloneSyntheticSources.add(bridge)
-                    }
+                    // Consider each standalone synthetic method as a standalone group (Kotlin and Scala compiler gen)
+                    standaloneSyntheticSources.forEach { relatedGroups.add(mutableSetOf(it) to mutableSetOf(it.desc)) }
                 }
-                // Consider each standalone synthetic method as a standalone group (Kotlin and Scala compiler gen)
-                standaloneSyntheticSources.forEach { relatedGroups.add(mutableSetOf(it) to mutableSetOf(it.desc)) }
 
                 Logger.info("    Generating mappings for method groups...")
                 val dictionary = NameGenerator.getDictionary(config.dictionary)
