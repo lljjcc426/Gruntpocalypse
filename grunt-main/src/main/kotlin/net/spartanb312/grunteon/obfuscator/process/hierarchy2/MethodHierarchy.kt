@@ -103,6 +103,10 @@ class MethodHierarchy(
             }
         }
 
+        inline fun any(predicate: (Entry) -> Boolean): Boolean {
+            return indices.any { predicate(Entry(it)) }
+        }
+
         companion object {
             val EMPTY = EntryArray(IntArray(0))
         }

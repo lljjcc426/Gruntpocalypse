@@ -134,21 +134,22 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             // val combined = combine(classNode.name, methodNode.name, methodNode.desc)
                             // Bind group
                             val related = methodEntry.connectedComponent
-                            val group = if (related.size > 1) {
-                                val relationship = related.indices.map { MethodHierarchy.Entry(it) }.toMutableSet()
-                                relationship.add(methodEntry) // idk
-                                Logger.info("    Found multi source method group: ")
-                                relationship.forEach {
-                                    Logger.info("     - " + it.full)
-                                }
-                                relationship
-                            } else mutableSetOf(methodEntry)
-                            // apply group
-                            blackList.addAll(group)
-                            relatedGroups.add(group)
+                            if (related.any { !instance.workRes.inputClassMap.containsKey(it.owner.name) }) continue
+                                val group = if (related.size > 1) {
+                                    val relationship = related.indices.map { MethodHierarchy.Entry(it) }.toMutableSet()
+                                    relationship.add(methodEntry) // idk
+                                    Logger.info("    Found multi source method group: ")
+                                    relationship.forEach {
+                                        Logger.info("     - " + it.full)
+                                    }
+                                    relationship
+                                } else mutableSetOf(methodEntry)
+                                // apply group
+                                blackList.addAll(group)
+                                relatedGroups.add(group)
+                            }
                         }
                     }
-                }
 
                 Logger.info("    Generating mappings for method groups...")
                 val dictionary = NameGenerator.getDictionary(config.dictionary)
