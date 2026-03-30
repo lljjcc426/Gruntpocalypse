@@ -111,6 +111,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                         && (config.enums || !it.isEnum)
                         && (config.interfaces || !it.isInterface)
                 }
+                .sortedBy { it.name } // TODO: find a better way to keep naming deterministic without sorting
                 .toList()
 
             val nonExcludedNameSet = nonExcluded.mapTo(ObjectOpenHashSet()) { it.name }
