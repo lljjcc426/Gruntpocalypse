@@ -1,11 +1,11 @@
-package net.spartanb312.grunteon.testcase.methodrename;
+package net.spartanb312.grunteon.testcase.methodrename.implicitoverride;
 
 import net.spartanb312.grunteon.testcase.ParameterMarkerDummy;
 
 import static net.spartanb312.grunteon.testcase.Asserts.assertEquals;
 import static net.spartanb312.grunteon.testcase.Asserts.assertTrue;
 
-public class ImplicitOverrideEnd1 {
+public class End1 {
     private static void checkFather(Object o) {
         assertEquals(114, ((Father) o).foo(ParameterMarkerDummy.INSTANCE));
     }

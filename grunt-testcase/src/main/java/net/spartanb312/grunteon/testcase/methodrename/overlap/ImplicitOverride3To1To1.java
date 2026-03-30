@@ -1,11 +1,11 @@
-package net.spartanb312.grunteon.testcase.methodrename;
+package net.spartanb312.grunteon.testcase.methodrename.overlap;
 
 import net.spartanb312.grunteon.testcase.ParameterMarkerDummy;
 
 import static net.spartanb312.grunteon.testcase.Asserts.assertEquals;
 import static net.spartanb312.grunteon.testcase.Asserts.assertTrue;
 
-public class OverlapImplicitOverride3To1To1 {
+public class ImplicitOverride3To1To1 {
     private static void checkFather1(Object o) {
         assertEquals(114, ((Father1) o).foo(ParameterMarkerDummy.INSTANCE));
     }

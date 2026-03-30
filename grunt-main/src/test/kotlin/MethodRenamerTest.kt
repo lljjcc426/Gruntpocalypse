@@ -2,6 +2,8 @@ import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MethodRenamer
 import net.spartanb312.grunteon.obfuscator.util.ClearClassNode
+import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.ClassWriter.COMPUTE_FRAMES
 import org.objectweb.asm.Opcodes
@@ -15,11 +17,15 @@ import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Suppress("TestFunctionName")
 class MethodRenamerTest {
     private lateinit var tempDir: Path
 
     @BeforeTest
     fun before() {
+        if (System.getenv("GRUNTEON_TEST_LOGGING").toBoolean()) {
+            Logger = SimpleLogger("Grunteon")
+        }
         val instance = readTestClasses(
             net.spartanb312.grunteon.testcase.Asserts::class.java,
             ProcessPipeline(MethodRenamer()).apply { parseConfig(ConfigGroup()) }
@@ -53,32 +59,51 @@ class MethodRenamerTest {
     }
 
     @Test
-    fun implicitOverrideEnd1() = runTestClass("net.spartanb312.grunteon.testcase.methodrename.ImplicitOverrideEnd1")
-    @Test
-    fun implicitOverrideMid1() = runTestClass("net.spartanb312.grunteon.testcase.methodrename.ImplicitOverrideMid1")
-    @Test
-    fun overlapComplex() = runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverlapComplex")
-    @Test
-    fun overlapImplicitOverride2To1() =
-        runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverlapImplicitOverride2To1")
+    fun ImplicitOverrideEnd1() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.implicitoverride.End1")
 
     @Test
-    fun overlapImplicitOverride3To1() =
-        runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverlapImplicitOverride3To1")
+    fun ImplicitOverrideMid1() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.implicitoverride.Mid1")
 
     @Test
-    fun overlapImplicitOverride3To1To1() =
-        runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverlapImplicitOverride3To1To1")
+    fun OverlapComplex() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.overlap.Complex")
 
     @Test
-    fun overlapInterface2To1() = runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverlapInterface2To1")
+    fun OverlapImplicitOverride2To1() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.overlap.ImplicitOverride2To1")
+
     @Test
-    fun overlapInterface3To2() = runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverlapInterface3To2")
+    fun OverlapImplicitOverride3To1() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.overlap.ImplicitOverride3To1")
+
     @Test
-    fun overlapInterface3To2To1() =
-        runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverlapInterface3To2To1")
+    fun OverlapImplicitOverride3To1To1() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.overlap.ImplicitOverride3To1To1")
+
+    @Test
+    fun OverlapInterface2To1() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.overlap.Interface2To1")
+
+    @Test
+    fun OverlapInterface3To2() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.overlap.Interface3To2")
+
+    @Test
+    fun OverlapInterface3To2To1() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.overlap.Interface3To2To1")
 
     @Test
     @Ignore
-    fun overloadShadow1() = runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverloadShadow1")
+    fun OverloadShadow1() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.OverloadShadow1")
+
+    @Test
+    fun FunctionalInterfaceBasic() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.functional.Basic")
+
+    @Test
+    fun FunctionalInterfaceCapturing() =
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.functional.Capturing")
 }

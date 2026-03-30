@@ -1,4 +1,4 @@
-package net.spartanb312.grunteon.testcase.methodrename;
+package net.spartanb312.grunteon.testcase.methodrename.overlap;
 
 import net.spartanb312.grunteon.testcase.ParameterMarkerDummy;
 
@@ -7,7 +7,7 @@ import java.util.Random;
 import static net.spartanb312.grunteon.testcase.Asserts.assertEquals;
 import static net.spartanb312.grunteon.testcase.Asserts.assertTrue;
 
-public class OverlapInterface3To2To1 {
+public class Interface3To2To1 {
     private static void checkFather1(Object o, int v) {
         assertEquals(v, ((Father1) o).foo(ParameterMarkerDummy.INSTANCE));
     }

@@ -1,11 +1,11 @@
-package net.spartanb312.grunteon.testcase.methodrename;
+package net.spartanb312.grunteon.testcase.methodrename.overlap;
 
 import net.spartanb312.grunteon.testcase.ParameterMarkerDummy;
 
 import static net.spartanb312.grunteon.testcase.Asserts.assertEquals;
 import static net.spartanb312.grunteon.testcase.Asserts.assertTrue;
 
-public class OverlapComplex {
+public class Complex {
     private static void checkR1(Object o, int expected) {
         assertEquals(expected, ((R1) o).foo(ParameterMarkerDummy.INSTANCE));
     }
