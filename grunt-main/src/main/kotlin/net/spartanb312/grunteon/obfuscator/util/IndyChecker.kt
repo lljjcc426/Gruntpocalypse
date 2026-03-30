@@ -51,6 +51,7 @@ object IndyChecker {
         val handleCodename = handle.name + handle.desc
         val handleMethodCode = mh.methodCodeLookup.getInt(handleCodename)
         if (handleMethodCode == -1) return results
+
         val insnName = invokeDynamicInsnNode.name
         val insnOwner = invokeDynamicInsnNode.desc.substringAfter(")L").removeSuffix(";")
         val indyParams = invokeDynamicInsnNode.desc.substringAfter("(").substringBeforeLast(")")
@@ -58,6 +59,7 @@ object IndyChecker {
         val remainParams = originParams.removePrefix(indyParams)
         val insnDesc = "(" + remainParams + ")" + handle.desc.substringAfterLast(")")
         val insnTypes = Type.getArgumentTypes(insnDesc)
+
         val insnOwnerClass = ch.findClassEntry(insnOwner)
         if (!insnOwnerClass.isValid) return results
         val insnOwnerMethods = insnOwnerClass.methods
