@@ -9,6 +9,7 @@ import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.FieldRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MethodRenamer
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -75,6 +76,7 @@ fun main(args: Array<String>) {
             StringEqualsOptimize(),
             NumberBasicEncrypt(),
             LocalVarRenamer(),
+            FieldRenamer(),
             MethodRenamer(),
             ClassRenamer(),
         )

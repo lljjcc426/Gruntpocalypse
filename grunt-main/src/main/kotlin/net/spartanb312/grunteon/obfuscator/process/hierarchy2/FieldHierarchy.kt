@@ -71,32 +71,38 @@ class FieldHierarchy(
     }
 
     @JvmInline
-    value class EntryArray(val indices: IntArray) {
-        val size get() = indices.size
+    value class EntryArray(val array: IntArray) {
+        val size get() = array.size
 
         operator fun get(index: Int): Entry {
-            return Entry(indices[index])
+            return Entry(array[index])
         }
 
         inline fun forEach(action: (Entry) -> Unit) {
-            for (i in indices.indices) {
-                action(Entry(indices[i]))
+            for (i in array.indices) {
+                action(Entry(array[i]))
             }
         }
     }
 
     @JvmInline
-    value class Entry(val array: Int) {
-        val isValid: Boolean get() = array != -1
+    value class Entry(val index: Int) {
+        val isValid: Boolean get() = index != -1
+
+        context(mh: FieldHierarchy)
+        inline val name: String get() = mh.fieldNodes[index].name
+
+        context(mh: FieldHierarchy)
+        inline val desc: String get() = mh.fieldNodes[index].desc
 
         context(fh: FieldHierarchy)
-        val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(fh.fieldOwner[array])
+        val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(fh.fieldOwner[index])
 
         context(fh: FieldHierarchy)
-        val node: FieldNode get() = fh.fieldNodes[array]
+        val node: FieldNode get() = fh.fieldNodes[index]
 
         context(fh: FieldHierarchy)
-        val isSourceField: Boolean get() = fh.isSourceField[array]
+        val isSourceField: Boolean get() = fh.isSourceField[index]
     }
 
     companion object {
