@@ -245,12 +245,11 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
             context(mh, ch) {
                 var count = sourceMapping.size
                 sourceMapping.forEachFast { sourceMethodIdx, newName ->
-                    val method = MethodHierarchy.Entry(sourceMethodIdx)
+                    val sourceMethod = MethodHierarchy.Entry(sourceMethodIdx)
                     instance.mappingManager.addMapping(
                         MappingManager.MappingType.Methods,
-                        method.full, newName
+                        sourceMethod.full, newName
                     )
-                    val sourceMethod = MethodHierarchy.Entry(sourceMethodIdx)
                     sourceMethod.owner.descendants.forEach {
                         val descendantName = it.name
                         val full = "$descendantName.${sourceMethod.name}${sourceMethod.desc}"
