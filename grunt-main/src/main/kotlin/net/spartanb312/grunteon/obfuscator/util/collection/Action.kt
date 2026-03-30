@@ -76,7 +76,7 @@ fun InsnList.toListFast(prev: FastObjectArrayList<AbstractInsnNode> = FastObject
 
 inline fun <V> Int2ObjectMap<V>.forEachFast(crossinline action: (Int, V) -> Unit) {
     if (this is Int2ObjectOpenHashMap<V>) {
-        val entries = this.int2ObjectEntrySet().fastForEach {
+        this.int2ObjectEntrySet().fastForEach {
             action(it.intKey, it.value)
         }
     } else {
