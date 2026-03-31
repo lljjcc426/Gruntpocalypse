@@ -1,20 +1,14 @@
 package net.spartanb312.grunteon.obfuscator.process.hierarchy2
 
-import it.unimi.dsi.fastutil.ints.*
+import it.unimi.dsi.fastutil.ints.Int2IntMap
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
 import org.objectweb.asm.tree.MethodNode
 import java.util.function.ToIntFunction
-
-/**
- * Key for method lookup, contains method name, desc and access flags (to distinguish private/protected/public)
- */
-data class MethodNodeKey(
-    val name: String,
-    val desc: String
-)
 
 /**
  * Method hierarchy built on top of class hierarchy, data is stored in parallel array for better performance.
@@ -137,6 +131,9 @@ class MethodHierarchy(
         inline val node: MethodNode get() = mh.methodNodes[index]
 
         context(mh: MethodHierarchy)
+        inline val access: Int get() = mh.methodNodes[index].access
+
+        context(mh: MethodHierarchy)
         inline val isSourceMethod: Boolean get() = mh.isSourceMethod[index]
 
         context(mh: MethodHierarchy)
@@ -172,220 +169,233 @@ class MethodHierarchy(
     companion object {
         @Suppress("UNCHECKED_CAST")
         fun build(classHierarchy: ClassHierarchy): MethodHierarchy {
-            val methodNodes = ObjectArrayList<MethodNode>(classHierarchy.realClassCount)
-            val methodOwner = IntArrayList(classHierarchy.realClassCount)
-            val classMethodNodeLookup = Array(classHierarchy.realClassCount) { Object2IntOpenHashMap<MethodNodeKey>() }
-            val classToMethod = arrayOfNulls<IntArrayList>(classHierarchy.realClassCount) as Array<IntArrayList>
+            val realClassCount = classHierarchy.realClassCount
 
-            fun populateMethodNodesAndOwners() {
-                for (i in 0..<classHierarchy.realClassCount) {
-                    val classNode = classHierarchy.classNodes[i]
-                    val methods = classNode.methods ?: emptyList()
-                    val methodList = IntArrayList()
-                    classToMethod[i] = methodList
-                    val methodLookup = classMethodNodeLookup[i]
-                    methodLookup.defaultReturnValue(-1)
-                    for (j in methods.indices) {
-                        val methodNode = methods[j]
-                        if (methodNode.isInitializer) continue
-                        val index = methodNodes.size
-                        methodNodes.add(methodNode)
-                        val key = MethodNodeKey(methodNode.name, methodNode.desc)
-                        methodLookup[key] = index
-                        methodOwner.add(i)
-                        methodList.add(index)
-                    }
+            // Phase 1: Collect method nodes and build per-class lookup tables.
+            // Note: classMethodNodeLookup (Object2IntOpenHashMap<MethodNodeKey>) from the old
+            // implementation is intentionally omitted – it was never read after being populated.
+            val methodNodes = ObjectArrayList<MethodNode>(realClassCount)
+            val methodOwner = IntArrayList(realClassCount)
+            val classToMethod = arrayOfNulls<IntArrayList>(realClassCount) as Array<IntArrayList>
+            val classNodeMethodCodeMethodLookup = Array(realClassCount) {
+                Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
+            }
+            val methodCodeLookup = Object2IntOpenHashMap<String>()
+            methodCodeLookup.defaultReturnValue(-1)
+            val methodCodeToMethods = ObjectArrayList<IntArrayList>()
+
+            for (i in 0..<realClassCount) {
+                val classNode = classHierarchy.classNodes[i]
+                val methods = classNode.methods ?: emptyList()
+                val methodList = IntArrayList(methods.size)
+                classToMethod[i] = methodList
+                for (j in methods.indices) {
+                    val methodNode = methods[j]
+                    if (methodNode.isInitializer) continue
+                    val index = methodNodes.size
+                    methodNodes.add(methodNode)
+                    methodOwner.add(i)
+                    methodList.add(index)
                 }
             }
-            populateMethodNodesAndOwners()
 
             val methodCount = methodNodes.size
-            val methodCodeLookup = Object2IntOpenHashMap<String>(methodCount)
-            methodCodeLookup.defaultReturnValue(-1)
             val methodCode = IntArray(methodCount)
             val methodAccess = IntArray(methodCount)
-            val methodToMethodTree = Array(classHierarchy.realClassCount) {
-                Int2ObjectOpenHashMap<IntArraySet>()
-            } // Tells a class's method code belongs to which method tree(s)
-            val methodCodeToMethods = ObjectArrayList<IntArrayList>()
-            val classNodeMethodCodeMethodLookup = Array(classHierarchy.realClassCount) {
-                Int2IntOpenHashMap().apply {
-                    defaultReturnValue(-1)
-                }
+
+            for (methodIdx in 0..<methodCount) {
+                val methodNode = methodNodes[methodIdx]
+                val codename = methodNode.name + methodNode.desc
+                val mc = methodCodeLookup.computeIfAbsent(codename, ToIntFunction {
+                    methodCodeToMethods.add(IntArrayList())
+                    methodCodeLookup.size
+                })
+                methodCode[methodIdx] = mc
+                methodAccess[methodIdx] = methodNode.access
+                methodCodeToMethods[mc].add(methodIdx)
+                classNodeMethodCodeMethodLookup[methodOwner.getInt(methodIdx)][mc] = methodIdx
             }
 
-            fun assignMethodCodeAndBroadcastToDescendants() {
-                for (methodIdx in 0..<methodCount) {
-                    val methodNode = methodNodes[methodIdx]
-                    val codename = methodNode.name + methodNode.desc
-                    val myMethodCode = methodCodeLookup.computeIfAbsent(codename, ToIntFunction {
-                        methodCodeToMethods.add(IntArrayList())
-                        methodCodeLookup.size
-                    })
-                    methodCode[methodIdx] = myMethodCode
-                    methodAccess[methodIdx] = methodNode.access
-                    methodCodeToMethods[myMethodCode].add(methodIdx)
-                    val ownerIdx = methodOwner.getInt(methodIdx)
-                    classNodeMethodCodeMethodLookup[ownerIdx][myMethodCode] = methodIdx
-
-                    // Fill inherent method bits
-                    if (methodNode.access.isPrivate) continue
-                    val methodOwnerIdx = methodOwner.getInt(methodIdx)
-                    methodToMethodTree[methodOwnerIdx].put(myMethodCode, IntArraySet())
-                    val descendents = classHierarchy.descendants[methodOwnerIdx]
-                    for (i in descendents.indices) {
-                        val descendentIdx = descendents[i]
-                        if (descendentIdx < classHierarchy.realClassCount) {
-                            methodToMethodTree[descendentIdx].put(myMethodCode, IntArraySet())
-                        }
+            // Phase 2: Topological sort of class indices (ancestors before descendants) using
+            // Kahn's algorithm, so we can propagate inheritance bottom-up in one forward pass.
+            val inDegree = IntArray(realClassCount)
+            for (i in 0..<realClassCount) {
+                for (parentIdx in classHierarchy.parents[i]) {
+                    if (parentIdx < realClassCount) inDegree[i]++
+                }
+            }
+            val topoQueue = IntArrayList(realClassCount)
+            var topoHead = 0
+            for (i in 0..<realClassCount) {
+                if (inDegree[i] == 0) topoQueue.add(i)
+            }
+            while (topoHead < topoQueue.size) {
+                val classIdx = topoQueue.getInt(topoHead++)
+                for (childIdx in classHierarchy.children[classIdx]) {
+                    if (childIdx < realClassCount && --inDegree[childIdx] == 0) {
+                        topoQueue.add(childIdx)
                     }
                 }
             }
-            assignMethodCodeAndBroadcastToDescendants()
+            // Fallback for any classes in a cycle (shouldn't occur in valid JVM bytecode).
+            if (topoQueue.size < realClassCount) {
+                for (i in 0..<realClassCount) {
+                    if (inDegree[i] > 0) topoQueue.add(i)
+                }
+            }
 
-            // Search up for source method
+            // Phase 3: Union-Find on method indices with path compression + union-by-rank.
+            // Replaces the old O(M × D_avg) broadcast + recursive DFS approach.
+            val uf = IntArray(methodCount) { it }
+            val ufRank = IntArray(methodCount)
+
+            fun find(x: Int): Int {
+                var root = x
+                while (uf[root] != root) root = uf[root]
+                // Path compression
+                var cur = x
+                while (cur != root) {
+                    val next = uf[cur]; uf[cur] = root; cur = next
+                }
+                return root
+            }
+
+            fun union(x: Int, y: Int) {
+                val rx = find(x);
+                val ry = find(y)
+                if (rx == ry) return
+                if (ufRank[rx] < ufRank[ry]) uf[rx] = ry
+                else if (ufRank[rx] > ufRank[ry]) uf[ry] = rx
+                else {
+                    uf[ry] = rx; ufRank[rx]++
+                }
+            }
+
             val isSourceMethod = BooleanArray(methodCount)
-            val methodTreeRoots = IntArrayList() // Roots are aka. source methods
-            val methodTreeAdjList = ObjectArrayList<IntSet>()
-            val sourceMethodToMethodTreeIdxLookup = Int2IntOpenHashMap(methodCount)
-            sourceMethodToMethodTreeIdxLookup.defaultReturnValue(-1)
+            // Private and static methods are always source methods (they don't participate in virtual dispatch / inheritance).
+            for (i in 0..<methodCount) {
+                if (methodAccess[i].isPrivate || methodAccess[i].isStatic) isSourceMethod[i] = true
+            }
 
-            fun assignMethodTreeToMethods() {
-                for (classIdx in 0..<classHierarchy.realClassCount) {
-                    val descendentIndices = classHierarchy.descendants[classIdx]
-                    fun setSource(methodIdx: Int) {
-                        assert(!isSourceMethod[methodIdx])
-                        isSourceMethod[methodIdx] = true
-                        val sourceMethodCode = methodCode[methodIdx]
-                        val methodTreeIdx = methodTreeRoots.size
-                        methodTreeRoots.add(methodIdx)
-                        sourceMethodToMethodTreeIdxLookup[methodIdx] = methodTreeIdx
-                        if (descendentIndices.isEmpty()) {
-                            methodTreeAdjList.add(IntSets.emptySet())
-                            return
-                        }
-                        val myMethodTreeAdjList = IntArraySet()
+            // effectiveMethod[classIdx][mc] = representative method index for the (class, methodCode)
+            // pair, reflecting the most-derived non-private declaration reachable from this class.
+            // Propagated in topological order so parents are always ready when a child is processed.
+            val effectiveMethod = Array(realClassCount) {
+                Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
+            }
 
-                        for (i in 0..<descendentIndices.size) {
-                            val descendentIdx = descendentIndices[i]
-                            val descendentMethodCodes = methodToMethodTree[descendentIdx]
-                            val descendentMethodCodeTreeIndices =
-                                descendentMethodCodes[sourceMethodCode] ?: continue
-                            val iterator = descendentMethodCodeTreeIndices.intIterator()
-                            while (iterator.hasNext()) {
-                                val otherMethodTreeIdx = iterator.nextInt()
-                                methodTreeAdjList[otherMethodTreeIdx].add(methodTreeIdx)
-                                myMethodTreeAdjList.add(otherMethodTreeIdx)
-                            }
-                            descendentMethodCodeTreeIndices.add(methodTreeIdx)
-                        }
-                        myMethodTreeAdjList.remove(methodTreeIdx)
-                        methodTreeAdjList.add(myMethodTreeAdjList)
-                    }
+            for (t in 0..<topoQueue.size) {
+                val classIdx = topoQueue.getInt(t)
 
-                    val myMethods = classToMethod[classIdx]
-                    val myMethodArray = myMethods.elements()
-                    for (j in myMethods.indices) {
-                        val myMethod = myMethodArray[j]
-                        if (!methodAccess[myMethod].isPrivate && !methodAccess[myMethod].isStatic) continue
-                        setSource(myMethod)
-                    }
-
-                    val parentIndices = classHierarchy.parents[classIdx]
-                    val allParentMethodCodeBits = IntOpenHashSet()
-                    for (i in parentIndices.indices) {
-                        val parentIdx = parentIndices[i]
-                        if (parentIdx >= classHierarchy.realClassCount) continue
-                        val parentCodeBits = methodToMethodTree[parentIdx]
-                        allParentMethodCodeBits.addAll(parentCodeBits.keys)
-                    }
-
-                    for (j in 0..<myMethods.size) {
-                        val myMethod = myMethodArray[j]
-                        if (methodAccess[myMethod].isPrivate || methodAccess[myMethod].isStatic) continue
-                        val myMethodCode = methodCode[myMethod]
-                        if (!allParentMethodCodeBits.contains(myMethodCode)) {
-                            setSource(myMethod)
+                // Step A: inherit effective methods from real-class parents.
+                for (pi in classHierarchy.parents[classIdx].indices) {
+                    val parentIdx = classHierarchy.parents[classIdx][pi]
+                    if (parentIdx >= realClassCount) continue
+                    val parentEff = effectiveMethod[parentIdx]
+                    val iter = parentEff.int2IntEntrySet().fastIterator()
+                    while (iter.hasNext()) {
+                        val entry = iter.next()
+                        val mc = entry.intKey
+                        val parentRep = entry.intValue
+                        val existing = effectiveMethod[classIdx].get(mc)
+                        if (existing == -1) {
+                            effectiveMethod[classIdx].put(mc, parentRep)
+                        } else {
+                            // Two parents both provide mc → union their trees.
+                            val rx = find(existing);
+                            val ry = find(parentRep)
+                            if (rx != ry) union(rx, ry)
+                            effectiveMethod[classIdx].put(mc, find(rx))
                         }
                     }
                 }
-            }
 
-            assignMethodTreeToMethods()
-
-            val treeGraphConnectedComponents = ObjectArrayList<IntArrayList>()
-            val methodTreeToConnectedComponent = IntArray(methodTreeRoots.size) { -1 }
-
-            fun buildMethodTreeGraphConnectedComponents() {
-                val visitedTree = BooleanArray(methodTreeRoots.size)
-                fun dfs(treeIdx: Int, connectedComponentIdx: Int) {
-                    if (visitedTree[treeIdx]) return
-                    visitedTree[treeIdx] = true
-                    treeGraphConnectedComponents[connectedComponentIdx].add(treeIdx)
-                    methodTreeToConnectedComponent[treeIdx] = connectedComponentIdx
-                    val adjList = methodTreeAdjList[treeIdx]
-                    val iterator = adjList.intIterator()
-                    while (iterator.hasNext()) {
-                        val nextTreeIdx = iterator.nextInt()
-                        dfs(nextTreeIdx, connectedComponentIdx)
+                // Step B: process this class's own non-private methods.
+                val myMethods = classToMethod[classIdx]
+                val myMethodArray = myMethods.elements()
+                for (j in 0..<myMethods.size) {
+                    val methodIdx = myMethodArray[j]
+                    if (methodAccess[methodIdx].isPrivate || methodAccess[methodIdx].isStatic) continue
+                    val mc = methodCode[methodIdx]
+                    val existing = effectiveMethod[classIdx].get(mc)
+                    // Source if no ancestor already provides this method code.
+                    isSourceMethod[methodIdx] = existing == -1
+                    if (existing != -1) {
+                        val rx = find(existing);
+                        val ry = find(methodIdx)
+                        if (rx != ry) union(rx, ry)
                     }
-                }
-
-                for (i in 0..<methodTreeRoots.size) {
-                    if (!visitedTree[i]) {
-                        val connectedComponentIdx = treeGraphConnectedComponents.size
-                        treeGraphConnectedComponents.add(IntArrayList())
-                        dfs(i, connectedComponentIdx)
-                    }
+                    effectiveMethod[classIdx].put(mc, find(methodIdx))
                 }
             }
 
-            buildMethodTreeGraphConnectedComponents()
-
-            val sourceMethodConnectedComponents = Array(methodTreeRoots.size) { idx ->
-                val treeIdx = idx
-                val connectedComponentIdx = methodTreeToConnectedComponent[treeIdx]
-                val methodTreeIndices = treeGraphConnectedComponents[connectedComponentIdx]
-                val methodIndices = IntArray(methodTreeIndices.size)
-                for (i in methodTreeIndices.indices) {
-                    val methodTreeIdx = methodTreeIndices.getInt(i)
-                    methodIndices[i] = methodTreeRoots.getInt(methodTreeIdx)
+            // Phase 4: Collect source methods and build connected components via union-find roots.
+            val sourceMethodList = IntArrayList()
+            val sourceMethodIndexLookUp = Int2IntOpenHashMap(methodCount).apply { defaultReturnValue(-1) }
+            for (i in 0..<methodCount) {
+                if (isSourceMethod[i]) {
+                    sourceMethodIndexLookUp[i] = sourceMethodList.size
+                    sourceMethodList.add(i)
                 }
-                EntryArray(methodIndices)
+            }
+            val sourceCount = sourceMethodList.size
+
+            // Group source methods by their union-find root → one group per connected component.
+            val rootToCC = Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
+            val ccMethodIndices = ObjectArrayList<IntArrayList>()
+            for (sourceIdx in 0..<sourceCount) {
+                val methodIdx = sourceMethodList.getInt(sourceIdx)
+                val root = find(methodIdx)
+                val ccIdx = rootToCC.get(root)
+                if (ccIdx == -1) {
+                    rootToCC[root] = ccMethodIndices.size
+                    val newCC = IntArrayList()
+                    newCC.add(methodIdx)
+                    ccMethodIndices.add(newCC)
+                } else {
+                    ccMethodIndices[ccIdx].add(methodIdx)
+                }
             }
 
-            val sourceMethodOverrides = Array(methodTreeRoots.size) { IntArrayList() }
-            val methodToSourceMethod = Array(methodCount) { methodIdx ->
-                val list = IntArrayList()
-                val methodCode = methodCode[methodIdx]
-                val ownerIdx = methodOwner.getInt(methodIdx)
-                val methodTreeIndices = methodToMethodTree[ownerIdx][methodCode]
-                if (methodTreeIndices != null) {
-                    val iterator = methodTreeIndices.intIterator()
-                    while (iterator.hasNext()) {
-                        val methodTreeIdx = iterator.nextInt()
-                        val sourceMethodIdx = methodTreeRoots.getInt(methodTreeIdx)
-                        list.add(sourceMethodIdx)
-                        sourceMethodOverrides[methodTreeIdx].add(methodIdx)
-                    }
+            val sourceMethodConnectedComponents = Array(sourceCount) { sourceIdx ->
+                val methodIdx = sourceMethodList.getInt(sourceIdx)
+                val root = find(methodIdx)
+                EntryArray(ccMethodIndices[rootToCC.get(root)].toIntArray())
+            }
+
+            // Phase 5: Build sourceMethodOverrides and methodToSource by iterating each source
+            // method's descendants (avoids the old O(M × D) broadcast structure entirely).
+            val sourceMethodOverrideBuilders = Array(sourceCount) { IntArrayList() }
+            val methodToSourceBuilders = Array(methodCount) { IntArrayList() }
+
+            for (sourceIdx in 0..<sourceCount) {
+                val sourceMethodIdx = sourceMethodList.getInt(sourceIdx)
+                // Static and private methods cannot be overridden; skip looking for descendants.
+                if (methodAccess[sourceMethodIdx].isPrivate || methodAccess[sourceMethodIdx].isStatic) continue
+                val ownerIdx = methodOwner.getInt(sourceMethodIdx)
+                val mc = methodCode[sourceMethodIdx]
+                for (desc in classHierarchy.descendants[ownerIdx]) {
+                    if (desc >= realClassCount) continue
+                    val overrideMethodIdx = classNodeMethodCodeMethodLookup[desc].get(mc)
+                    if (overrideMethodIdx == -1) continue
+                    if (methodAccess[overrideMethodIdx].isPrivate || methodAccess[overrideMethodIdx].isStatic) continue
+                    sourceMethodOverrideBuilders[sourceIdx].add(overrideMethodIdx)
+                    methodToSourceBuilders[overrideMethodIdx].add(sourceMethodIdx)
                 }
-                EntryArray(list.toIntArray())
             }
 
             return MethodHierarchy(
                 classHierarchy,
                 methodNodes.toTypedArray(),
                 methodOwner.toIntArray(),
-                Array(classHierarchy.realClassCount) { classToMethod[it].toIntArray() },
+                Array(realClassCount) { classToMethod[it].toIntArray() },
                 classNodeMethodCodeMethodLookup,
-                methodToSourceMethod,
+                Array(methodCount) { EntryArray(methodToSourceBuilders[it].toIntArray()) },
                 isSourceMethod,
-                sourceMethodToMethodTreeIdxLookup,
-                EntryArray(methodTreeRoots.toIntArray()),
+                sourceMethodIndexLookUp,
+                EntryArray(sourceMethodList.toIntArray()),
                 sourceMethodConnectedComponents,
-                Array(sourceMethodOverrides.size) { idx ->
-                    EntryArray(sourceMethodOverrides[idx].toIntArray())
-                },
+                Array(sourceCount) { EntryArray(sourceMethodOverrideBuilders[it].toIntArray()) },
                 methodCodeLookup,
                 methodCode,
                 Array(methodCodeToMethods.size) { EntryArray(methodCodeToMethods[it].toIntArray()) }

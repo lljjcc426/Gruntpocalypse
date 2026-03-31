@@ -32,16 +32,16 @@ dependencies {
 
 tasks {
     jar {
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        from(configurations["projectLib"].map { if (it.isDirectory) it else zipTree(it) })
-        from(configurations["library"].map { if (it.isDirectory) it else zipTree(it) })
-        exclude("META-INF/versions/**", "module-info.class", "**/**.RSA")
-        manifest {
-            attributes(
-                "Main-Class" to "net.spartanb312.everett.bootstrap.Main"
-            )
-        }
-        dependsOn(":grunt-bootstrap:jar")
+//        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+////        from(configurations["projectLib"].map { if (it.isDirectory) it else zipTree(it) })
+////        from(configurations["library"].map { if (it.isDirectory) it else zipTree(it) })
+//        exclude("META-INF/versions/**", "module-info.class", "**/**.RSA")
+//        manifest {
+//            attributes(
+//                "Main-Class" to "net.spartanb312.everett.bootstrap.Main"
+//            )
+//        }
+//        dependsOn(":grunt-bootstrap:jar")
     }
 }
 

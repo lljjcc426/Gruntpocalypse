@@ -125,6 +125,7 @@ class WorkResources private constructor(
                     }
                 }
             }
+            Logger.info("Read ${inputClassMap.size} classes from input and ${libraryClassMap.size} classes from libraries")
 
             return WorkResources(
                 inputResourceSet = inputResourceSet,

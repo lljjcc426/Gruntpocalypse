@@ -77,7 +77,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
         val unusedLabels = reducibleScopeValue { MergeableCounter() }
         val nops = reducibleScopeValue { MergeableCounter() }
         val methodSignatures = reducibleScopeValue { MergeableCounter() }
-        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             val innerClasses = innerClasses.local
             val unusedLabels = unusedLabels.local
             val nops = nops.local

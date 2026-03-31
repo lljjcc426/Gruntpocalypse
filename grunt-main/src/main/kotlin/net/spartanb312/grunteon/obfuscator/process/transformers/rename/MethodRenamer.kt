@@ -1,9 +1,11 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntLinkedOpenHashSet
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
+import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
@@ -13,7 +15,6 @@ import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.util.IndyChecker
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.collection.forEachFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.*
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
 import org.objectweb.asm.Type
@@ -32,7 +33,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         "process.rename.method_renamer.desc",
         "Renaming methods"
     )
-) {
+), MappingSource {
 
     override val defConfig: TransformerConfig get() = Config()
     override val confType: Class<Config> get() = Config::class.java
@@ -46,6 +47,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         after(Category.Miscellaneous, "Renamer should run after miscellaneous category")
         after(Category.Optimization, "Renamer should run after optimization category")
         after(Category.Redirect, "Renamer should run after redirect category")
+        after(ClassRenamer::class.java, "MethodRenamer should run after ClassRenamer")
     }
 
     class Config : TransformerConfig() {
@@ -101,7 +103,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
     override fun buildStageImpl(config: Config) {
         barrier()
         pre {
-            Logger.info(" > MethodRenamer[${config.mode.displayName}]: Renaming methods...")
+            Logger.info(" > MethodRenamer[${config.mode.displayName}]: Generating method mappings...")
         }
         buildFull(config)
     }
@@ -116,7 +118,6 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
             )
             MethodHierarchy.build(classHierarchy)
         }
-        val sourceMapping = globalScopeValue { Int2ObjectLinkedOpenHashMap<String>() }
         val sourceAndOverridesMapping = globalScopeValue { Int2ObjectOpenHashMap<String>() }
         val bridgeMethodSources = globalScopeValue { ObjectOpenHashSet<MethodHierarchy.Entry>() }
         seq {
@@ -131,13 +132,12 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             && (config.interfaces || !it.isInterface)
                 }
                 .sortedBy { it.name } // TODO: find a better way to keep naming deterministic without sorting
-                .toList()
 
             val nonExcludedNameSet = nonExcluded.mapTo(ObjectOpenHashSet()) { it.name }
 
             context(classHierarchy, methodHierarchy) {
                 Logger.info("    Splitting method groups...")
-                val blackList = mutableSetOf<MethodHierarchy.Entry>()
+                val blackList = IntOpenHashSet()
                 val relatedGroups =
                     mutableListOf<Pair<MutableSet<MethodHierarchy.Entry>, MutableSet<String>>>() // as a family
                 val bridgeMethodSources = bridgeMethodSources.global
@@ -151,13 +151,14 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             val methodEntry = MethodHierarchy.Entry(methodIndex)
                             // Source check
                             if (!methodEntry.isSourceMethod) continue
-                            if (blackList.contains(methodEntry)) continue
+                            if (blackList.contains(methodEntry.index)) continue
                             // Info check
                             val methodNode = methodEntry.node
                             if (methodNode.isNative) continue
                             if (methodNode.isInitializer) continue
                             if (methodNode.isMainMethod) continue
                             if (isEnum && methodNode.name == "values") continue
+                            if (methodNode.name in HARD_EXCLUDE) continue
                             // if (methodNode.reflectionExcluded) continue
                             // TODO: method exclusion
                             // val combined = combine(classNode.name, methodNode.name, methodNode.desc)
@@ -173,18 +174,19 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             // Bind group
                             val related = methodEntry.connectedComponent
                             if (related.any { !instance.workRes.inputClassMap.containsKey(it.owner.name) }) continue
-                            val group = if (related.size > 1) {
-                                val relationship = related.array.map { MethodHierarchy.Entry(it) }.toMutableSet()
-                                relationship.add(methodEntry) // idk
-                                Logger.debug("    Found multi source method group (${relationship.size} classes): ")
-                                relationship.forEach {
+                            if (related.size > 1) {
+                                Logger.debug("    Found multi source method group (${related.size} classes): ")
+                                related.forEach {
                                     Logger.trace("     - " + it.full)
                                 }
-                                relationship
-                            } else mutableSetOf(methodEntry)
+                            }
                             // apply group
-                            blackList.addAll(group)
-                            relatedGroups.add(group to mutableSetOf(methodEntry.desc))
+                            blackList.addAll(IntArrayList.wrap(related.array))
+                            relatedGroups.add(
+                                List(related.size) { related[it] }.toMutableSet() to mutableSetOf(
+                                    methodEntry.desc
+                                )
+                            )
                         }
                     }
                 }
@@ -259,19 +261,12 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                 Logger.info("    Generating mappings for method groups...")
                 val dictionary = NameGenerator.getDictionary(config.dictionary)
                 val sourceAndOverridesMapping = sourceAndOverridesMapping.global
-                val sourceMapping = sourceMapping.global
                 // share a same name in a group
-                val nameGenerators = mutableMapOf<ClassHierarchy.Entry, NameGenerator>()
+                val nameGenerators = Array(classHierarchy.classCount) { NameGenerator(dictionary) }
                 val existedNameMap = Array(classHierarchy.classCount) { ObjectOpenHashSet<String>() }
-                relatedGroups.forEach { group ->
-                    //val present = group.first.first()
-                    val first = group.first.first()
-                    val namePrefix = "" // (if (randomKeywordPrefix) "$nextBadKeyword " else "") + prefix TODO: prefix
-                    val suffix = "" // TODO : suffix
-                    // Avoid shadow names
-                    val dic = nameGenerators.getOrPut(first.owner) {
-                        NameGenerator(dictionary)
-                    }
+                var methodMappingCount = 0
+
+                relatedGroups.forEach outer@{ group ->
                     val checkSet = IntLinkedOpenHashSet()
                     group.first.forEach { source ->
                         checkSet.add(source.owner.index)
@@ -290,9 +285,13 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             checkList.forEach {
                                 Logger.trace(" - ${it.name}")
                             }
-                            return@forEach
+                            return@outer
                         }
                     }
+                    val first = group.first.first()
+                    val namePrefix = "" // (if (randomKeywordPrefix) "$nextBadKeyword " else "") + prefix TODO: prefix
+                    val suffix = "" // TODO : suffix
+                    val dic = nameGenerators[first.owner.index]
                     var newName: String
                     loop@ while (true) {
                         newName = namePrefix + dic.nextName(config.heavyOverloads, first.desc) + suffix
@@ -322,9 +321,16 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                         existedNameMap[owner.index].add(nameWithDesc)
                     }
                     // Apply to all affected
+                    methodMappingCount += group.first.size
                     group.first.forEach { sourceMethod ->
                         sourceAndOverridesMapping[sourceMethod.index] = newName
-                        sourceMapping[sourceMethod.index] = newName
+                        instance.nameMapping.putMethodMapping(
+                            sourceMethod.owner.name,
+                            sourceMethod.name,
+                            sourceMethod.desc,
+                            newName
+                        )
+                        if (sourceMethod.access.isPrivate) return@forEach
                         // Disable up apply for private and static
                         if (!sourceMethod.node.isPrivate && !sourceMethod.node.isStatic) {
                             //println("Disable up apply for ${sourceMethod.full}")
@@ -332,55 +338,22 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                 sourceAndOverridesMapping[it.index] = newName
                             }
                         }
+                        sourceMethod.owner.descendants.forEach {
+                            val descendantName = it.name
+                            instance.nameMapping.putMethodMapping(
+                                descendantName,
+                                sourceMethod.name,
+                                sourceMethod.desc,
+                                newName
+                            )
+                            methodMappingCount++
+                        }
                     }
                 }
+                Logger.info("    Generated mapping for $methodMappingCount methods")
             }
         }
-        val indyResults = IndyChecker.check(methodHierarchy, sourceAndOverridesMapping)
-        seq {
-            Logger.info("    Applying mappings for methods...")
-            val indyResults = indyResults.global
-
-            // Remap
-            Logger.info("    Generated indy mapping for ${indyResults.size} methods")
-            indyResults.forEach { implicitInfo ->
-                val key = ".${implicitInfo.indyInsnName}${implicitInfo.indyInsnDesc}"
-                Logger.trace("     - $key")
-                instance.mappingManager.addMapping(
-                    MappingManager.MappingType.Methods,
-                    key, implicitInfo.newName
-                )
-            }
-
-            val mh = methodHierarchy.global
-            val sourceMapping = sourceMapping.global
-            val ch = mh.classHierarchy
-            context(mh, ch) {
-                var count = sourceMapping.size
-                sourceMapping.forEachFast { sourceMethodIdx, newName ->
-                    val sourceMethod = MethodHierarchy.Entry(sourceMethodIdx)
-                    instance.mappingManager.addMapping(
-                        MappingManager.MappingType.Methods,
-                        sourceMethod.full, newName
-                    )
-                    sourceMethod.owner.descendants.forEach {
-                        val descendantName = it.name
-                        val full = "$descendantName.${sourceMethod.name}${sourceMethod.desc}"
-                        instance.mappingManager.addMapping(
-                            MappingManager.MappingType.Methods,
-                            full, newName
-                        )
-                        count++
-                    }
-                }
-                Logger.info("    Generated mapping for $count methods")
-            }
-        }
-        instance.mappingManager.applyRemap(MappingManager.MappingType.Methods)
-        post {
-            Logger.info(" - MethodRenamer:")
-            Logger.info("    Renamed ${instance.mappingManager.mappings[MappingManager.MappingType.Methods.ordinal].size} methods")
-        }
+        IndyChecker.check(methodHierarchy, sourceAndOverridesMapping)
     }
 
 
@@ -389,6 +362,18 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         Full("Full"),
     }
 
-    private fun combine(owner: String, name: String, desc: String) = "$owner.$name$desc"
 
+    companion object {
+        val HARD_EXCLUDE = setOf(
+            // Java serialization methods
+            "writeObject",
+            "writeExternal",
+            "writeReplace",
+            "useProtocolVersion",
+            "readObject",
+            "readObjectNoData",
+            "readExternal",
+            "readResolve"
+        )
+    }
 }

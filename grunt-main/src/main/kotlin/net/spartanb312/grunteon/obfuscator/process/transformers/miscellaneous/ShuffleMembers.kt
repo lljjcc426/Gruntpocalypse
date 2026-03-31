@@ -2,14 +2,7 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.process.parForEachFiltered
-import net.spartanb312.grunteon.obfuscator.process.post
-import net.spartanb312.grunteon.obfuscator.process.pre
-import net.spartanb312.grunteon.obfuscator.process.reducibleScopeValue
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 
@@ -38,7 +31,7 @@ class ShuffleMembers : Transformer<ShuffleMembers.Config>(
             Logger.info(" > ShuffleMembers: Shuffling members...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
             if (config.methods) classNode.methods?.let {
                 classNode.methods = it.shuffled()

@@ -154,7 +154,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val shuffledListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
-        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
             classNode.methods.asSequence()
                 .filter { !it.isAbstract && !it.isNative }

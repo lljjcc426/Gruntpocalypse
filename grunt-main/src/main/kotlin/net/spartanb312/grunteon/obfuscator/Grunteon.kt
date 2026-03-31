@@ -2,17 +2,13 @@ package net.spartanb312.grunteon.obfuscator
 
 import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
 import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
-import net.spartanb312.grunteon.obfuscator.process.MappingManager
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.DeclaredFieldsExtract
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
-import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
-import net.spartanb312.grunteon.obfuscator.process.transformers.rename.FieldRenamer
-import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
-import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MethodRenamer
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
@@ -66,7 +62,7 @@ fun main(args: Array<String>) {
     // TODO: Plugin initialize
 
     val queue = ArrayDeque<Double>()
-    repeat(1) {
+    repeat(args.getOrNull(0)?.toIntOrNull() ?: 1) {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
             // Optimize
@@ -82,9 +78,9 @@ fun main(args: Array<String>) {
             NumberBasicEncrypt(),
             // Renamer
             LocalVarRenamer(),
+            ClassRenamer(),
             FieldRenamer(),
             MethodRenamer(),
-            ClassRenamer(),
             // Other
         )
         val instance = emptyConfig.runPipeline(pipeline)
@@ -118,7 +114,7 @@ class Grunteon(
      * Resources
      */
     lateinit var workRes: WorkResources
-    val mappingManager = MappingManager()
+    val nameMapping = NameMapping()
     val baseSeed get() = if (configGroup.controllableRandom) configGroup.inputSeed else Random.nextInt().toString()
 
     fun init() {
@@ -150,7 +146,7 @@ class Grunteon(
         }
 
         // TODO: make this optional
-        JarDumper.dumpJar(Path("obftest/AT/engine/boar-main.jar"))
+        JarDumper.dumpJar(Path("output.jar"))
     }
 
     val mixinExPredicate = buildClassNamePredicates(configGroup.mixinExclusions)

@@ -77,8 +77,6 @@ object JarDumper {
                 val hierarchy =
                     ClassHierarchy.build(instance.workRes.allClassCollection, instance.workRes::getClassNode)
                 // Writing class
-                Logger.info("Writing classes...")
-
                 if (config.missingCheck) hierarchy.printMissing()
                 launch {
                     instance.workRes.inputResourceSet.root.walk()
@@ -157,7 +155,6 @@ object JarDumper {
                         zipOut.corruptCRC32(random)
                     }
 
-                    Logger.info("Writing resources...")
                     instance.workRes.inputResourceSet.root.walk()
                         .filter { it.isDirectory() }
                         .forEach {
@@ -167,8 +164,7 @@ object JarDumper {
                             zipOut.closeEntry()
                         }
 
-                    Logger.info("Writing classes...")
-
+                    Logger.info("Writing files...")
                     @Suppress("UNCHECKED_CAST")
                     val xEntries = varEntries.get(zipOut) as Vector<Any>
                     var offset = 0L

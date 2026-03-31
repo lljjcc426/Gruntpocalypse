@@ -87,7 +87,7 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         val intrinsics = reducibleScopeValue { MergeableCounter() }
         val metadata = reducibleScopeValue { MergeableCounter() }
         val pendingReplaceCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
-        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             if (config.intrinsics) {
                 val intrinsics = intrinsics.local
                 classNode.methods.forEach { methodNode ->

@@ -43,8 +43,8 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
             Logger.info(" > EnumOptimize: Optimizing enums...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
-            if (!classNode.isEnum) return@parForEachFiltered
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            if (!classNode.isEnum) return@parForEachClassesFiltered
             val counter = counter.local
             val desc = "[L${classNode.name};"
             val valuesMethod = classNode.findMethod("values", "()$desc") {

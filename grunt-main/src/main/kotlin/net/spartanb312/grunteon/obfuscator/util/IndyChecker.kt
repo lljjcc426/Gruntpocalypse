@@ -1,10 +1,10 @@
 package net.spartanb312.grunteon.obfuscator.util
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap
+import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
-import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
@@ -15,42 +15,39 @@ object IndyChecker {
     fun check(
         hierarchyInfo: ScopeValueKey.Global<MethodHierarchy>,
         infoMappings: ScopeValueKey.Global<out Int2ObjectMap<String>>
-    ): ScopeValueKey.Reducible<MergeableObjectList<IndyImplicitInfo>> {
-        val results = reducibleScopeValue { MergeableObjectList<IndyImplicitInfo>(FastObjectArrayList()) }
-        parForEach { classNode ->
+    ) {
+        val counter = reducibleScopeValue { MergeableCounter() }
+        parForEachClasses { classNode ->
             val mh = hierarchyInfo.global
             val ch = mh.classHierarchy
+            val counter = counter.local
             context(ch, mh) {
-                val results = results.local
                 val mappings = infoMappings.global
-                classNode.methods.forEach { methodNode ->
+                classNode.methods?.forEach { methodNode ->
                     methodNode.instructions?.forEach { insnNode ->
                         if (insnNode is InvokeDynamicInsnNode) {
-                            results.addAll(checkInsn(insnNode, mappings))
+                            checkInsn(counter, insnNode, mappings)
                         }
                     }
                 }
             }
         }
-        return results
+        post {
+            Logger.info("    Generated indy mapping for ${counter.global.get()} methods")
+        }
     }
 
-    context(ch: ClassHierarchy, mh: MethodHierarchy)
+    context(instance: Grunteon, ch: ClassHierarchy, mh: MethodHierarchy)
     private fun checkInsn(
+        counter: MergeableCounter,
         invokeDynamicInsnNode: InvokeDynamicInsnNode,
-        infoMappings: Int2ObjectMap<String> // Method, new name, desc
-    ): List<IndyImplicitInfo> {
-        val results = mutableListOf<IndyImplicitInfo>()
-        if (invokeDynamicInsnNode.bsmArgs == null) return results
-        var indexOfHandle = -1
-        invokeDynamicInsnNode.bsmArgs.forEachIndexed { index, obj ->
-            if (obj is Handle) indexOfHandle = index
-        }
-        if (indexOfHandle == -1) return results
-        val handle = invokeDynamicInsnNode.bsmArgs[indexOfHandle] as Handle
+        infoMappings: Int2ObjectMap<String> // Method, new name, desc){}
+    ) {
+        if (invokeDynamicInsnNode.bsmArgs == null) return
+        val handle = invokeDynamicInsnNode.bsmArgs.lastOrNull { it is Handle } as? Handle? ?: return
         val handleCodename = handle.name + handle.desc
         val handleMethodCode = mh.methodCodeLookup.getInt(handleCodename)
-        if (handleMethodCode == -1) return results
+        if (handleMethodCode == -1) return
 
         val insnName = invokeDynamicInsnNode.name
         val insnOwner = invokeDynamicInsnNode.desc.substringAfter(")L").removeSuffix(";")
@@ -61,53 +58,38 @@ object IndyChecker {
         val insnTypes = Type.getArgumentTypes(insnDesc)
 
         val insnOwnerClass = ch.findClassEntry(insnOwner)
-        if (!insnOwnerClass.isValid) return results
+        if (!insnOwnerClass.isValid) return
         val insnOwnerMethods = insnOwnerClass.methods
-        run outer@{
-            mh.methodCodeToMethods[handleMethodCode].forEach { prev ->
-                val shouldRemap = when (handle.tag) {
-                    Opcodes.H_INVOKEVIRTUAL -> ch.isSubType(handle.owner, prev.owner.name)
-                    Opcodes.H_INVOKESTATIC -> ch.isSubType(handle.owner, prev.owner.name)
-                    else -> handle.owner == prev.owner.name
-                }
-                if (!shouldRemap) return@forEach
-                insnOwnerMethods.forEach { preMethod ->
-                    if (preMethod.name != insnName) return@forEach
-                    var typesMatch = preMethod.desc == insnDesc
-                    if (!typesMatch) {
-                        val paramsTypes = Type.getArgumentTypes(preMethod.desc)
-                        typesMatch = paramsTypes.size == insnTypes.size
-                        if (typesMatch) {
-                            for (index in paramsTypes.indices) {
-                                val type1 = insnTypes[index]
-                                val type2 = paramsTypes[index]
-                                if (!(type1.className == type2.className || type2.className == "java.lang.Object")) {
-                                    typesMatch = false
-                                }
-                            }
-                        }
-                    }
-                    if (!typesMatch) return@forEach
-
-                    val newName = infoMappings.get(preMethod.index) ?: return@forEach
-                    results.add(
-                        IndyImplicitInfo(
-                            invokeDynamicInsnNode.name,
-                            invokeDynamicInsnNode.desc,
-                            newName
-                        )
-                    )
-                }
-                return@outer
+        val shouldRemap = mh.methodCodeToMethods[handleMethodCode].any { prev ->
+            when (handle.tag) {
+                Opcodes.H_INVOKEVIRTUAL -> ch.isSubType(handle.owner, prev.owner.name)
+                Opcodes.H_INVOKESTATIC -> ch.isSubType(handle.owner, prev.owner.name)
+                else -> handle.owner == prev.owner.name
             }
         }
-        return results
+        if (!shouldRemap) return
+        insnOwnerMethods.forEach { preMethod ->
+            if (preMethod.name != insnName) return@forEach
+            var typesMatch = preMethod.desc == insnDesc
+            if (!typesMatch) {
+                val paramsTypes = Type.getArgumentTypes(preMethod.desc)
+                typesMatch = paramsTypes.size == insnTypes.size
+                if (typesMatch) {
+                    for (index in paramsTypes.indices) {
+                        val type1 = insnTypes[index]
+                        val type2 = paramsTypes[index]
+                        if (!(type1.className == type2.className || type2.className == "java.lang.Object")) {
+                            typesMatch = false
+                        }
+                    }
+                }
+            }
+            if (!typesMatch) return@forEach
+
+            val newName = infoMappings.get(preMethod.index) ?: return@forEach
+
+            instance.nameMapping.putIndyMapping(insnName, insnDesc, newName)
+            counter.add()
+        }
     }
-
-    class IndyImplicitInfo(
-        val indyInsnName: String,
-        val indyInsnDesc: String,
-        val newName: String
-    )
-
 }

@@ -1,8 +1,6 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 
-import net.spartanb312.genesis.kotlin.extensions.insn.INVOKESTATIC
-import net.spartanb312.genesis.kotlin.extensions.insn.INVOKEVIRTUAL
-import net.spartanb312.genesis.kotlin.extensions.insn.SWAP
+import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.instructions
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
@@ -49,7 +47,7 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
             Logger.info(" > StringEqualsOptimize: Redirecting string equals calls...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             classNode.methods.forEach { methodNode ->
                 val counter = counter.local
                 for (insnNode in methodNode.instructions.toArray()) {

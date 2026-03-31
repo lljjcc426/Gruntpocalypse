@@ -218,16 +218,24 @@ class ClassHierarchy(
         val name get() = ch.classNames[index]
 
         context(ch: ClassHierarchy)
-        val parents get() = ch.parents[index]
+        val parents
+            get() =
+                if (index >= ch.realClassCount) EMPTY_INT_ARRAY else ch.parents[index]
 
         context(ch: ClassHierarchy)
-        val children get() = ch.children[index]
+        val children
+            get() =
+                if (index >= ch.realClassCount) EMPTY_INT_ARRAY else ch.children[index]
 
         context(ch: ClassHierarchy)
-        val ancestors get() = ch.ancestors[index]
+        val ancestors
+            get() =
+                if (index >= ch.realClassCount) EMPTY_INT_ARRAY else ch.ancestors[index]
 
         context(ch: ClassHierarchy)
-        val descendants get() = EntryArray(ch.descendants[index])
+        val descendants
+            get() =
+                if (index >= ch.realClassCount) EntryArray.EMPTY else EntryArray(ch.descendants[index])
 
         context(ch: ClassHierarchy)
         val isBroken get() = ch.broken[index]
@@ -236,10 +244,16 @@ class ClassHierarchy(
         val hasMissingDependency get() = ch.missingDependencies[index]
 
         context(fh: FieldHierarchy)
-        val fields: FieldHierarchy.EntryArray get() = FieldHierarchy.EntryArray(fh.classNodeFields[index])
+        val fields: FieldHierarchy.EntryArray
+            get() =
+                if (index >= fh.classHierarchy.realClassCount) FieldHierarchy.EntryArray.EMPTY
+                else FieldHierarchy.EntryArray(fh.classNodeFields[index])
 
         context(mh: MethodHierarchy)
-        val methods: MethodHierarchy.EntryArray get() = MethodHierarchy.EntryArray(mh.classNodeMethods[index])
+        val methods: MethodHierarchy.EntryArray
+            get() =
+                if (index >= mh.classHierarchy.realClassCount) return MethodHierarchy.EntryArray.EMPTY
+                else MethodHierarchy.EntryArray(mh.classNodeMethods[index])
 
         context(mh: MethodHierarchy)
         fun findMethod(name: String, desc: String): MethodHierarchy.Entry {
@@ -252,6 +266,10 @@ class ClassHierarchy(
         context(mh: MethodHierarchy)
         fun findMethod(methodCode: Int): MethodHierarchy.Entry {
             return MethodHierarchy.Entry(mh.classNodeMethodCodeMethodLookup[index][methodCode])
+        }
+
+        companion object {
+            val EMPTY_INT_ARRAY = IntArray(0)
         }
     }
 

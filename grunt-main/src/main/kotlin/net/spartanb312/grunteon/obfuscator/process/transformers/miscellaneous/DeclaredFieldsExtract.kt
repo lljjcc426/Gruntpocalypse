@@ -1,12 +1,8 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous
 
 import net.spartanb312.genesis.kotlin.clinit
-import net.spartanb312.genesis.kotlin.extensions.INT
-import net.spartanb312.genesis.kotlin.extensions.LONG
-import net.spartanb312.genesis.kotlin.extensions.insn.BIPUSH
-import net.spartanb312.genesis.kotlin.extensions.insn.PUTFIELD
-import net.spartanb312.genesis.kotlin.extensions.insn.PUTSTATIC
-import net.spartanb312.genesis.kotlin.extensions.insn.SIPUSH
+import net.spartanb312.genesis.kotlin.extensions.*
+import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.instructions
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
@@ -43,8 +39,8 @@ class DeclaredFieldsExtract : Transformer<DeclaredFieldsExtract.Config>(
             Logger.info(" > DeclaredFieldsExtract: Transforming local variables...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachFiltered(buildFilterStrategy(config)) { classNode ->
-            if (classNode.isAnnotation) return@parForEachFiltered
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            if (classNode.isAnnotation) return@parForEachClassesFiltered
             val counter = counter.local
             var clinit = classNode.methods.firstOrNull { it.name.equals("<clinit>") }
             var init = classNode.methods.firstOrNull { it.name.equals("<init>") }

@@ -2,7 +2,6 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntLinkedOpenHashSet
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
@@ -26,7 +25,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
         "process.rename.field_renamer.desc",
         "Renaming fields"
     )
-) {
+), MappingSource {
 
     override val defConfig: TransformerConfig get() = Config()
     override val confType: Class<Config> get() = Config::class.java
@@ -40,6 +39,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
         after(Category.Miscellaneous, "Renamer should run after miscellaneous category")
         after(Category.Optimization, "Renamer should run after optimization category")
         after(Category.Redirect, "Renamer should run after redirect category")
+        after(ClassRenamer::class.java, "MethodRenamer should run after ClassRenamer")
     }
 
     class Config : TransformerConfig() {
@@ -78,7 +78,6 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
             FieldHierarchy.build(classHierarchy)
         }
         seq {
-            val mappings = Object2ObjectOpenHashMap<String, String>()
             val fieldHierarchy = fieldHierarchy.global
             val classHierarchy = fieldHierarchy.classHierarchy
             val strategy = buildFilterStrategy(config)
@@ -92,6 +91,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
             val existedNameMap = Int2ObjectOpenHashMap<MutableSet<String>>()
             //val nameGenerator = NameGenerator(NameGenerator.getDictionary(config.dictionary))
             val dictionary = NameGenerator.getDictionary(config.dictionary)
+            var counter = 0
             context(classHierarchy, fieldHierarchy) {
                 Logger.info("    Generating field mappings...")
                 val nameGenerators = mutableMapOf<ClassHierarchy.Entry, NameGenerator>()
@@ -161,26 +161,28 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                                 val affected = mutableSetOf(classEntry.index)
                                 affected.addAll(classEntry.descendants.array.toList()) // fixme: optimize this
                                 affected.forEach { apply ->
-                                    val key = "${ClassHierarchy.Entry(apply).name}.${fieldEntry.node.name}"
-                                    mappings[key] = newName
+                                    instance.nameMapping.putFieldMapping(
+                                        ClassHierarchy.Entry(apply).name,
+                                        fieldEntry.node.name,
+                                        fieldEntry.desc,
+                                        newName
+                                    )
+                                    counter++
                                 }
-                            } else mappings["${fieldEntry.owner.name}.${fieldEntry.name}"] = newName
+                            } else {
+                                instance.nameMapping.putFieldMapping(
+                                    fieldEntry.owner.name,
+                                    fieldEntry.name,
+                                    fieldEntry.desc,
+                                    newName
+                                )
+                                counter++
+                            }
                         }
                     }
                 }
+                Logger.info("    Generated mapping for $counter fields")
             }
-
-            mappings.forEach { (pre, new) ->
-                instance.mappingManager.addMapping(
-                    MappingManager.MappingType.Fields,
-                    pre, new
-                )
-            }
-        }
-        instance.mappingManager.applyRemap(MappingManager.MappingType.Fields)
-        post {
-            Logger.info(" - FieldRenamer:")
-            Logger.info("    Renamed ${instance.mappingManager.mappings[MappingManager.MappingType.Fields.ordinal].size} fields")
         }
     }
 

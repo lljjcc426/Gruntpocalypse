@@ -2,6 +2,8 @@ package net.spartanb312.grunteon.obfuscator.process
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.util.LWWSP
@@ -61,7 +63,7 @@ sealed interface Instruction {
     object Barrier : Instruction
     class InitGlobal(val index: Int) : Instruction
     class InitReducible(val index: Int) : Instruction
-    class Seq(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
+    class Seq(val block: context(Grunteon, ScopeValueAccess) CoroutineScope.() -> Unit) : Instruction
     class Pre(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
     class Post(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
     class SeqForEach(val block: context(Grunteon, ScopeValueAccess)  (classNode: ClassNode) -> Unit) : Instruction
@@ -144,7 +146,7 @@ fun barrier() {
 }
 
 context(pb: PipelineBuilder)
-fun seq(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
+fun seq(block: context(Grunteon, ScopeValueAccess) CoroutineScope.() -> Unit) {
     pb.instructions += Instruction.Seq(block)
 }
 
@@ -159,13 +161,23 @@ fun post(block: context(Grunteon, ScopeValueAccess) () -> Unit) {
 }
 
 context(pb: PipelineBuilder)
-fun seqForEach(block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit) {
+fun seqForEachClasses(block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit) {
     pb.instructions += Instruction.SeqForEach(block)
 }
 
 context(pb: PipelineBuilder)
-fun parForEach(block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit) {
+fun parForEachClasses(block: context(Grunteon, ScopeValueAccess) (classNode: ClassNode) -> Unit) {
     pb.instructions += Instruction.ParForEach(block)
+}
+
+context(_: PipelineBuilder)
+inline fun parForEachClassesFiltered(
+    strategy: FilterStrategy,
+    crossinline action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
+) {
+    parForEachClasses {
+        if (strategy.testClass(it)) action(it)
+    }
 }
 
 context(pb: PipelineBuilder)
@@ -264,7 +276,9 @@ internal class WorkerContext {
                     is Instruction.Seq -> {
                         flushParallelTasks()
                         val access = ScopeValueAccess(scopeValueGlobal)
-                        inst.block.invoke(instance, access)
+                        coroutineScope {
+                            inst.block.invoke(instance, access, this)
+                        }
                         scopeValueGlobal.mergeToGlobal(access)
                     }
                     is Instruction.Pre -> {
@@ -293,15 +307,5 @@ internal class WorkerContext {
             }
             flushParallelTasks()
         }
-    }
-}
-
-context(_: PipelineBuilder)
-inline fun parForEachFiltered(
-    strategy: FilterStrategy,
-    crossinline action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
-) {
-    parForEach {
-        if (strategy.testClass(it)) action(it)
     }
 }

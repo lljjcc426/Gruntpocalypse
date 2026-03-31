@@ -6,27 +6,35 @@ import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.process.WorkerContext
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MappingApplier
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MappingSource
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import java.util.concurrent.atomic.AtomicBoolean
 
 class ProcessPipeline(
     vararg transformers: Transformer<*>
 ) {
-
-    private val initialized = AtomicBoolean(false)
-    private val transformers = transformers.toList()
-    private val transformer2Config = mutableMapOf<Transformer<*>, TransformerConfig>()
-
+    private val transformers: List<Transformer<*>>
     init {
         // check orders
         Logger.info("Validating pipeline orders...")
+        val transformersList = transformers.toMutableList()
+        var lastRenamerIndex = -1
         transformers.forEachIndexed { index, transformer ->
+            if (transformer is MappingSource) lastRenamerIndex = index
             transformer.orderRules.forEach {
-                val valid = it.first.invoke(this.transformers, index)
+                val valid = it.first.invoke(transformersList, index)
                 if (!valid) throw Exception("${transformer.engName} has a wrong order! Reason: ${it.second}")
             }
         }
+        if (lastRenamerIndex != -1) {
+            transformersList.add(lastRenamerIndex + 1, MappingApplier())
+        }
+        this.transformers = transformersList
     }
+
+    private val initialized = AtomicBoolean(false)
+    private val transformer2Config = mutableMapOf<Transformer<*>, TransformerConfig>()
 
     fun parseConfig(configGroup: ConfigGroup) {
         initialized.set(true)

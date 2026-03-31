@@ -6,7 +6,6 @@ import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.shuffled
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
@@ -26,7 +25,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         "process.rename.class_renamer.desc",
         "Renaming classes"
     )
-) {
+), MappingSource {
 
     override val defConfig: TransformerConfig get() = Config()
     override val confType: Class<Config> get() = Config::class.java
@@ -96,35 +95,28 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
-        val counter = globalScopeValue { MergeableCounter() }
         seq {
             val instance = contextOf<Grunteon>()
-            Logger.info(" > ClassRenamer: Renaming classes...")
-            Logger.info("    Generating mappings for classes...")
+            Logger.info(" > ClassRenamer: Generating class mappings...")
             val strategy = buildFilterStrategy(config)
             val dictionary = NameGenerator.getDictionary(config.dictionary)
             val nameGenerator = NameGenerator(dictionary)
             val randomGen = Xoshiro256PPRandom(getSeed("Global"))
             val classes = if (config.shuffled) instance.workRes.inputClassCollection.shuffled(randomGen)
             else instance.workRes.inputClassCollection
+            var counter = 0
             classes.asSequence()
                 .filter { strategy.testClass(it) }
                 .forEach { clazz ->
                     if (clazz.methods.any { it.isMainMethod }) return@forEach
                     if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
-                    instance.mappingManager.addMapping(
-                        MappingManager.MappingType.Classes,
+                    instance.nameMapping.putClassMapping(
                         clazz.name,
                         config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + nameGenerator.nextName()
                     )
-                    counter.global.add()
+                    counter++
                 }
-            Logger.info("    Applying mappings for classes...")
-        }
-        instance.mappingManager.applyRemap(MappingManager.MappingType.Classes)
-        post {
-            Logger.info(" - ClassRenamer:")
-            Logger.info("    Renamed ${counter.global.get()} classes")
+            Logger.info("    Generated mapping for ${counter} classes")
         }
     }
 }

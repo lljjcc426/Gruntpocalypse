@@ -83,6 +83,10 @@ class FieldHierarchy(
                 action(Entry(array[i]))
             }
         }
+
+        companion object {
+            val EMPTY = EntryArray(IntArray(0))
+        }
     }
 
     @JvmInline
