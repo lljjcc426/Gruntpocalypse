@@ -251,7 +251,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                         descTypeCheck@ for (i in firstTypes.indices) {
                                             val bType = bridgeTypes[i]
                                             val fType = firstTypes[i]
-                                            if (bType.descriptor != fType.descriptor ) continue@descTypeCheck // exact match, fast path
+                                            if (bType.descriptor != fType.descriptor) continue@descTypeCheck // exact match, fast path
                                             val isSubType = classHierarchy.isSubType(fType.descriptor, bType.descriptor)
                                             if (!isSubType) {
                                                 descTypeMatch = false
@@ -263,9 +263,9 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                     // Here we link this bridge method on the tree
                                     if (descTypeMatch) {
                                         findCommon = true
-                                        println("Bridge link: ${first.full} and ${bridge.full}")
-                                        println("BT: ${bridgeTypes.joinToString(", ")}")
-                                        println("FT: ${firstTypes.joinToString(", ")}")
+//                                        println("Bridge link: ${first.full} and ${bridge.full}")
+//                                        println("BT: ${bridgeTypes.joinToString(", ")}")
+//                                        println("FT: ${firstTypes.joinToString(", ")}")
                                         sources.first.add(bridge.index)
                                         sources.second.add(bridge.desc)
                                         break@treeSearch
@@ -307,11 +307,11 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                     // OR if they share a common descendant (diamond inheritance:
                                     // two sibling parents whose descendant overrides both cancel()s).
                                     val shouldMerge = classHierarchy.descendantsSet[ownerI].contains(ownerJ) ||
-                                            classHierarchy.descendantsSet[ownerJ].contains(ownerI) ||
-                                            run {
-                                                val descsJSet = classHierarchy.descendantsSet[ownerJ]
-                                                descsI.any { descsJSet.contains(it) }
-                                            }
+                                        classHierarchy.descendantsSet[ownerJ].contains(ownerI) ||
+                                        run {
+                                            val descsJSet = classHierarchy.descendantsSet[ownerJ]
+                                            descsI.any { descsJSet.contains(it) }
+                                        }
                                     if (shouldMerge) {
                                         val ri = findLocal(i)
                                         val rj = findLocal(j)

@@ -103,7 +103,7 @@ class ClassHierarchy(
         if (child == father) return true
         if (child == -1 || father == -1) return false
         assert(descendantsSet[father].contains(child) == ancestorsSet[child].contains(father))
-        return ancestors[child].contains(father)
+        return ancestorsSet[child].contains(father)
     }
 
 
