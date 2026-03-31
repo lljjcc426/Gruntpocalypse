@@ -211,11 +211,15 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                         groupsByName.getOrPut(MethodHierarchy.Entry(sources.first.first()).name) { mutableListOf() }
                             .add(index)
                     }
-                    // Cache parsed arg-type arrays per group index: Type.getArgumentTypes() re-parses
-                    // the descriptor string each call; a group targeted by N bridges only needs one parse.
-                    val firstArgTypesCache = arrayOfNulls<Array<Type>>(relatedGroups.size)
                     val standaloneSyntheticSources = mutableSetOf<MethodHierarchy.Entry>()
                     bridgeMethodSources.forEach { bridge ->
+                        //if (
+                        //    !bridge.name.contains("access") &&
+                        //    !bridge.name.contains("lambda") &&
+                        //    !bridge.name.contains("deserializeLambda")
+                        //){
+                        //    println("Notice bridge method ${bridge.full}")
+                        //}
                         // Pre-parse bridge arg types once, outside the group search loop
                         val bridgeTypes = Type.getArgumentTypes(bridge.desc) + Type.getReturnType(bridge.desc)
                         var findCommon = false
@@ -270,7 +274,6 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             }
                         }
                         if (!findCommon) {
-                            //println("Can't find common tree for ${bridge.full}")
                             standaloneSyntheticSources.add(bridge)
                         }
                     }
