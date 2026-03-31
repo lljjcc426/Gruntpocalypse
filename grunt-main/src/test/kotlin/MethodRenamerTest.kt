@@ -110,4 +110,9 @@ class MethodRenamerTest {
     @Test
     fun FunctionalInterfaceObjectCapturing() =
         runTestClass("net.spartanb312.grunteon.testcase.methodrename.functional.ObjectCapturing")
+
+    @Test
+    fun TypeOverloadTest()=
+        runTestClass("net.spartanb312.grunteon.testcase.methodrename.typeoverload.TypeOverload")
+
 }

@@ -96,10 +96,16 @@ class ClassHierarchy(
         if (child == father) return true
         val childInfo = findClass(child)
         val fatherInfo = findClass(father)
-        if (childInfo == -1 || fatherInfo == -1) return false
-        assert(descendantsSet[fatherInfo].contains(childInfo) == ancestorsSet[childInfo].contains(fatherInfo))
-        return ancestorsSet[fatherInfo].contains(childInfo)
+        return isSubType(childInfo, fatherInfo)
     }
+
+    fun isSubType(child: Int, father: Int): Boolean {
+        if (child == father) return true
+        if (child == -1 || father == -1) return false
+        assert(descendantsSet[father].contains(child) == ancestorsSet[child].contains(father))
+        return ancestors[child].contains(father)
+    }
+
 
     // common superclass
     fun getCommonSuperClass(type1: ClassNode, type2: ClassNode): Int? {

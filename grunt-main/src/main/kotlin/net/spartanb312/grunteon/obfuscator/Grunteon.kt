@@ -146,7 +146,7 @@ class Grunteon(
         }
 
         // TODO: make this optional
-        JarDumper.dumpJar(Path("output.jar"))
+        JarDumper.dumpJar(Path("obfTest/AT/engine/boar-main.jar"))
     }
 
     val mixinExPredicate = buildClassNamePredicates(configGroup.mixinExclusions)
