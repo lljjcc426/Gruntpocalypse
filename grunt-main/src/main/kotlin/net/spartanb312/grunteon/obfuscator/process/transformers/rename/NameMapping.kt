@@ -1,16 +1,43 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectMaps
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.commons.Remapper
+import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.io.path.bufferedWriter
 
 class NameMapping : Remapper(Opcodes.ASM9) {
-    val classMappings = Object2ObjectOpenHashMap<String, ClassEntry>()
+    private val classMappings = Object2ObjectOpenHashMap<String, ClassEntry>()
     private val indyMapping = ConcurrentHashMap<String, String>()
+
+    fun dump(path: Path) {
+        path.bufferedWriter().use {
+            val jsonObj = JsonObject().apply {
+                classMappings.entries.sortedBy { it.key }.forEach { (prev, entry) ->
+                    add(prev, JsonObject().apply {
+                        addProperty("new", entry.new)
+                        add("methods", JsonObject().apply {
+                            entry.methodMapping.entries.sortedBy { it.key }.forEach { (k, v) ->
+                                addProperty(k, v)
+                            }
+                        })
+                        add("fields", JsonObject().apply {
+                            entry.fieldMapping.entries.sortedBy { it.key }.forEach { (k, v) ->
+                                addProperty(k, v)
+                            }
+                        })
+                    })
+                }
+            }
+            GsonBuilder().setPrettyPrinting().create().toJson(jsonObj, it)
+        }
+    }
 
     fun putIndyMapping(name: String, descriptor: String, newName: String) {
         indyMapping["$name$descriptor"] = newName

@@ -148,7 +148,9 @@ class WorkResources private constructor(
                     uriStr = uriStr.substring(4, uriStr.length - 2)
                     val entries =
                         resourceSet.root.walk()
+                            .filter { !it.isDirectory() }
                             .filter { it.extension == "class" }
+                            .filter { !it.absolutePathString().startsWith("/META-INF/") }
                             .toList()
                     ZipFile(URI.create(uriStr).toPath().toFile()).use { zip ->
                         coroutineScope {

@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.resource
 
+import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
@@ -9,41 +11,49 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class NameGenerator(private val dictionary: Dictionary) {
     private val index = AtomicInteger(0/*dictionaryStartIndex*/)
-    private val methodOverloads = hashMapOf<String, MutableList<String>>() // Name Descs
+    private val methodOverloads = mutableListOf<Pair<String, MutableSet<String>>>() // Name Descs
 
     var overloadsCount = 0; private set
     var actualNameCount = 0; private set
 
     fun nextName(): String {
         var index = index.getAndIncrement()
-        return if (index == 0) dictionary.elements[0]
-        else {
-            val charArray = mutableListOf<String>()
+        return if (index < dictionary.elements.size) {
+            dictionary.elements[index]
+        } else {
+            val wordIndices = IntArrayList()
+            var totalStringSize = 0
             while (true) {
-                charArray.add(dictionary.elements[index % dictionary.elements.size])
+                val wordIndex = index % dictionary.elements.size
+                wordIndices.add(wordIndex)
+                totalStringSize += dictionary.elements[wordIndex].length
                 index /= dictionary.elements.size
                 if (index == 0) break
                 index -= 1
             }
-            charArray.reversed().joinToString(separator = "")
+            buildString(totalStringSize) {
+                for (i in wordIndices.lastIndex downTo 0) {
+                    append(dictionary.elements[wordIndices.getInt(i)])
+                }
+            }
         }
     }
 
     @Synchronized
     fun nextName(overload: Boolean, desc: String): String {
-        if (!overload) return nextName()
-        else {
-            //nameCache[desc]?.let { return it }
+        if (!overload) {
+            return nextName()
+        } else {
             for (pair in methodOverloads) {
-                if (!pair.value.contains(desc)) {
-                    pair.value.add(desc)
+                if (pair.second.add(desc)) {
                     overloadsCount++
-                    return pair.key
+                    return pair.first
                 }
             }
+
             // Generate a new one
             val newName = nextName()
-            methodOverloads[newName] = mutableListOf(desc)
+            methodOverloads.add(newName to ObjectOpenHashSet<String>().apply { add(desc) })
             actualNameCount++
             return newName
         }

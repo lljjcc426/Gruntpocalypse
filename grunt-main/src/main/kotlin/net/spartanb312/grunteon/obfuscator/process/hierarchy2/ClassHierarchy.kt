@@ -11,6 +11,7 @@ import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
+import java.util.*
 import java.util.function.ToIntFunction
 
 /**
@@ -300,7 +301,9 @@ class ClassHierarchy(
         @Suppress("UNCHECKED_CAST")
         fun build(inputClassNodes: Collection<ClassNode>, lookup: ((String) -> ClassNode?)? = null): ClassHierarchy {
             val emptyIntArray = IntArray(0)
-            val classNodes = ObjectArrayList(inputClassNodes)
+            val arr = inputClassNodes.toTypedArray()
+            Arrays.sort(arr, compareBy { it.name })
+            val classNodes = ObjectArrayList.wrap(arr)
             val classNameLookUp = Object2IntOpenHashMap<String>()
             classNameLookUp.defaultReturnValue(-1)
             var realClassCount = classNodes.size
