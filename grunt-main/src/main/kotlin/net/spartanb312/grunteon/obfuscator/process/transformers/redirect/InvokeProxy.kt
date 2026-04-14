@@ -69,6 +69,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
+        barrier()
         pre {
             //Logger.info(" > InvokeProxy: Redirecting method calls...")
             methodExPredicate = buildMethodNamePredicates(config.exclusion)

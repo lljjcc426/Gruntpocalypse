@@ -78,7 +78,7 @@ fun main(args: Array<String>) {
             // Optimize
             //DeadCodeRemove(),
             //EnumOptimize(),
-            //KotlinClassShrink(),
+            KotlinClassShrink(),
             //ClassShrink(),
             //SourceDebugInfoHide(),
             //StringEqualsOptimize(),
