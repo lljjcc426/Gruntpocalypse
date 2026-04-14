@@ -108,16 +108,12 @@ fun main(args: Array<String>) {
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()
 
-        val timeMap: Map<String, Long>
         measureTime {
-            timeMap = instance.execute()
+            instance.execute()
         }.toDouble(DurationUnit.MILLISECONDS).also { time ->
             while (queue.size >= 5) queue.poll()
             queue.add(time)
             println("Execution time: ${"%.2f".format(time)} ms (average: ${"%.2f".format(queue.average())} ms)")
-            //timeMap.forEach { (name, time) ->
-            //    println("$name: ${"%.2f".format(time / 1000000.0)} ms")
-            //}
         }
     }
 }

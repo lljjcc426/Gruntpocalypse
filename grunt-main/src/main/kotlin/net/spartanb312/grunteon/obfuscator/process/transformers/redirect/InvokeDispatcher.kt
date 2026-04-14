@@ -111,9 +111,9 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
                 existedList.add(it)
             }
             val group = rawGroup.filter { it.value.size > 1 }
-            if (group.isNotEmpty()) group.forEach { (returnDesc, list) ->
-                println("Group[$returnDesc]: ${list.joinToString(", ") { it.paramsType.size.toString() }}]")
-            }
+            //if (group.isNotEmpty()) group.forEach { (returnDesc, list) ->
+            //    println("Group[$returnDesc]: ${list.joinToString(", ") { it.paramsType.size.toString() }}]")
+            //}
             group.forEach { (returnDesc, list) ->
                 val maxParams = list.maxOf { it.paramsType.size }
 
