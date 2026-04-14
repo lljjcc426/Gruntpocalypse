@@ -1,13 +1,13 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.redirect
 
-import net.spartanb312.genesis.kotlin.extensions.PUBLIC
-import net.spartanb312.genesis.kotlin.extensions.STATIC
+import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.*
+import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
 import net.spartanb312.grunteon.obfuscator.util.extensions.*
@@ -99,15 +99,22 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
+        data class ProxyMethod(val sourceNode: ClassNode, val ownerName: String, val method: MethodNode)
+
         barrier()
         pre {
             //Logger.info(" > FieldAccessProxy: Redirecting field calls...")
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        val newClasses = globalScopeValue { mutableMapOf<ClassNode, ClassNode>() }// Owner Companion
+        // Owner class name to method
+        val genMethods = reducibleScopeValue {
+            MergeableObjectList<ProxyMethod>(FastObjectArrayList())
+        }
+
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
+            val genMethods = genMethods.local
             if (classNode.isExcluded(DISABLE_FIELD_PROXY)) return@parForEachClassesFiltered
             classNode.methods.toList().asSequence()
                 .filter { !it.isAbstract && !it.isNative && !it.isInitializer }
@@ -159,60 +166,62 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
                             else -> null
                         }
 
-                        if (genMethod != null) {
-                            if (extractToOuterClass) {
-                                genMethod.access = Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC
-                                val clazz = synchronized(newClasses) {
-                                    newClasses.global.getOrPut(classNode) {
-                                        ClassNode().apply {
-                                            visit(
-                                                classNode.version,
-                                                Opcodes.ACC_PUBLIC,
-                                                "${classNode.name}\$FieldProxy",
-                                                null,
-                                                "java/lang/Object",
-                                                null
-                                            )
-                                        }
-                                    }
-                                }
-                                method.instructions.set(
-                                    instruction,
-                                    MethodInsnNode(
-                                        Opcodes.INVOKESTATIC,
-                                        clazz.name,
-                                        genMethod.name,
-                                        genMethod.desc
-                                    )
-                                )
-                                clazz.methods.add(genMethod)
-                            } else {
-                                method.instructions.set(
-                                    instruction,
-                                    MethodInsnNode(
-                                        Opcodes.INVOKESTATIC,
-                                        classNode.name,
-                                        genMethod.name,
-                                        genMethod.desc
-                                    )
-                                )
-                                classNode.methods.add(genMethod)
-                            }
-                            counter.add()
+                        if (genMethod == null) return@forEach
+
+                        val genMethodOwnerName: String
+                        if (extractToOuterClass) {
+                            genMethod.access = Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC
+                            genMethodOwnerName = "${classNode.name}${GENERATED_CLASS_SUFFIX}"
+                        } else {
+                            genMethodOwnerName = classNode.name
                         }
 
+                        method.instructions.set(
+                            instruction,
+                            MethodInsnNode(
+                                Opcodes.INVOKESTATIC,
+                                genMethodOwnerName,
+                                genMethod.name,
+                                genMethod.desc
+                            )
+                        )
+
+                        genMethods.add(ProxyMethod(classNode, genMethodOwnerName, genMethod))
+
+                        counter.add()
                     }
                 }
         }
+        val outerClassCounter = globalScopeValue { MergeableCounter() }
         seq {
-            newClasses.global.forEach { (_, c) ->
-                c.appendAnnotation(GENERATED_CLASS)
-                instance.workRes.addGeneratedClass(c)
-            }
+            val outerClassCounter = outerClassCounter.global
+            genMethods.global.asSequence()
+                .groupBy { it.ownerName }
+                .forEach { (targetClass, methods) ->
+                    val dstClass: ClassNode
+                    if (targetClass.endsWith(GENERATED_CLASS_SUFFIX)) {
+                        dstClass = ClassNode()
+                        dstClass.visit(
+                            methods.first().sourceNode.version,
+                            Opcodes.ACC_PUBLIC,
+                            targetClass,
+                            null,
+                            "java/lang/Object",
+                            null
+                        )
+                        dstClass.appendAnnotation(GENERATED_CLASS)
+                        instance.workRes.addGeneratedClass(dstClass)
+                        outerClassCounter.add()
+                    } else {
+                        dstClass = instance.workRes.getClassNode(targetClass)
+                            ?: error("Target class $targetClass not found, this shouldn't happen")
+                    }
+                    methods.mapTo(dstClass.methods) { it.method }
+                }
         }
         post {
             Logger.info(" - FieldAccessProxy:")
-            if (config.outer) Logger.info("    Generated ${newClasses.global.size} outer classes")
+            if (config.outer) Logger.info("    Generated ${outerClassCounter.global.get()} outer classes")
             Logger.info("    Redirected ${counter.global.get()} field calls")
         }
     }
@@ -282,4 +291,7 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
         }
     }
 
+    companion object {
+        private const val GENERATED_CLASS_SUFFIX = "\$FieldProxy"
+    }
 }
