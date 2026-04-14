@@ -15,7 +15,6 @@ import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import org.objectweb.asm.tree.TypeInsnNode
 import org.objectweb.asm.tree.VarInsnNode
-import java.lang.classfile.Opcode
 
 class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
     name = enText("process.miscellaneous.parameter_obfuscate", "ParameterObfuscate"),
@@ -87,7 +86,7 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
                 val newDesc = "(${mappedParams.joinToString("")})${oldDesc.substringAfter(")")}"
                 //if (oldDesc != newDesc) println("Desc ${callingMethod.desc} -> $newDesc")
                 if (oldDesc != newDesc) {
-                    println("Obfuscated ${classNode.name}.${callingMethod.name}")
+                    // println("Obfuscated ${classNode.name}.${callingMethod.name}")
                     callingMethod.desc = newDesc
                     instances.forEach { it.desc = newDesc }
                     callingMethod.instructions.forEach { instruction ->
