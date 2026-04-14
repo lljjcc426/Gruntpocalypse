@@ -6,8 +6,8 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.FieldHierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.ClassHierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.FieldHierarchy
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isPrivate

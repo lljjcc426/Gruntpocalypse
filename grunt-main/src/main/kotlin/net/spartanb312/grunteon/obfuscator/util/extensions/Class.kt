@@ -3,12 +3,9 @@ package net.spartanb312.grunteon.obfuscator.util.extensions
 import net.spartanb312.genesis.kotlin.MethodBuilder
 import net.spartanb312.genesis.kotlin.clinit
 import net.spartanb312.genesis.kotlin.extensions.*
-import net.spartanb312.grunteon.obfuscator.process.hierarchy.info.ClassInfo
-import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
-import java.lang.reflect.Modifier
 
 inline val ClassNode.isPublic get() = access.isPublic
 
@@ -25,22 +22,6 @@ inline val ClassNode.isFinal get() = access.isFinal
 inline val ClassNode.isAnnotation get() = access.isAnnotation
 
 inline val ClassNode.isEnum get() = access.isEnum
-
-inline val ClassInfo.isPublic get() = Modifier.isPublic(classNode.access)
-
-inline val ClassInfo.isPrivate get() = Modifier.isPrivate(classNode.access)
-
-inline val ClassInfo.isProtected get() = Modifier.isProtected(classNode.access)
-
-inline val ClassInfo.isInterface get() = Modifier.isInterface(classNode.access)
-
-inline val ClassInfo.isAbstract get() = Modifier.isAbstract(classNode.access)
-
-inline val ClassInfo.isFinal get() = Modifier.isFinal(classNode.access)
-
-inline val ClassInfo.isAnnotation get() = classNode.access and Opcodes.ACC_ANNOTATION != 0
-
-inline val ClassInfo.isEnum get() = classNode.access and Opcodes.ACC_ENUM != 0
 
 fun ClassNode.getOrCreateClinit(builder: (MethodBuilder.() -> Unit)? = null): MethodNode =
     methods.firstOrNull { it.name.equals("<clinit>") } ?: clinit(builder)

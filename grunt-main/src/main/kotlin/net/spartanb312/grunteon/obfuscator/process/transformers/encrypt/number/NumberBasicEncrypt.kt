@@ -7,6 +7,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.config.whenTrue
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.DISABLE_NUMBER_ENCRYPT
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
@@ -18,6 +19,7 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import net.spartanb312.grunteon.obfuscator.util.numerical.asInt
 import net.spartanb312.grunteon.obfuscator.util.numerical.asLong
@@ -149,16 +151,17 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     override fun buildStageImpl(config: Config) {
         pre {
             Logger.info(" > NumberBasicEncrypt: Encrypting numbers...")
-            // TODO: there is a better way to do this instead of lateinit var
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val shuffledListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
+            if (classNode.isExcluded(DISABLE_NUMBER_ENCRYPT)) return@parForEachClassesFiltered
             classNode.methods.asSequence()
                 .filter { !it.isAbstract && !it.isNative }
                 .forEach { method ->
+                    if (method.isExcluded(DISABLE_NUMBER_ENCRYPT)) return@forEach
                     val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
                     if (excluded) return@forEach
                     if ((method.instructions?.size() ?: 0) >= config.maxInstructions) return@forEach

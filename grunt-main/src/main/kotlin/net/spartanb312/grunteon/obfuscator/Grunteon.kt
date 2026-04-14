@@ -5,9 +5,18 @@ import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
+import net.spartanb312.grunteon.obfuscator.process.transformers.PostProcess
+import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.ArithmeticSubstitute
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.string.StringArrayedEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.other.FakeSyntheticBridge
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.DeclaredFieldsExtract
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
+import net.spartanb312.grunteon.obfuscator.process.transformers.other.DecompilerCrasher
+import net.spartanb312.grunteon.obfuscator.process.transformers.other.ShuffleMembers
+import net.spartanb312.grunteon.obfuscator.process.transformers.other.Watermark
+import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.FieldAccessProxy
+import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.InvokeProxy
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
@@ -29,7 +38,7 @@ import kotlin.time.measureTime
  * 3rd generation of Grunt
  */
 const val VERSION = "3.0.0"
-const val SUBTITLE = "build 260327"
+const val SUBTITLE = "build 260415"
 const val GITHUB = "https://github.com/SpartanB312/Grunt"
 
 fun main(args: Array<String>) {
@@ -75,13 +84,24 @@ fun main(args: Array<String>) {
             // Misc
             DeclaredFieldsExtract(),
             // Encrypt
+            ArithmeticSubstitute(),
             NumberBasicEncrypt(),
+            StringArrayedEncrypt(),
+            // Redirect
+            InvokeProxy(),
+            FieldAccessProxy(),
             // Renamer
             LocalVarRenamer(),
             ClassRenamer(),
             FieldRenamer(),
             MethodRenamer(),
             // Other
+            FakeSyntheticBridge(),
+            DecompilerCrasher(),
+            ShuffleMembers(),
+            Watermark(),
+            // Post
+            PostProcess()
         )
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()
@@ -123,7 +143,7 @@ class Grunteon(
         val prependPath = System.getenv("GRUNTEON_PREPEND_PATH") ?: ""
 
         val inputRoot = Path(prependPath, "input.jar")
-        val outputRoot = listOf(Path("libs/"))
+        val libs = listOf(Path(prependPath, "libs/"))
 
         fun resolvePath(path: Path): List<Path> {
             return if (path.isDirectory()) {
@@ -136,7 +156,7 @@ class Grunteon(
             }
         }
 
-        workRes = WorkResources.read(inputRoot, outputRoot.flatMap { resolvePath(it) })
+        workRes = WorkResources.read(inputRoot, libs.flatMap { resolvePath(it) })
     }
 
     fun execute() {

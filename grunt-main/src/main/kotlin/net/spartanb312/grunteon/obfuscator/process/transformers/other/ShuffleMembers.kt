@@ -1,4 +1,4 @@
-package net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous
+package net.spartanb312.grunteon.obfuscator.process.transformers.other
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
@@ -7,10 +7,10 @@ import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 
 class ShuffleMembers : Transformer<ShuffleMembers.Config>(
-    name = enText("process.optimize.shuffle_members", "ShuffleMembers"),
-    category = Category.Optimization,
+    name = enText("process.other.shuffle_members", "ShuffleMembers"),
+    category = Category.Other,
     description = enText(
-        "process.optimize.shuffle_members.desc",
+        "process.other.shuffle_members.desc",
         "Shuffle members in classes"
     )
 ) {
@@ -69,7 +69,7 @@ class ShuffleMembers : Transformer<ShuffleMembers.Config>(
             }
         }
         post {
-            Logger.info(" - ShuffleMembers::")
+            Logger.info(" - ShuffleMembers:")
             Logger.info("    Shuffled ${counter.global.get()} members")
         }
     }

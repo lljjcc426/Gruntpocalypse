@@ -1,4 +1,71 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.other
 
-class FakeSyntheticBridge {
+import net.spartanb312.genesis.kotlin.extensions.isSynthetic
+import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.lang.enText
+import net.spartanb312.grunteon.obfuscator.pipeline.after
+import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MethodRenamer
+import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.extensions.hasAnnotations
+import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
+import net.spartanb312.grunteon.obfuscator.util.extensions.isBridge
+import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
+import org.objectweb.asm.Opcodes
+
+class FakeSyntheticBridge : Transformer<FakeSyntheticBridge.Config>(
+    name = enText("process.other.fake_synthetic_bridge", "FakeSyntheticBridge"),
+    category = Category.Other,
+    description = enText("process.other.fake_synthetic_bridge.desc", "Insert fake synthetic bridge flag"),
+) {
+    override val defConfig: TransformerConfig get() = Config()
+    override val confType: Class<Config> get() = Config::class.java
+
+    init {
+        after(MethodRenamer::class.java, "FakeSyntheticBridge should run after MethodRenamer")
+    }
+
+    class Config : TransformerConfig()
+
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" > FakeSyntheticBridge:Inserting fake synthetic bridge flags")
+        }
+        val counter = reducibleScopeValue { MergeableCounter() }
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            val counter = counter.local
+            // Synthetic
+            if (!classNode.access.isSynthetic && !classNode.hasAnnotations) {
+                classNode.access = classNode.access or Opcodes.ACC_SYNTHETIC
+            }
+            classNode.methods.asSequence()
+                .filter { !it.access.isSynthetic }
+                .forEach {
+                    it.access = it.access or Opcodes.ACC_SYNTHETIC
+                    counter.add()
+                }
+            classNode.fields.asSequence()
+                .filter { !it.access.isSynthetic && !it.hasAnnotations }
+                .forEach {
+                    it.access = it.access or Opcodes.ACC_SYNTHETIC
+                    counter.add()
+                }
+            // Bridge
+            classNode.methods.asSequence()
+                .filter { !it.isInitializer && !it.isAbstract && !it.isBridge }
+                .forEach {
+                    if (Opcodes.ACC_BRIDGE and it.access == 0) {
+                        it.access = it.access or Opcodes.ACC_BRIDGE
+                        counter.add()
+                    }
+                }
+        }
+        post {
+            Logger.info(" - FakeSyntheticBridge:")
+            Logger.info("    Inserted ${counter.global.get()} flags")
+        }
+    }
+
 }

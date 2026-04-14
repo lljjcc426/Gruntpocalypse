@@ -5,8 +5,10 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.DISABLE_OPTIMIZER
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.*
 
@@ -78,6 +80,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
         val nops = reducibleScopeValue { MergeableCounter() }
         val methodSignatures = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             val innerClasses = innerClasses.local
             val unusedLabels = unusedLabels.local
             val nops = nops.local
@@ -91,6 +94,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
             }
             if (config.unusedLabels) {
                 classNode.methods.forEach { methodNode ->
+                    if (methodNode.isExcluded(DISABLE_OPTIMIZER)) return@forEach
                     val labels =
                         methodNode.instructions.filterTo(ObjectOpenHashSet()) { it is LabelNode }
                     methodNode.instructions.forEach { instruction ->
@@ -105,6 +109,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
                                 labels.remove(instruction.dflt)
                                 labels.removeAll(instruction.labels)
                             }
+
                             is FrameNode -> {
                                 instruction.local?.forEach { if (it is LabelNode) labels.remove(it) }
                                 instruction.stack?.forEach { if (it is LabelNode) labels.remove(it) }
@@ -126,6 +131,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
             }
             if (config.nopRemove) {
                 classNode.methods.forEach { methodNode ->
+                    if (methodNode.isExcluded(DISABLE_OPTIMIZER)) return@forEach
                     methodNode.instructions.removeAll {
                         if (it.opcode == Opcodes.NOP) {
                             nops.add()
@@ -138,6 +144,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
             }
             if (config.methodSignatures) {
                 classNode.methods.forEach { methodNode ->
+                    if (methodNode.isExcluded(DISABLE_OPTIMIZER)) return@forEach
                     if (methodNode.signature != null) {
                         methodNode.signature = null
                         methodSignatures.add()

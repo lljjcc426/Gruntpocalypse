@@ -4,11 +4,13 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.DISABLE_OPTIMIZER
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.findMethod
 import net.spartanb312.grunteon.obfuscator.util.extensions.isEnum
+import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodInsnNode
 
@@ -44,6 +46,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             if (!classNode.isEnum) return@parForEachClassesFiltered
             val counter = counter.local
             val desc = "[L${classNode.name};"

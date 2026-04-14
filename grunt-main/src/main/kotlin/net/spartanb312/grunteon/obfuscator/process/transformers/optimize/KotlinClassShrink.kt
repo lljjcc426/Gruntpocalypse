@@ -4,10 +4,12 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.DISABLE_OPTIMIZER
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchInvoke
+import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.AnnotationNode
@@ -88,9 +90,11 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         val metadata = reducibleScopeValue { MergeableCounter() }
         val pendingReplaceCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             if (config.intrinsics) {
                 val intrinsics = intrinsics.local
                 classNode.methods.forEach { methodNode ->
+                    if (methodNode.isExcluded(DISABLE_OPTIMIZER)) return@forEach
                     val replace = pendingReplaceCache.local
                     replace.clearFast()
                     methodNode.instructions.forEach { insnNode ->

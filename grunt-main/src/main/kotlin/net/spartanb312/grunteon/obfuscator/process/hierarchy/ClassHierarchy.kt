@@ -1,4 +1,4 @@
-package net.spartanb312.grunteon.obfuscator.process.hierarchy2
+package net.spartanb312.grunteon.obfuscator.process.hierarchy
 
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
@@ -6,7 +6,6 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
@@ -100,30 +99,10 @@ class ClassHierarchy(
     }
 
     fun isSubType(child: Int, father: Int): Boolean {
-        if (child == father) return true
         if (child == -1 || father == -1) return false
-        assert(descendantsSet[father].contains(child) == ancestorsSet[child].contains(father))
+        if (child == father) return true
+        //assert(descendantsSet[father].contains(child) == ancestorsSet[child].contains(father))
         return ancestorsSet[child].contains(father)
-    }
-
-
-    // common superclass
-    fun getCommonSuperClass(type1: ClassNode, type2: ClassNode): Int? {
-        return getCommonSuperClass(type1.name, type2.name)
-    }
-
-    fun getCommonSuperClass(type1: String, type2: String): Int? {
-        val info1 = findClass(type1)
-        val info2 = findClass(type2)
-        if (info1 == -1 || info2 == -1) return null
-        return when {
-            type1 == "java/lang/Object" -> info1
-            type2 == "java/lang/Object" -> info2
-            isSubType(type1, type2) -> info2
-            isSubType(type2, type1) -> info1
-            classNodes[info1].isInterface && classNodes[info2].isInterface -> null
-            else -> null
-        }
     }
 
     // missing dependencies
@@ -228,6 +207,10 @@ class ClassHierarchy(
         val parents
             get() =
                 if (index >= ch.realClassCount) EMPTY_INT_ARRAY else ch.parents[index]
+
+        context(ch: ClassHierarchy)
+        val superClass
+            get() = parents[0]
 
         context(ch: ClassHierarchy)
         val children

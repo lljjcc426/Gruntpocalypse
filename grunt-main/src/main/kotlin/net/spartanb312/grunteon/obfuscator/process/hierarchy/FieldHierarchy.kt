@@ -1,4 +1,4 @@
-package net.spartanb312.grunteon.obfuscator.process.hierarchy2
+package net.spartanb312.grunteon.obfuscator.process.hierarchy
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList

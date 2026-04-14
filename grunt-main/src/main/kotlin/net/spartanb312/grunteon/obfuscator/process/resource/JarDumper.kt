@@ -4,7 +4,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.produce
 import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.util.ClearClassNode
 import net.spartanb312.grunteon.obfuscator.util.ImplLookupGetter
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -31,7 +31,7 @@ object JarDumper {
 
         fun checkFileNameRemove(name: String): Boolean {
             return config.fileRemovePrefix.any { name.startsWith(it) }
-                || config.fileRemoveSuffix.any { name.endsWith(it) }
+                    || config.fileRemoveSuffix.any { name.endsWith(it) }
         }
 
         Logger.info("Dumping jar to $outputFile")
@@ -85,10 +85,11 @@ object JarDumper {
                         .filterNot { checkFileNameRemove(it.name) }
                         .forEach {
                             launch {
+                                val existedCache = instance.workRes.inputResourceSet.cache[it.pathString]
                                 send(
                                     processZipEntry(
                                         it.pathString.removePrefix("/"),
-                                        it.readBytes()
+                                        existedCache?.get()?.content ?: it.readBytes()
                                     )
                                 )
                             }
@@ -187,4 +188,5 @@ object JarDumper {
         Class.forName("java.util.zip.ZipOutputStream\$XEntry"),
         MethodType.methodType(Void.TYPE, ZipEntry::class.java, Long::class.java)
     )
+
 }

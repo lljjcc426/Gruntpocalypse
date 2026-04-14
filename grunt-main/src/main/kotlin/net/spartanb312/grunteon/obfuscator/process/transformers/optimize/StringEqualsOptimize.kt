@@ -19,6 +19,7 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
         "Redirect string equals() and equalsIgnoreCase()"
     )
 ) {
+
     override val defConfig: TransformerConfig get() = Config()
     override val confType: Class<Config> get() = Config::class.java
 

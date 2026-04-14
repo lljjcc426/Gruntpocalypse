@@ -3,8 +3,8 @@ package net.spartanb312.grunteon.obfuscator.util
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.ClassHierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.MethodHierarchy
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type

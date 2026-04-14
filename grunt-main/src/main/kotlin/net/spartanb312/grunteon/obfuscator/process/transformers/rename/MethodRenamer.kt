@@ -11,10 +11,12 @@ import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
+import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.MethodHierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.ClassHierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.MethodHierarchy
 import net.spartanb312.grunteon.obfuscator.process.resource.NameGenerator
+import net.spartanb312.grunteon.obfuscator.process.transformers.other.FakeSyntheticBridge
 import net.spartanb312.grunteon.obfuscator.util.IndyChecker
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.*
@@ -50,6 +52,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         after(Category.Optimization, "Renamer should run after optimization category")
         after(Category.Redirect, "Renamer should run after redirect category")
         after(ClassRenamer::class.java, "MethodRenamer should run after ClassRenamer")
+        before(FakeSyntheticBridge::class.java, "MethodRenamer should run before FakeSyntheticBridge")
     }
 
     class Config : TransformerConfig() {
@@ -307,11 +310,11 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                     // OR if they share a common descendant (diamond inheritance:
                                     // two sibling parents whose descendant overrides both cancel()s).
                                     val shouldMerge = classHierarchy.descendantsSet[ownerI].contains(ownerJ) ||
-                                        classHierarchy.descendantsSet[ownerJ].contains(ownerI) ||
-                                        run {
-                                            val descsJSet = classHierarchy.descendantsSet[ownerJ]
-                                            descsI.any { descsJSet.contains(it) }
-                                        }
+                                            classHierarchy.descendantsSet[ownerJ].contains(ownerI) ||
+                                            run {
+                                                val descsJSet = classHierarchy.descendantsSet[ownerJ]
+                                                descsI.any { descsJSet.contains(it) }
+                                            }
                                     if (shouldMerge) {
                                         val ri = findLocal(i)
                                         val rj = findLocal(j)

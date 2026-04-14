@@ -1,0 +1,201 @@
+package net.spartanb312.grunteon.obfuscator.process.transformers.redirect
+
+import net.spartanb312.genesis.kotlin.extensions.PRIVATE
+import net.spartanb312.genesis.kotlin.extensions.PUBLIC
+import net.spartanb312.genesis.kotlin.extensions.STATIC
+import net.spartanb312.genesis.kotlin.extensions.insn.INVOKESTATIC
+import net.spartanb312.genesis.kotlin.extensions.insn.INVOKEVIRTUAL
+import net.spartanb312.genesis.kotlin.method
+import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.lang.enText
+import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.*
+import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
+import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
+import net.spartanb312.grunteon.obfuscator.util.extensions.*
+import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
+import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.Type
+import org.objectweb.asm.tree.*
+
+class InvokeProxy : Transformer<InvokeProxy.Config>(
+    name = enText("process.redirect.invoke_proxy", "InvokeProxy"),
+    category = Category.Redirect,
+    description = enText(
+        "process.redirect.invoke_proxy",
+        "Redirect method invokes"
+    )
+) {
+
+    override val defConfig: TransformerConfig get() = Config()
+    override val confType: Class<Config> get() = Config::class.java
+
+    class Config : TransformerConfig() {
+        val chance by setting(
+            name = enText("process.redirect.field_access_proxy.replace_chance", "ReplaceChance"),
+            value = 0.3f,
+            range = 0f..1f,
+            desc = enText(
+                "process.redirect.field_access_proxy.replace_chance.desc",
+                "The chance that attempt to replace put/set to getter/setter"
+            )
+        )
+        val outer by setting(
+            name = enText("process.redirect.field_access_proxy.outer", "Outer class"),
+            value = true,
+            desc = enText(
+                "process.redirect.field_access_proxy.outer.desc",
+                "Generate an outer class to store proxies"
+            )
+        )
+
+        // Exclusion
+        val exclusion by setting(
+            enText("process.redirect.field_access_proxy.method_exclusion", "Method exclusion"),
+            listOf(
+                "net/dummy/**", // Exclude package
+                "net/dummy/Class", // Exclude class
+                "net/dummy/Class.method", // Exclude method name
+                "net/dummy/Class.method()V", // Exclude method with desc
+            ),
+            enText("process.redirect.field_access_proxy.method_exclusion.desc", "Specify method exclusions."),
+        )
+    }
+
+    private lateinit var methodExPredicate: NamePredicates
+
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        pre {
+            Logger.info(" > InvokeProxy: Redirecting method calls...")
+            methodExPredicate = buildMethodNamePredicates(config.exclusion)
+        }
+        val counter = reducibleScopeValue { MergeableCounter() }
+        val newClasses = mutableMapOf<ClassNode, ClassNode>() // Owner Companion
+        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            val counter = counter.local
+            if (classNode.isExcluded(DISABLE_INVOKE_PROXY)) return@parForEachClassesFiltered
+            classNode.methods.toList().asSequence()
+                .filter { !it.isAbstract && !it.isNative && !it.isInitializer }
+                .forEach { method ->
+                    if (method.isExcluded(DISABLE_INVOKE_PROXY)) return@forEach
+                    val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
+                    if (excluded) return@forEach
+                    val randomGen = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc))
+                    method.instructions.toList().forEach { instruction ->
+                        if (instruction !is MethodInsnNode) return@forEach
+                        if (randomGen.nextFloat() > config.chance) return@forEach
+                        val callingOwner = instance.workRes.getClassNode(instruction.owner) ?: return@forEach
+                        if (callingOwner.isExcluded(IGNORE_INVOKE_PROXY)) return@forEach
+                        val callingMethod = callingOwner.methods?.find {
+                            it.name == instruction.name && it.desc == instruction.desc
+                        } ?: return@forEach
+                        if (callingMethod.isExcluded(IGNORE_INVOKE_PROXY)) return@forEach
+                        // Generate proxy
+                        val extractToOuterClass = config.outer && callingOwner.isPublic && callingMethod.isPublic
+                        val newName = "${instruction.name}_redirected_${randomGen.getRandomString(10)}"
+                        val newMethod = instruction.genMethod(
+                            newName,
+                            callingMethod.signature,
+                            callingMethod.exceptions.toTypedArray(),
+                            extractToOuterClass
+                        )
+                        if (newMethod != null) {
+                            instruction.name = newName
+                            if (instruction.opcode == Opcodes.INVOKEVIRTUAL) {
+                                instruction.desc = "(L${instruction.owner};${instruction.desc.removePrefix("(")}"
+                                instruction.opcode = Opcodes.INVOKESTATIC
+                            }
+                            newMethod.appendAnnotation(GENERATED_METHOD)
+                            if (extractToOuterClass) {
+                                val newOwner = synchronized(newClasses) {
+                                    newClasses.getOrPut(classNode) {
+                                        ClassNode().apply {
+                                            visit(
+                                                classNode.version,
+                                                Opcodes.ACC_PUBLIC,
+                                                "${classNode.name}\$InvokeProxy",
+                                                null,
+                                                "java/lang/Object",
+                                                null
+                                            )
+                                        }
+                                    }
+                                }
+                                newOwner.methods.add(newMethod)
+                                instruction.owner = newOwner.name
+                            } else {
+                                classNode.methods.add(newMethod)
+                                instruction.owner = classNode.name
+                            }
+                            counter.add()
+                        }
+                    }
+                }
+        }
+        seq {
+            newClasses.forEach { (_, c) ->
+                c.appendAnnotation(GENERATED_CLASS)
+                instance.workRes.addGeneratedClass(c)
+            }
+        }
+        post {
+            Logger.info(" - InvokeProxy:")
+            if (config.outer) Logger.info("    Generated ${newClasses.size} outer classes")
+            Logger.info("    Redirected ${counter.global.get()} method calls")
+        }
+    }
+
+    private fun MethodInsnNode.genMethod(
+        methodName: String,
+        signature: String?,
+        exceptions: Array<String>?,
+        outer: Boolean
+    ): MethodNode? {
+        return when (opcode) {
+            Opcodes.INVOKESTATIC -> method(
+                (if (outer) PUBLIC else PRIVATE) + STATIC,
+                methodName,
+                desc,
+                signature,
+                exceptions
+            ) {
+                INSTRUCTIONS {
+                    var stack = 0
+                    Type.getArgumentTypes(methodNode.desc).forEach {
+                        +VarInsnNode(it.getLoadType(), stack)
+                        stack += it.size
+                    }
+                    INVOKESTATIC(owner, name, desc)
+                    +InsnNode(methodNode.desc.getReturnType())
+                }
+            }
+
+            Opcodes.INVOKEVIRTUAL -> method(
+                (if (outer) PUBLIC else PRIVATE) + STATIC,
+                methodName,
+                "(L$owner;${desc.removePrefix("(")}",
+                signature,
+                exceptions
+            ) {
+                INSTRUCTIONS {
+                    var stack = 0
+                    Type.getArgumentTypes(methodNode.desc).forEach {
+                        +VarInsnNode(it.getLoadType(), stack)
+                        stack += it.size
+                    }
+                    INVOKEVIRTUAL(owner, name, desc)
+                    +InsnNode(methodNode.desc.getReturnType())
+                }
+            }
+
+            Opcodes.INVOKEINTERFACE -> null
+            Opcodes.INVOKESPECIAL -> null
+            else -> throw Exception("Unsupported")
+        }
+    }
+
+}

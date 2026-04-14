@@ -4,6 +4,7 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.DISABLE_OPTIMIZER
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
@@ -11,6 +12,7 @@ import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.matchAnyOp
+import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.JumpInsnNode
@@ -64,10 +66,12 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
         val counter = reducibleScopeValue { MergeableCounter() }
         val instListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             val instListCache = instListCache.local
             classNode.methods.asSequence()
                 .filter { !it.isNative && !it.isAbstract }
                 .forEach { methodNode ->
+                    if (methodNode.isExcluded(DISABLE_OPTIMIZER)) return@forEach
                     for (it in methodNode.instructions.toListFast(instListCache)) {
                         val counter = counter.local
                         when {

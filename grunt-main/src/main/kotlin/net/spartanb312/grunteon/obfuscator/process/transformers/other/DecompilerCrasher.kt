@@ -1,4 +1,4 @@
-package net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous
+package net.spartanb312.grunteon.obfuscator.process.transformers.other
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
@@ -9,10 +9,10 @@ import net.spartanb312.grunteon.obfuscator.util.massiveBlankString
 import net.spartanb312.grunteon.obfuscator.util.massiveString
 
 class DecompilerCrasher : Transformer<DecompilerCrasher.Config>(
-    name = enText("process.miscellaneous.decompiler_crasher", "DecompilerCrasher"),
-    category = Category.Miscellaneous,
+    name = enText("process.other.decompiler_crasher", "DecompilerCrasher"),
+    category = Category.Other,
     description = enText(
-        "process.miscellaneous.decompiler_crasher.desc",
+        "process.other.decompiler_crasher.desc",
         "Crash decompilers"
     )
 ) {
@@ -48,6 +48,10 @@ class DecompilerCrasher : Transformer<DecompilerCrasher.Config>(
                 classNode.signature = classNode.signature.bigBrainSignature
                 counter.add()
             }
+        }
+        post {
+            Logger.info(" - DecompilerCrasher:")
+            Logger.info("    Added ${counter.global.get()} crashers")
         }
     }
 

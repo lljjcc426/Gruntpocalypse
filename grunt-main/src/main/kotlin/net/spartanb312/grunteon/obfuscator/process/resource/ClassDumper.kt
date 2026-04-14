@@ -1,7 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.resource
 
 import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.process.hierarchy2.ClassHierarchy
+import net.spartanb312.grunteon.obfuscator.process.hierarchy.ClassHierarchy
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
 import org.objectweb.asm.ClassWriter
@@ -18,10 +18,23 @@ class ClassDumper(
             type2 == "java/lang/Object" -> type2
             hierarchy.isSubType(type1, type2) -> type2
             hierarchy.isSubType(type2, type1) -> type1
-            else -> {
+
+            else -> context(hierarchy) {
                 val clazz1 = instance.workRes.getClassNode(type1)
                 val clazz2 = instance.workRes.getClassNode(type2)
-                if (clazz1?.isInterface == true && clazz2?.isInterface == true) return "java/lang/Object"
+                if (clazz1?.isInterface == true || clazz2?.isInterface == true) return "java/lang/Object"
+                else {
+                    // search lca
+                    var info1 = hierarchy.findClass(type1)
+                    val info2 = hierarchy.findClass(type2)
+                    if (info1 != -1 && info2 != -1) {
+                        do {
+                            info1 = ClassHierarchy.Entry(info1).superClass
+                        } while (!hierarchy.isSubType(info2, info1))
+                        return hierarchy.classNames[info1]
+                    }
+                }
+                // fallback
                 try {
                     super.getCommonSuperClass(type1, type2)
                 } catch (_: Exception) {

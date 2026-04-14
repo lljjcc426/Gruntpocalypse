@@ -5,12 +5,14 @@ import net.spartanb312.grunteon.obfuscator.config.at
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.DISABLE_OPTIMIZER
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.collection.random
 import net.spartanb312.grunteon.obfuscator.util.collection.toListFast
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
+import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
 import org.objectweb.asm.tree.LineNumberNode
 
@@ -79,6 +81,7 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+            if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             val counter = counter.local
             val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))
             if (config.sourceFiles != SourceFileAction.Off) {
@@ -92,6 +95,7 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
                 counter.add()
             }
             if (config.lineNumbers) classNode.methods.forEach { methodNode ->
+                if (methodNode.isExcluded(DISABLE_OPTIMIZER)) return@forEach
                 methodNode.instructions.toListFast().forEach {
                     if (it is LineNumberNode) {
                         methodNode.instructions.remove(it)

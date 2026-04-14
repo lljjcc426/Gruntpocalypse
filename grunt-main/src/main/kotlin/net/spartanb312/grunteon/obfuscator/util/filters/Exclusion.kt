@@ -1,5 +1,10 @@
 package net.spartanb312.grunteon.obfuscator.util.filters
 
+import net.spartanb312.grunteon.obfuscator.util.extensions.hasAnnotation
+import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.FieldNode
+import org.objectweb.asm.tree.MethodNode
+
 typealias NamePredicate = (String) -> Boolean
 typealias NamePredicates = List<NamePredicate>
 
@@ -38,4 +43,8 @@ fun NamePredicates.matchedAllBy(name: String): Boolean = all { it.invoke(name) }
 fun NamePredicates.matchedAnyBy(name: String): Boolean = any { it.invoke(name) }
 
 fun NamePredicates.matchedNoneBy(name: String): Boolean = none { it.invoke(name) }
+
+fun ClassNode.isExcluded(annotation: String): Boolean = hasAnnotation(annotation)
+fun MethodNode.isExcluded(annotation: String): Boolean = hasAnnotation(annotation)
+fun FieldNode.isExcluded(annotation: String): Boolean = hasAnnotation(annotation)
 

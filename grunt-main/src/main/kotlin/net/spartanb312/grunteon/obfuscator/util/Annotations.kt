@@ -1,0 +1,51 @@
+package net.spartanb312.grunteon.obfuscator.util
+
+/**
+ * Disabler
+ */
+
+// Optimizer
+val DISABLE_OPTIMIZER = "Lnet/spartanb312/grunteon/annotation/disable/DisableOptimizer;"
+
+// Encrypt
+val DISABLE_NUMBER_ENCRYPT = "Lnet/spartanb312/grunteon/annotation/disable/DisableNumberEncrypt;"
+val DISABLE_STRING_ENCRYPT = "Lnet/spartanb312/grunteon/annotation/disable/DisableStringEncrypt;"
+val DISABLE_ARITHMETIC_SUBSTITUTE = "Lnet/spartanb312/grunteon/annotation/disable/DisableArithmeticSubstitute;"
+
+// Redirect
+val DISABLE_FIELD_PROXY = "Lnet/spartanb312/grunteon/annotation/disable/DisableFieldProxy;"
+val DISABLE_INVOKE_PROXY = "Lnet/spartanb312/grunteon/annotation/disable/DisableInvokeProxy;"
+
+val DISABLER = arrayOf(
+    DISABLE_OPTIMIZER,
+    DISABLE_NUMBER_ENCRYPT,
+    DISABLE_STRING_ENCRYPT,
+    DISABLE_ARITHMETIC_SUBSTITUTE,
+    DISABLE_FIELD_PROXY,
+    DISABLE_INVOKE_PROXY
+)
+
+/**
+ * Ignore
+ */
+// Redirect
+val IGNORE_FIELD_PROXY = "Lnet/spartanb312/grunteon/annotation/ignore/ExcludeFromFieldProxy;"
+val IGNORE_INVOKE_PROXY = "Lnet/spartanb312/grunteon/annotation/ignore/ExcludeFromInvokeProxy;"
+
+val IGNORE = arrayOf(
+    IGNORE_FIELD_PROXY,
+    IGNORE_INVOKE_PROXY
+)
+
+/**
+ * Internal
+ */
+val GENERATED_CLASS = "Lnet/spartanb312/grunteon/annotation/internal/GeneratedClass;"
+val GENERATED_METHOD = "Lnet/spartanb312/grunteon/annotation/internal/GeneratedMethod;"
+val GENERATED_FIELD = "Lnet/spartanb312/grunteon/annotation/internal/GeneratedField;"
+
+val INTERNAL = arrayOf(
+    GENERATED_CLASS,
+    GENERATED_METHOD,
+    GENERATED_FIELD
+)

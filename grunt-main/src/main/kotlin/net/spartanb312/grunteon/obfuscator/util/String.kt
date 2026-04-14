@@ -1,5 +1,9 @@
 package net.spartanb312.grunteon.obfuscator.util
 
+import org.apache.commons.math3.random.RandomGenerator
+import org.apache.commons.rng.UniformRandomProvider
+import kotlin.random.Random
+
 val blanks = listOf(
     '\u0020', '\u00a0', '\u1680', '\u180e', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004',
     '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u200b', '\u200c', '\u200d',
@@ -46,3 +50,16 @@ private val badKeywords = arrayOf(
     "switch",
     "break"
 )
+
+private val charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+
+fun UniformRandomProvider.getRandomString(length: Int): String {
+    var str = ""
+    repeat(length) {
+        str += charSet[(charSet.length * nextInt(0, 100) / 100f).toInt()]
+    }
+    return str
+}
+
+inline val String.splash get() = replace(".", "/")
+inline val String.dot get() = replace("/", ".")
