@@ -185,6 +185,7 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
             Logger.info(" - StringBasicEncrypt:")
             Logger.info("    Encrypted ${counter.global.get()} strings")
         }
+        barrier()
     }
 
     // https://github.com/yaskylan/GotoObfuscator/blob/master/src/main/java/org/g0to/transformer/features/stringencryption/

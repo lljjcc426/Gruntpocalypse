@@ -33,7 +33,7 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
 
     class Config : TransformerConfig() {
         val chance by setting(
-            name = enText("process.redirect.field_access_proxy.replace_chance", "ReplaceChance"),
+            name = enText("process.redirect.field_access_proxy.replace_chance", "Replace chance"),
             value = 1.0f,
             range = 0f..1f,
             desc = enText(
@@ -105,7 +105,7 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        val newClasses = mutableMapOf<ClassNode, ClassNode>() // Owner Companion
+        val newClasses = globalScopeValue { mutableMapOf<ClassNode, ClassNode>() }// Owner Companion
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
             if (classNode.isExcluded(DISABLE_FIELD_PROXY)) return@parForEachClassesFiltered
@@ -121,7 +121,7 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
                         if (randomGen.nextFloat() > config.chance) return@forEach
                         val callingOwner = instance.workRes.getClassNode(instruction.owner) ?: return@forEach
                         if (callingOwner.isExcluded(IGNORE_FIELD_PROXY)) return@forEach
-                        val callingField = callingOwner.fields?.find {
+                        val callingField = callingOwner.fields?.toList()?.find {
                             it.name == instruction.name && it.desc == instruction.desc
                         } ?: return@forEach
                         if (callingField.isExcluded(IGNORE_FIELD_PROXY)) return@forEach
@@ -163,7 +163,7 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
                             if (extractToOuterClass) {
                                 genMethod.access = Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC
                                 val clazz = synchronized(newClasses) {
-                                    newClasses.getOrPut(classNode) {
+                                    newClasses.global.getOrPut(classNode) {
                                         ClassNode().apply {
                                             visit(
                                                 classNode.version,

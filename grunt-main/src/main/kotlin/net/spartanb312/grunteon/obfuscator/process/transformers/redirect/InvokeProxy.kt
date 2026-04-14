@@ -35,7 +35,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
 
     class Config : TransformerConfig() {
         val chance by setting(
-            name = enText("process.redirect.field_access_proxy.replace_chance", "ReplaceChance"),
+            name = enText("process.redirect.field_access_proxy.replace_chance", "Replace chance"),
             value = 0.3f,
             range = 0f..1f,
             desc = enText(
@@ -75,7 +75,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        val newClasses = mutableMapOf<ClassNode, ClassNode>() // Owner Companion
+        val newClasses = globalScopeValue { mutableMapOf<ClassNode, ClassNode>() }// Owner Companion
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             val counter = counter.local
             if (classNode.isExcluded(DISABLE_INVOKE_PROXY)) return@parForEachClassesFiltered
@@ -91,7 +91,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
                         if (randomGen.nextFloat() > config.chance) return@forEach
                         val callingOwner = instance.workRes.getClassNode(instruction.owner) ?: return@forEach
                         if (callingOwner.isExcluded(IGNORE_INVOKE_PROXY)) return@forEach
-                        val callingMethod = callingOwner.methods?.find {
+                        val callingMethod = callingOwner.methods?.toList()?.find {
                             it.name == instruction.name && it.desc == instruction.desc
                         } ?: return@forEach
                         if (callingMethod.isExcluded(IGNORE_INVOKE_PROXY)) return@forEach
@@ -113,7 +113,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
                             newMethod.appendAnnotation(GENERATED_METHOD)
                             if (extractToOuterClass) {
                                 val newOwner = synchronized(newClasses) {
-                                    newClasses.getOrPut(classNode) {
+                                    newClasses.global.getOrPut(classNode) {
                                         ClassNode().apply {
                                             visit(
                                                 classNode.version,
@@ -138,14 +138,14 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
                 }
         }
         seq {
-            newClasses.forEach { (_, c) ->
+            newClasses.global.forEach { (_, c) ->
                 c.appendAnnotation(GENERATED_CLASS)
                 instance.workRes.addGeneratedClass(c)
             }
         }
         post {
             Logger.info(" - InvokeProxy:")
-            if (config.outer) Logger.info("    Generated ${newClasses.size} outer classes")
+            if (config.outer) Logger.info("    Generated ${newClasses.global.size} outer classes")
             Logger.info("    Redirected ${counter.global.get()} method calls")
         }
     }

@@ -17,13 +17,21 @@ val DISABLE_FIELD_PROXY = "Lnet/spartanb312/grunteon/annotation/disable/DisableF
 val DISABLE_INVOKE_PROXY = "Lnet/spartanb312/grunteon/annotation/disable/DisableInvokeProxy;"
 val DISABLE_INVOKE_DISPATCHER = "Lnet/spartanb312/grunteon/annotation/disable/DisableInvokeDispatcher;"
 
+// Controlflow
+val DISABLE_CONST_FLOW = "Lnet/spartanb312/grunteon/annotation/disable/DisableConstFlow;"
+val DISABLE_CONTROL_FLOW = "Lnet/spartanb312/grunteon/annotation/disable/DisableControlFlow;"
+val DISABLE_FLATTENING = "Lnet/spartanb312/grunteon/annotation/disable/DisableFlattening;"
+
 val DISABLER = arrayOf(
     DISABLE_OPTIMIZER,
     DISABLE_NUMBER_ENCRYPT,
     DISABLE_STRING_ENCRYPT,
     DISABLE_ARITHMETIC_SUBSTITUTE,
     DISABLE_FIELD_PROXY,
-    DISABLE_INVOKE_PROXY
+    DISABLE_INVOKE_PROXY,
+    DISABLE_CONST_FLOW,
+    DISABLE_CONTROL_FLOW,
+    DISABLE_FLATTENING
 )
 
 /**

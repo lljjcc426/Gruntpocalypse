@@ -11,6 +11,7 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.N
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.string.StringArrayedEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.FakeSyntheticBridge
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.DeclaredFieldsExtract
+import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.ParameterObfuscate
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.DecompilerCrasher
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.ShuffleMembers
@@ -84,10 +85,12 @@ fun main(args: Array<String>) {
             //StringEqualsOptimize(),
             //// Misc
             //DeclaredFieldsExtract(),
+            ParameterObfuscate(),
             //// Encrypt
             //ArithmeticSubstitute(),
             //NumberBasicEncrypt(),
             //StringArrayedEncrypt(),
+            //// Controlflow
             //// Redirect
             InvokeDispatcher(),
             //InvokeProxy(),
@@ -103,7 +106,7 @@ fun main(args: Array<String>) {
             //ShuffleMembers(),
             //Watermark(),
             //// Post
-            //PostProcess()
+            PostProcess()
         )
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()

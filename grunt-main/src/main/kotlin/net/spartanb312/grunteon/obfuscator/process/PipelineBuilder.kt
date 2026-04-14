@@ -171,9 +171,9 @@ fun parForEachClasses(block: context(Grunteon, ScopeValueAccess) (classNode: Cla
 }
 
 context(_: PipelineBuilder)
-inline fun parForEachClassesFiltered(
+fun parForEachClassesFiltered(
     strategy: FilterStrategy,
-    crossinline action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
+    action: context(Grunteon, ScopeValueAccess) (ClassNode) -> Unit
 ) {
     parForEachClasses {
         if (strategy.testClass(it)) action(it)

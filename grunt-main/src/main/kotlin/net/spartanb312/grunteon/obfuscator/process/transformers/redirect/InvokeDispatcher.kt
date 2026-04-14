@@ -1,47 +1,27 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.redirect
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
-import net.spartanb312.genesis.kotlin.extensions.LABEL
-import net.spartanb312.genesis.kotlin.extensions.PRIVATE
-import net.spartanb312.genesis.kotlin.extensions.STATIC
+import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.genesis.kotlin.extensions.insn.CHECKCAST
 import net.spartanb312.genesis.kotlin.extensions.insn.ILOAD
 import net.spartanb312.genesis.kotlin.extensions.insn.INVOKESTATIC
 import net.spartanb312.genesis.kotlin.extensions.insn.INVOKEVIRTUAL
-import net.spartanb312.genesis.kotlin.extensions.node
-import net.spartanb312.genesis.kotlin.extensions.toInsnNode
 import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.util.DISABLE_INVOKE_DISPATCHER
-import net.spartanb312.grunteon.obfuscator.util.IGNORE_INVOKE_DISPATCHER
-import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.*
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
-import net.spartanb312.grunteon.obfuscator.util.extensions.getLoadType
-import net.spartanb312.grunteon.obfuscator.util.extensions.getReturnType
-import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
-import net.spartanb312.grunteon.obfuscator.util.extensions.isInitializer
-import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
-import net.spartanb312.grunteon.obfuscator.util.extensions.isStatic
-import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
+import net.spartanb312.grunteon.obfuscator.util.extensions.*
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
-import net.spartanb312.grunteon.obfuscator.util.getRandomString
 import org.objectweb.asm.Label
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.ClassNode
-import org.objectweb.asm.tree.InsnNode
-import org.objectweb.asm.tree.MethodInsnNode
-import org.objectweb.asm.tree.MethodNode
-import org.objectweb.asm.tree.TableSwitchInsnNode
-import org.objectweb.asm.tree.VarInsnNode
-import kotlin.random.Random
+import org.objectweb.asm.tree.*
 
 class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
     name = enText("process.redirect.invoke_dispatcher", "InvokeDispatcher"),
@@ -57,7 +37,7 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
 
     class Config : TransformerConfig() {
         val chance by setting(
-            name = enText("process.redirect.invoke_dispatcher.replace_chance", "ReplaceChance"),
+            name = enText("process.redirect.invoke_dispatcher.replace_chance", "Replace chance"),
             value = 0.3f,
             range = 0f..1f,
             desc = enText(
@@ -112,7 +92,7 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
                         if (randomGen.nextFloat() > config.chance) return@forEach
                         val callingOwner = instance.workRes.getClassNode(instruction.owner) ?: return@forEach
                         if (callingOwner.isExcluded(IGNORE_INVOKE_DISPATCHER)) return@forEach
-                        val callingMethod = callingOwner.methods?.find {
+                        val callingMethod = callingOwner.methods?.toList()?.find {
                             it.name == instruction.name && it.desc == instruction.desc
                         } ?: return@forEach
                         if (callingMethod.isExcluded(IGNORE_INVOKE_DISPATCHER)) return@forEach
@@ -188,7 +168,7 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
                                 var stack = 0
                                 Type.getArgumentTypes(handle.callingMethod.desc).forEach {
                                     +VarInsnNode(it.getLoadType(), stack)
-                                    CHECKCAST(it.descriptor.removePrefix("L").removeSuffix(";"))
+                                    CHECKCAST(it.descriptor.correctCast())
                                     stack += it.size
                                 }
                                 INVOKESTATIC(
@@ -201,7 +181,7 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
                                 var stack = 0
                                 Type.getArgumentTypes(handle.callingMethod.desc).forEach {
                                     +VarInsnNode(it.getLoadType(), stack)
-                                    CHECKCAST(it.descriptor.removePrefix("L").removeSuffix(";"))
+                                    CHECKCAST(it.descriptor.correctCast())
                                     stack += it.size
                                 }
                                 INVOKEVIRTUAL(
@@ -232,8 +212,6 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
         val callingOwner: ClassNode,
         val callingMethod: MethodNode,
     ) {
-        val callerFullName get() = "${caller.name}.${callerMethod.name}${callerMethod.desc}"
-        val callingFullName get() = "${callingOwner.name}.${callingMethod.name}${callingMethod.desc}"
         private val paramsType = Type.getArgumentTypes(callingMethod.desc).map { it.descriptor }
         val loadType = if (callingMethod.isStatic) paramsType
         else mutableListOf(callingOwner.name).apply { addAll(paramsType) }
@@ -244,6 +222,10 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
             return@run false
         }
         val returnType = Type.getReturnType(callingMethod.desc).descriptor
+    }
+
+    private fun String.correctCast() : String {
+        return if (startsWith("L")) removePrefix("L").removeSuffix(";") else this
     }
 
 }
