@@ -13,8 +13,13 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.bufferedWriter
 
 class NameMapping : Remapper(Opcodes.ASM9) {
+
     private val classMappings = Object2ObjectOpenHashMap<String, ClassEntry>()
     private val indyMapping = ConcurrentHashMap<String, String>()
+
+    fun getMapping(old: String): String? {
+        return classMappings.getOrDefault(old, null)?.new
+    }
 
     fun dump(path: Path) {
         path.bufferedWriter().use {
@@ -90,4 +95,5 @@ class NameMapping : Remapper(Opcodes.ASM9) {
         if (key == null) return null
         return classMappings[key]?.new ?: key
     }
+
 }

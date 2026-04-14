@@ -13,6 +13,7 @@ import java.nio.file.FileSystemNotFoundException
 import java.nio.file.FileSystems
 import java.nio.file.Path
 import java.util.zip.ZipFile
+import kotlin.collections.firstOrNull
 import kotlin.io.path.*
 
 class WorkResources private constructor(
@@ -42,7 +43,15 @@ class WorkResources private constructor(
             addAll(librariesClassCollection)
         }
 
+    fun addGeneratedClass(classNode: ClassNode) {
+        inputClassMap[classNode.name] = classNode
+    }
 
+    fun getInputResource(name: String): ResourceSet.ResourceEntry? {
+        return inputResourceSet[name].firstOrNull()
+    }
+
+    @Synchronized
     fun readInRuntime(name: String): ClassNode? {
         return try {
             val classNode = ClassNode()

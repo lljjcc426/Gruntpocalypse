@@ -6,22 +6,73 @@ This project is under development starting from November 2025. The alpha test wi
 
 Feel free to join our Discord server for suggestions: https://discord.gg/ysB2fMfeYW
 
-## Roadmap
+## Features
 
-* [X] Resource management
-* [ ] Config system with localization
-* [ ] Parallel process pipeline
-* [ ] Class hierarchy and phantom class
-* [ ] Module system/ Plugin system
-* [ ] Renamers and optimizers
-* [ ] String and number encryption
-* [ ] Redirect and anti-static analysis
-* [ ] Control-flow obfuscation
-* [ ] Miscellaneous obfuscation
+Working in progress. The following is a list of features that have been completed or are currently being developed in
+the near future
+
+### Encrypt
+
+* [X] Number encryption
+* [X] String encryption
+* [X] Arithmetic substitution
+* [ ] ConstPool extractor
+
+### Miscellaneous
+
+* [X] Declared fields extractor
+* [ ] Trash class generator
+* [ ] HardwareID authenticator
+* [ ] Native candidate
+* [ ] Anti debug
+
+### Optimize
+
+* [X] Class shrinking
+* [X] Dead code remove
+* [X] Enum optimize
+* [X] Kotlin class shrinking
+* [X] Source debug info hide
+* [X] String equals optimize
+
+### Renaming
+
+* [X] Class renamer
+* [X] Field renamer
+* [X] Method renamer
+* [X] Localvar renamer
+* [ ] Mixin renamer
+
+### Controlflow
+
+* [ ] Bogus conditional jump
+* [ ] Mangled conditional jump
+* [ ] Reversed conditional jump
+* [ ] Table switch multi jump
+* [ ] Trapped switch case
+* [ ] Switch extractor
+* [ ] Mutate conditional jump
+* [ ] Chaos switch multi jump
+* [ ] Controlflow flattening
+* [ ] Anti simulation
+* [ ] Junk code
+
+### Redirect
+
+* [X] Field access proxy
+* [ ] Invoke proxy
+* [ ] Invoke dispatcher
+
+### Other
+
+* [X] Decompiler crasher
+* [X] Fake synthetic bridge
+* [X] Shuffle members
+* [X] Watermarks
+* [ ] Reference hide
+* [ ] Post process
 
 ## License
-
-Copyright 2026 Endoqa Inc.
 
 Grunteon is a free and open source obfuscator framework licensed under Apache License 2.0
 

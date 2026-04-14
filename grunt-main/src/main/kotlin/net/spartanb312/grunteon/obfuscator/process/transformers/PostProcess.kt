@@ -1,0 +1,223 @@
+package net.spartanb312.grunteon.obfuscator.process.transformers
+
+import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
+import com.google.gson.JsonPrimitive
+import net.spartanb312.grunteon.obfuscator.Grunteon
+import net.spartanb312.grunteon.obfuscator.lang.enText
+import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.process.resource.ResourceSet
+import net.spartanb312.grunteon.obfuscator.util.*
+import net.spartanb312.grunteon.obfuscator.util.extensions.removeAnnotation
+import java.nio.charset.StandardCharsets
+
+class PostProcess : Transformer<PostProcess.Config>(
+    name = enText("process.other.post_process", "PostProcess"),
+    category = Category.Other,
+    description = enText(
+        "process.other.post_process.desc",
+        "Post resource process. Manifest/YML/JSON remap"
+    )
+) {
+
+    override val defConfig: TransformerConfig get() = Config()
+    override val confType: Class<Config> get() = Config::class.java
+
+    class Config : TransformerConfig() {
+        val manifest by setting(
+            name = enText("process.other.post_process.manifest", "Manifest"),
+            value = true,
+            desc = enText("process.other.post_process.manifest.desc", "Remap manifest")
+        )
+        val pluginMain by setting(
+            name = enText("process.other.post_process.plugin_yml", "Plugin YML"),
+            value = true,
+            desc = enText("process.other.post_process.plugin_yml.desc", "Remap Plugin YML")
+        )
+        val bungeeMain by setting(
+            name = enText("process.other.post_process.bungee_yml", "Bungee YML"),
+            value = true,
+            desc = enText("process.other.post_process.bungee_yml.desc", "Remap Bungee YML")
+        )
+        val fabricMain by setting(
+            name = enText("process.other.post_process.fabric_json", "Fabric JSON"),
+            value = true,
+            desc = enText("process.other.post_process.fabric_json.desc", "Remap Fabric JSON")
+        )
+        val velocityMain by setting(
+            name = enText("process.other.post_process.velocity_json", "Velocity JSON"),
+            value = true,
+            desc = enText("process.other.post_process.velocity_json.desc", "Remap Velocity JSON"),
+        )
+        val manifestReplace by setting(
+            name = enText("process.other.post_process.manifest_prefix", "ManifestPrefix"),
+            value = listOf(
+                "Main-Class:",
+                "Launch-Entry:",
+            ),
+            desc = enText("process.other.post_process.manifest_prefix.desc", "Main class manifest key"),
+        )
+    }
+
+    context(instance: Grunteon, _: PipelineBuilder)
+    override fun buildStageImpl(config: Config) {
+        seq {
+            Logger.info(" > Post processing resources...")
+            if (config.manifest) processManifest(config)
+            if (config.pluginMain) processPluginMain()
+            if (config.bungeeMain) processBungeeMain()
+            if (config.fabricMain) processFabricMain()
+            if (config.velocityMain) processVelocityMain()
+        }
+        // Clean up
+        val annotationList = DISABLER + IGNORE + INTERNAL
+        val filter = buildFilterStrategy(config)
+        parForEachClasses { classNode ->
+            val include = filter.testClass(classNode)
+            // annotations
+            if (include) {
+                annotationList.forEach { classNode.removeAnnotation(it) }
+                classNode.fields.forEach { field -> annotationList.forEach { field.removeAnnotation(it) } }
+                classNode.methods.forEach { method -> annotationList.forEach { method.removeAnnotation(it) } }
+            }
+            // dummy insns
+            classNode.methods.forEach { method ->
+                method.instructions.forEach { instr ->
+                    if (instr.opcode in dummyOpcodes) method.instructions.remove(instr)
+                }
+            }
+        }
+    }
+
+    context(instance: Grunteon)
+    private fun processManifest(config: Config) {
+        val manifestFile = instance.workRes.getInputResource("META-INF/MANIFEST.MF") ?: return
+        Logger.info("    Processing MANIFEST.MF...")
+        val manifest = mutableListOf<String>()
+        manifestFile.content.decodeToString().split("\n").forEach { line ->
+            var final = line
+            config.manifestReplace.forEach { prefixRaw ->
+                val prefix = prefixRaw.removeSuffix(" ")
+                if (line.startsWith(prefix)) {
+                    val remaining = line.substringAfter(prefix)
+                        .substringAfter(" ")
+                        .replace("\r", "")
+                        .splash
+                    val obfName = instance.nameMapping.getMapping(remaining)?.dot
+                    if (obfName != null) {
+                        final = "$prefix $obfName"
+                        Logger.info("    Replaced manifest $final")
+                    }
+                }
+            }
+            manifest.add(final)
+        }
+        manifestFile.content = manifest.joinToString("\n").toByteArray()
+    }
+
+    context(instance: Grunteon)
+    private fun processPluginMain() {
+        val pluginYMLFile = instance.workRes.getInputResource("plugin.yml") ?: return
+        Logger.info("    Processing plugin.yml...")
+        pluginYMLFile.content = processYMLMain("plugin main", pluginYMLFile)
+    }
+
+    context(instance: Grunteon)
+    private fun processBungeeMain() {
+        val pluginYMLFile = instance.workRes.getInputResource("bungee.yml") ?: return
+        Logger.info("    Processing bungee.yml...")
+        pluginYMLFile.content = processYMLMain("bungee main", pluginYMLFile)
+    }
+
+    context(instance: Grunteon)
+    private fun processYMLMain(desc: String, file: ResourceSet.ResourceEntry): ByteArray {
+        val lines = mutableListOf<String>()
+        file.content.decodeToString().split("\n").forEach { line ->
+            var final = line
+            if (line.startsWith("main: ")) {
+                val remaining = line.substringAfter("main: ")
+                    .replace("\r", "")
+                    .splash
+                val obfName = instance.nameMapping.getMapping(remaining)?.dot
+                if (obfName != null) {
+                    final = "main: $obfName"
+                    Logger.info("    Replaced $desc $obfName")
+                }
+            }
+            lines.add(final)
+        }
+        return lines.joinToString("\n").toByteArray()
+    }
+
+    context(instance: Grunteon)
+    private fun processFabricMain() {
+        val jsonFile = instance.workRes.getInputResource("fabric.mod.json") ?: return
+        Logger.info("    Processing fabric.mod.json...")
+        val mainObject = JsonObject()
+        Gson().fromJson(
+            String(jsonFile.content, StandardCharsets.UTF_8),
+            JsonObject::class.java
+        ).apply {
+            asMap().forEach { (name, value) ->
+                when (name) {
+                    "entrypoints" -> {
+                        val entryPointObject = JsonObject()
+                        value.asJsonObject.asMap().forEach { (pointName, classesObj) ->
+                            val classes = JsonArray()
+                            classesObj.asJsonArray.forEach {
+                                if (it.isJsonObject) {
+                                    val entryPointElem = it.asJsonObject
+                                    val pre = entryPointElem["value"].asString
+                                    val new = instance.nameMapping.getMapping(pre.splash)?.dot
+                                    if (new != null) {
+                                        Logger.info("    Replaced fabric entry point $pointName $new")
+                                        val newElem = JsonObject()
+                                        newElem.addProperty("adapter", entryPointElem["adapter"].asString)
+                                        newElem.addProperty("value", new)
+                                        classes.add(newElem)
+                                    } else classes.add(it.asJsonObject)
+                                } else {
+                                    val pre = it.asString
+                                    val new = instance.nameMapping.getMapping(pre.splash)?.dot
+                                    if (new != null) {
+                                        Logger.info("    Replaced fabric entry point $pointName $new")
+                                        classes.add(new)
+                                    } else classes.add(pre)
+                                }
+                            }
+                            entryPointObject.add(pointName, classes)
+                        }
+                        mainObject.add("entrypoints", entryPointObject)
+                    }
+
+                    else -> mainObject.add(name, value)
+                }
+            }
+        }
+        jsonFile.content = Gson().toJson(mainObject).toByteArray(Charsets.UTF_8)
+    }
+
+    context(instance: Grunteon)
+    private fun processVelocityMain() {
+        val jsonFile = instance.workRes.getInputResource("velocity-plugin.json") ?: return
+        Logger.info("    Processing velocity-plugin.json...")
+        val mainObject = JsonObject()
+        Gson().fromJson(
+            String(jsonFile.content, StandardCharsets.UTF_8),
+            JsonObject::class.java
+        ).apply {
+            asMap()?.forEach { (name, value) ->
+                val newValue = if (name == "main") {
+                    val mapping = instance.nameMapping.getMapping(value.asString.splash)?.dot ?: return
+                    JsonPrimitive(mapping)
+                } else {
+                    value
+                }
+                mainObject.add(name, newValue)
+            }
+        }
+        jsonFile.content = Gson().toJson(mainObject).toByteArray(Charsets.UTF_8)
+    }
+
+}

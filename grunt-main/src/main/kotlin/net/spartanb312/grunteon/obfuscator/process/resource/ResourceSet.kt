@@ -10,14 +10,15 @@ import kotlin.io.path.readBytes
 import kotlin.jvm.optionals.getOrNull
 
 sealed class ResourceSet {
+
     abstract operator fun get(path: Path): List<ResourceEntry>
 
     abstract operator fun get(path: String): List<ResourceEntry>
 
-    class ResourceEntry(val path: Path, val content: ByteArray)
+    class ResourceEntry(val path: Path, var content: ByteArray)
 
     class Single(val root: Path) : ResourceSet() {
-        private val cache = ConcurrentHashMap<String, Optional<ResourceEntry>>()
+        val cache = ConcurrentHashMap<String, Optional<ResourceEntry>>()
 
         override fun get(path: Path): List<ResourceEntry> {
             require(path.fileSystem == root.fileSystem) { "Path must be on the same file system as the root" }
@@ -45,4 +46,5 @@ sealed class ResourceSet {
             return sets.flatMap { it[path].asSequence() }
         }
     }
+
 }

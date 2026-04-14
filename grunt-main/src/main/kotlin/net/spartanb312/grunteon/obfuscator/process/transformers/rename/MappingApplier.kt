@@ -25,7 +25,7 @@ class MappingApplier : Transformer<MappingApplier.Config>(
     override fun buildStageImpl(config: Config) {
         barrier()
         pre {
-            Logger.info(" - MappingApplier: Applying mappings...")
+            Logger.info(" > MappingApplier: Applying mappings...")
         }
         val newClasses = reducibleScopeValue {
             MergeableObjectList(ObjectArrayList<ClassNode>())

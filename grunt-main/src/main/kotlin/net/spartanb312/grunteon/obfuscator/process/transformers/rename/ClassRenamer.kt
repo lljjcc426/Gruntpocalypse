@@ -108,8 +108,6 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
             classes.asSequence()
                 .filter { strategy.testClass(it) }
                 .forEach { clazz ->
-                    if (clazz.methods.any { it.isMainMethod }) return@forEach
-                    if (clazz.name == "net/spartanb312/everett/launch/Entry") return@forEach
                     instance.nameMapping.putClassMapping(
                         clazz.name,
                         config.parent + config.malNamePrefix(clazz.name) + config.reversePrefix + config.prefix + nameGenerator.nextName()
