@@ -15,6 +15,7 @@ class ProcessPipeline(
     vararg transformers: Transformer<*>
 ) {
     private val transformers: List<Transformer<*>>
+
     init {
         // check orders
         Logger.info("Validating pipeline orders...")
@@ -45,15 +46,23 @@ class ProcessPipeline(
     }
 
     context(instance: Grunteon)
-    fun execute() {
+    fun execute(): Map<String, Long> {
         if (!initialized.get()) throw Exception("Pipeline is not initialized")
+        val timeMap = mutableMapOf<String, Long>()
         Logger.info("Obfuscating...")
         val pipelineBuilder = PipelineBuilder()
+        val startTime0 = System.nanoTime()
+        var startTime = startTime0
         transformer2Config.forEach { (transformer, config) ->
             transformer.buildStageImpl(pipelineBuilder, config)
+            val currentTime = System.nanoTime()
+            timeMap[transformer.engName] = currentTime - startTime
+            startTime = currentTime
         }
+        timeMap["Obfuscation"] = System.nanoTime() - startTime0
         val workerContext = WorkerContext()
         workerContext.execute(instance, pipelineBuilder)
+        return timeMap
     }
 
 }

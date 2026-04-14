@@ -106,12 +106,16 @@ fun main(args: Array<String>) {
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()
 
+        val timeMap: Map<String, Long>
         measureTime {
-            instance.execute()
+            timeMap = instance.execute()
         }.toDouble(DurationUnit.MILLISECONDS).also { time ->
             while (queue.size >= 5) queue.poll()
             queue.add(time)
             println("Execution time: ${"%.2f".format(time)} ms (average: ${"%.2f".format(queue.average())} ms)")
+            timeMap.forEach { (name, time) ->
+                println("$name: ${"%.2f".format(time / 1000000.0)} ms")
+            }
         }
     }
 }
@@ -159,14 +163,16 @@ class Grunteon(
         workRes = WorkResources.read(inputRoot, libs.flatMap { resolvePath(it) })
     }
 
-    fun execute() {
+    fun execute(): Map<String, Long> {
         // TODO: Profiler
+        var timeMap: Map<String, Long>
         context(workRes) {
-            pipeline.execute()
+            timeMap = pipeline.execute()
         }
 
         // TODO: make this optional
         JarDumper.dumpJar(Path("obfTest/AT/engine/boar-main.jar"))
+        return timeMap
     }
 
     val mixinExPredicate = buildClassNamePredicates(configGroup.mixinExclusions)
