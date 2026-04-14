@@ -205,14 +205,14 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
                 }
         }
         seq {
-            newClasses.forEach { (_, c) ->
+            newClasses.global.forEach { (_, c) ->
                 c.appendAnnotation(GENERATED_CLASS)
                 instance.workRes.addGeneratedClass(c)
             }
         }
         post {
             Logger.info(" - FieldAccessProxy:")
-            if (config.outer) Logger.info("    Generated ${newClasses.size} outer classes")
+            if (config.outer) Logger.info("    Generated ${newClasses.global.size} outer classes")
             Logger.info("    Redirected ${counter.global.get()} field calls")
         }
     }
