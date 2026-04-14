@@ -84,7 +84,7 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > KotlinClassShrink: Shrinking kotlin classes...")
+            //Logger.info(" > KotlinClassShrink: Shrinking kotlin classes...")
         }
         val intrinsics = reducibleScopeValue { MergeableCounter() }
         val metadata = reducibleScopeValue { MergeableCounter() }

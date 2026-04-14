@@ -150,7 +150,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > NumberBasicEncrypt: Encrypting numbers...")
+            //Logger.info(" > NumberBasicEncrypt: Encrypting numbers...")
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }

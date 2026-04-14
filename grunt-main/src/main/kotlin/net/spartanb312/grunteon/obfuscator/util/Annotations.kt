@@ -15,6 +15,7 @@ val DISABLE_ARITHMETIC_SUBSTITUTE = "Lnet/spartanb312/grunteon/annotation/disabl
 // Redirect
 val DISABLE_FIELD_PROXY = "Lnet/spartanb312/grunteon/annotation/disable/DisableFieldProxy;"
 val DISABLE_INVOKE_PROXY = "Lnet/spartanb312/grunteon/annotation/disable/DisableInvokeProxy;"
+val DISABLE_INVOKE_DISPATCHER = "Lnet/spartanb312/grunteon/annotation/disable/DisableInvokeDispatcher;"
 
 val DISABLER = arrayOf(
     DISABLE_OPTIMIZER,
@@ -31,6 +32,7 @@ val DISABLER = arrayOf(
 // Redirect
 val IGNORE_FIELD_PROXY = "Lnet/spartanb312/grunteon/annotation/ignore/ExcludeFromFieldProxy;"
 val IGNORE_INVOKE_PROXY = "Lnet/spartanb312/grunteon/annotation/ignore/ExcludeFromInvokeProxy;"
+val IGNORE_INVOKE_DISPATCHER = "Lnet/spartanb312/grunteon/annotation/ignore/ExcludeFromInvokeDispatcher;"
 
 val IGNORE = arrayOf(
     IGNORE_FIELD_PROXY,

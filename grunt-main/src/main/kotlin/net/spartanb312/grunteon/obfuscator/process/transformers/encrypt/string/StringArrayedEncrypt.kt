@@ -79,7 +79,7 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > StringBasicEncrypt: Encrypting strings...")
+            //Logger.info(" > StringBasicEncrypt: Encrypting strings...")
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }

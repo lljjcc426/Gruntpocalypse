@@ -36,7 +36,7 @@ class DeclaredFieldsExtract : Transformer<DeclaredFieldsExtract.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > DeclaredFieldsExtract: Transforming local variables...")
+            //Logger.info(" > DeclaredFieldsExtract: Transforming local variables...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->

@@ -6,7 +6,6 @@ import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.DISABLE_ARITHMETIC_SUBSTITUTE
-import net.spartanb312.grunteon.obfuscator.util.DISABLE_NUMBER_ENCRYPT
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
@@ -84,7 +83,7 @@ class ArithmeticSubstitute : Transformer<ArithmeticSubstitute.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > ArithmeticSubstitute: Replacing arithmetic instructions...")
+            //Logger.info(" > ArithmeticSubstitute: Replacing arithmetic instructions...")
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }

@@ -28,7 +28,7 @@ class ShuffleMembers : Transformer<ShuffleMembers.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > ShuffleMembers: Shuffling members...")
+            //Logger.info(" > ShuffleMembers: Shuffling members...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->

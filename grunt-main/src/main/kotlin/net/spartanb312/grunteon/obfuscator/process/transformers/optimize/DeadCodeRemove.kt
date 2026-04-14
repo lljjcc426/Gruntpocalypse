@@ -61,7 +61,7 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > DeadCodeRemove: Removing dead codes...")
+            //Logger.info(" > DeadCodeRemove: Removing dead codes...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val instListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }

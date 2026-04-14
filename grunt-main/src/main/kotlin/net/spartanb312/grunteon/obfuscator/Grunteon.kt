@@ -16,6 +16,7 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.other.Decompiler
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.ShuffleMembers
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.Watermark
 import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.FieldAccessProxy
+import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.InvokeDispatcher
 import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.InvokeProxy
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -75,33 +76,34 @@ fun main(args: Array<String>) {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
             // Optimize
-            DeadCodeRemove(),
-            EnumOptimize(),
-            KotlinClassShrink(),
-            ClassShrink(),
-            SourceDebugInfoHide(),
-            StringEqualsOptimize(),
-            // Misc
-            DeclaredFieldsExtract(),
-            // Encrypt
-            ArithmeticSubstitute(),
-            NumberBasicEncrypt(),
-            StringArrayedEncrypt(),
-            // Redirect
-            InvokeProxy(),
-            FieldAccessProxy(),
-            // Renamer
-            LocalVarRenamer(),
-            ClassRenamer(),
-            FieldRenamer(),
-            MethodRenamer(),
-            // Other
-            FakeSyntheticBridge(),
-            DecompilerCrasher(),
-            ShuffleMembers(),
-            Watermark(),
-            // Post
-            PostProcess()
+            //DeadCodeRemove(),
+            //EnumOptimize(),
+            //KotlinClassShrink(),
+            //ClassShrink(),
+            //SourceDebugInfoHide(),
+            //StringEqualsOptimize(),
+            //// Misc
+            //DeclaredFieldsExtract(),
+            //// Encrypt
+            //ArithmeticSubstitute(),
+            //NumberBasicEncrypt(),
+            //StringArrayedEncrypt(),
+            //// Redirect
+            InvokeDispatcher(),
+            //InvokeProxy(),
+            //FieldAccessProxy(),
+            //// Renamer
+            //LocalVarRenamer(),
+            //ClassRenamer(),
+            //FieldRenamer(),
+            //MethodRenamer(),
+            //// Other
+            //FakeSyntheticBridge(),
+            //DecompilerCrasher(),
+            //ShuffleMembers(),
+            //Watermark(),
+            //// Post
+            //PostProcess()
         )
         val instance = emptyConfig.runPipeline(pipeline)
         instance.init()
@@ -113,9 +115,9 @@ fun main(args: Array<String>) {
             while (queue.size >= 5) queue.poll()
             queue.add(time)
             println("Execution time: ${"%.2f".format(time)} ms (average: ${"%.2f".format(queue.average())} ms)")
-            timeMap.forEach { (name, time) ->
-                println("$name: ${"%.2f".format(time / 1000000.0)} ms")
-            }
+            //timeMap.forEach { (name, time) ->
+            //    println("$name: ${"%.2f".format(time / 1000000.0)} ms")
+            //}
         }
     }
 }

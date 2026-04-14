@@ -33,7 +33,7 @@ class DecompilerCrasher : Transformer<DecompilerCrasher.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > DecompilerCrasher: Insert crashers to classes...")
+            //Logger.info(" > DecompilerCrasher: Insert crashers to classes...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->

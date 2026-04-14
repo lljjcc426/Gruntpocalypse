@@ -31,7 +31,7 @@ class FakeSyntheticBridge : Transformer<FakeSyntheticBridge.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > FakeSyntheticBridge:Inserting fake synthetic bridge flags")
+            //Logger.info(" > FakeSyntheticBridge:Inserting fake synthetic bridge flags")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->

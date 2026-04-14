@@ -62,7 +62,7 @@ class Watermark : Transformer<Watermark.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > Watermark: Adding watermarks...")
+            //Logger.info(" > Watermark: Adding watermarks...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->

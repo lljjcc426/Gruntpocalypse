@@ -25,7 +25,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
     name = enText("process.redirect.invoke_proxy", "InvokeProxy"),
     category = Category.Redirect,
     description = enText(
-        "process.redirect.invoke_proxy",
+        "process.redirect.invoke_proxy.desc",
         "Redirect method invokes"
     )
 ) {
@@ -70,7 +70,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > InvokeProxy: Redirecting method calls...")
+            //Logger.info(" > InvokeProxy: Redirecting method calls...")
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }

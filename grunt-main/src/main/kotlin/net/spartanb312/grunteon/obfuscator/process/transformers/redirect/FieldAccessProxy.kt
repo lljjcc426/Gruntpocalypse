@@ -100,7 +100,7 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > FieldAccessProxy: Redirecting field calls...")
+            //Logger.info(" > FieldAccessProxy: Redirecting field calls...")
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }

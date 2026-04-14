@@ -42,7 +42,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > EnumOptimize: Optimizing enums...")
+            //Logger.info(" > EnumOptimize: Optimizing enums...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->

@@ -45,7 +45,7 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > StringEqualsOptimize: Redirecting string equals calls...")
+            //Logger.info(" > StringEqualsOptimize: Redirecting string equals calls...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->

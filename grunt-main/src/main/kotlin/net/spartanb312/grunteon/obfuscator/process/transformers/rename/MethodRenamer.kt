@@ -56,14 +56,6 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
     }
 
     class Config : TransformerConfig() {
-        val mode by setting(
-            name = enText("process.rename.method_renamer.mode", "Mode"),
-            value = Mode.Full,
-            desc = enText(
-                "process.rename.method_renamer.mode.desc",
-                "Interface method name overlap will also be obfuscated in full mode"
-            )
-        )
         val dictionary by setting(
             name = enText("process.rename.method_renamer.dictionary", "Dictionary"),
             value = NameGenerator.DictionaryType.Alphabet,
@@ -108,7 +100,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
     override fun buildStageImpl(config: Config) {
         barrier()
         pre {
-            Logger.info(" > MethodRenamer[${config.mode.displayName}]: Generating method mappings...")
+            Logger.info(" > MethodRenamer: Generating method mappings...")
         }
         buildFull(config)
     }
@@ -469,13 +461,6 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         }
         IndyChecker.check(methodHierarchy, sourceAndOverridesMapping)
     }
-
-
-    enum class Mode(override val displayName: CharSequence) : DisplayEnum {
-        Fast("Fast"),
-        Full("Full"),
-    }
-
 
     companion object {
         val HARD_EXCLUDE = setOf(

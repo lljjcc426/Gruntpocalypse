@@ -73,7 +73,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > ClassShrink: Shrinking classes...")
+            //Logger.info(" > ClassShrink: Shrinking classes...")
         }
         val innerClasses = reducibleScopeValue { MergeableCounter() }
         val unusedLabels = reducibleScopeValue { MergeableCounter() }

@@ -76,7 +76,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
         pre {
-            Logger.info(" > LocalVarRenamer: Transforming local variables...")
+            //Logger.info(" > LocalVarRenamer: Transforming local variables...")
             // TODO: there is a better way to do this instead of lateinit var
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
