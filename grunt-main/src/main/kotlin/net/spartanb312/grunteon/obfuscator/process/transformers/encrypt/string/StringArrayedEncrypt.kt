@@ -9,12 +9,7 @@ import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
-import net.spartanb312.grunteon.obfuscator.util.DISABLE_OPTIMIZER
-import net.spartanb312.grunteon.obfuscator.util.DISABLE_STRING_ENCRYPT
-import net.spartanb312.grunteon.obfuscator.util.GENERATED_FIELD
-import net.spartanb312.grunteon.obfuscator.util.GENERATED_METHOD
-import net.spartanb312.grunteon.obfuscator.util.Logger
-import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.*
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
 import net.spartanb312.grunteon.obfuscator.util.extensions.appendAnnotation
@@ -24,7 +19,6 @@ import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
-import net.spartanb312.grunteon.obfuscator.util.getRandomString
 import org.apache.commons.rng.UniformRandomProvider
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
@@ -151,8 +145,7 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
                             INVOKESTATIC(
                                 classNode.name,
                                 decryptMethod.name,
-                                decryptMethod.desc,
-                                classNode.isInterface
+                                decryptMethod.desc
                             )
                             AASTORE
                         }
@@ -166,7 +159,7 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
                     INT(encryptedStrings.size)
                     ANEWARRAY("java/lang/String")
                     PUTSTATIC(classNode.name, poolField.name, poolField.desc)
-                    INVOKESTATIC(classNode.name, arrayInitMethod.name, arrayInitMethod.desc, classNode.isInterface)
+                    INVOKESTATIC(classNode.name, arrayInitMethod.name, arrayInitMethod.desc)
                 })
                 classNode.methods.forEach { methodNode ->
                     methodNode.instructions.asSequence()
@@ -281,8 +274,7 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
                     Opcodes.H_INVOKESTATIC,
                     classNode.name,
                     bootstrap.name,
-                    bootstrap.desc,
-                    classNode.isInterface
+                    bootstrap.desc
                 ),
                 newArg.toString()
             )
