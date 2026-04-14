@@ -12,8 +12,8 @@ import java.net.URI
 import java.nio.file.FileSystemNotFoundException
 import java.nio.file.FileSystems
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
-import kotlin.collections.firstOrNull
 import kotlin.io.path.*
 
 class WorkResources private constructor(
@@ -24,7 +24,7 @@ class WorkResources private constructor(
      * Input classes in library input set, maps name to class node.
      * Also included in allClasses.
      */
-    val libraryClassMap: MutableMap<String, ClassNode>,
+    val libraryClassMap: ConcurrentHashMap<String, ClassNode>,
     /**
      * Input classes in input/output set, maps name to class node.
      * Also included in allClasses.
@@ -51,26 +51,22 @@ class WorkResources private constructor(
         return inputResourceSet[name].firstOrNull()
     }
 
-    @Synchronized
-    fun readInRuntime(name: String): ClassNode? {
-        return try {
-            val classNode = ClassNode()
-            ClassReader(name).apply {
-                accept(classNode, ClassReader.EXPAND_FRAMES)
-                libraryClassMap[classNode.name] = classNode
-            }
-            classNode
-        } catch (_: Exception) {
-            //throw Exception("Fail to read in runtime = $name")
-            null
-        }
-    }
-
     fun getClassNode(name: String): ClassNode? {
-        return inputClassMap[name] ?: libraryClassMap[name] ?: readInRuntime(name)
+        return inputClassMap[name] ?: libraryClassMap.computeIfAbsent(name) {
+            try {
+                ClassNode().apply {
+                    ClassReader(name)
+                        .accept(this, ClassReader.EXPAND_FRAMES)
+                }
+            } catch (_: Exception) {
+                DUMMY_CLASSNODE
+            }
+        }.takeIf { it !== DUMMY_CLASSNODE }
     }
 
     companion object {
+        private val DUMMY_CLASSNODE = ClassNode()
+
         private fun toZipRootPath(zipPath: Path): Path {
             val jarURI = URI.create("jar:" + zipPath.toUri())
             // TODO: lifecycle of zipFileSystem
@@ -108,7 +104,8 @@ class WorkResources private constructor(
             val allResourceSets = ResourceSet.Composite(allResourceSetList)
 
             val inputClassMap = Object2ObjectOpenHashMap<String, ClassNode>()
-            val libraryClassMap = Object2ObjectOpenHashMap<String, ClassNode>()
+            // TODO: resolves all classes reference during read
+            val libraryClassMap = ConcurrentHashMap<String, ClassNode>()
             runBlocking {
                 val inputClassNodes = Channel<ClassNode>(Channel.BUFFERED)
                 val libraryNodes = Channel<ClassNode>(Channel.BUFFERED)
