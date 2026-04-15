@@ -9,11 +9,11 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.PostProcess
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.ArithmeticSubstitute
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.string.StringArrayedEncrypt
-import net.spartanb312.grunteon.obfuscator.process.transformers.other.FakeSyntheticBridge
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.DeclaredFieldsExtract
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.ParameterObfuscate
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.DecompilerCrasher
+import net.spartanb312.grunteon.obfuscator.process.transformers.other.FakeSyntheticBridge
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.ShuffleMembers
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.Watermark
 import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.FieldAccessProxy
@@ -77,35 +77,35 @@ fun main(args: Array<String>) {
         val emptyConfig = ConfigGroup()
         val pipeline = ProcessPipeline(
             // Optimize
-            //DeadCodeRemove(),
-            //EnumOptimize(),
+            DeadCodeRemove(),
+            EnumOptimize(),
             KotlinClassShrink(),
-            //ClassShrink(),
-            //SourceDebugInfoHide(),
-            //StringEqualsOptimize(),
-            //// Misc
-            //DeclaredFieldsExtract(),
+            ClassShrink(),
+            SourceDebugInfoHide(),
+            StringEqualsOptimize(),
+            // Encrypt
+            ArithmeticSubstitute(),
+            NumberBasicEncrypt(),
+            StringArrayedEncrypt(),
+            // Misc
+            DeclaredFieldsExtract(),
             ParameterObfuscate(),
-            //// Encrypt
-            //ArithmeticSubstitute(),
-            //NumberBasicEncrypt(),
-            //StringArrayedEncrypt(),
-            //// Controlflow
-            //// Redirect
+            // Controlflow
+            // Redirect
             InvokeDispatcher(),
-            //InvokeProxy(),
-            //FieldAccessProxy(),
-            //// Renamer
-            //LocalVarRenamer(),
-            //ClassRenamer(),
-            //FieldRenamer(),
-            //MethodRenamer(),
-            //// Other
-            //FakeSyntheticBridge(),
-            //DecompilerCrasher(),
-            //ShuffleMembers(),
-            //Watermark(),
-            //// Post
+            InvokeProxy(),
+            FieldAccessProxy(),
+            // Renamer
+            LocalVarRenamer(),
+            ClassRenamer(),
+            FieldRenamer(),
+            MethodRenamer(),
+            // Other
+            FakeSyntheticBridge(),
+            DecompilerCrasher(),
+            ShuffleMembers(),
+            Watermark(),
+            // Post
             PostProcess()
         )
         val instance = emptyConfig.runPipeline(pipeline)

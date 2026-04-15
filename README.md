@@ -11,6 +11,16 @@ Feel free to join our Discord server for suggestions: https://discord.gg/ysB2fMf
 Working in progress. The following is a list of features that have been completed or are currently being developed in
 the near future
 
+### Framework
+
+* [ ] Config system (migrating)
+* [X] Resource management
+* [X] Filter system
+* [X] Parallel execution pipeline
+* [ ] Module system 
+* [ ] Plugin system
+* [ ] UI with I18N (Jetpack Compose)
+
 ### Encrypt
 
 * [X] Number encryption
@@ -21,6 +31,7 @@ the near future
 ### Miscellaneous
 
 * [X] Declared fields extractor
+* [X] Parameter obfuscation
 * [ ] Trash class generator
 * [ ] HardwareID authenticator
 * [ ] Native candidate
@@ -34,6 +45,7 @@ the near future
 * [X] Kotlin class shrinking
 * [X] Source debug info hide
 * [X] String equals optimize
+* [ ] Method inliner
 
 ### Renaming
 
@@ -60,8 +72,8 @@ the near future
 ### Redirect
 
 * [X] Field access proxy
-* [ ] Invoke proxy
-* [ ] Invoke dispatcher
+* [X] Invoke proxy
+* [X] Invoke dispatcher
 
 ### Other
 
@@ -69,8 +81,8 @@ the near future
 * [X] Fake synthetic bridge
 * [X] Shuffle members
 * [X] Watermarks
-* [ ] Reference hide
-* [ ] Post process
+* [ ] Reference obfuscation
+* [X] Post process
 
 ## License
 

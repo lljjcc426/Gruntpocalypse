@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.extensions.*
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
@@ -65,7 +66,7 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
                         val callingMethod = callingOwner.methods?.toList()?.find {
                             it.name == instruction.name && it.desc == instruction.desc
                         } ?: return@forEach
-                        if (callingMethod.isInitializer) return@forEach
+                        //if (callingMethod.isInitializer) return@forEach
                         if (!callingMethod.isPrivate) return@forEach
                         callInstances.getOrPut(callingMethod) { mutableListOf() }.add(instruction)
                     }
@@ -75,7 +76,12 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
                 val isStatic = callingMethod.isStatic
                 val params = Type.getArgumentTypes(callingMethod.desc)
                 val mappedParams =
-                    params.map { if (it.descriptor.startsWith("L")) "Ljava/lang/Object;" else it.descriptor }
+                    params.map {
+                        if (it.descriptor.startsWith("L")) {
+                            if (it.descriptor != "Ljava/lang/Object;") counter.add()
+                            "Ljava/lang/Object;"
+                        } else it.descriptor
+                    }
                 val indexedParams = Int2ObjectOpenHashMap<Type>()
                 var stack = 0
                 params.forEach {
@@ -107,10 +113,13 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
                 }
             }
         }
-        barrier()
+        post {
+            Logger.info(" - ParameterObfuscate:")
+            Logger.info("    Obfuscated ${counter.global.get()} parameters")
+        }
     }
 
-    private fun String.correctCast() : String {
+    private fun String.correctCast(): String {
         return if (startsWith("L")) removePrefix("L").removeSuffix(";") else this
     }
 
