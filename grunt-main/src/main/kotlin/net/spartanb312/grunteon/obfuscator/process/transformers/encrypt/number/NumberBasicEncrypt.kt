@@ -1,10 +1,10 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number
 
+import kotlinx.serialization.Serializable
 import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.instructions
 import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.config.whenTrue
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.DISABLE_NUMBER_ENCRYPT
@@ -42,108 +42,43 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     )
 ) {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        // Integer
-        private val integer0 = setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.integer", "Integer"),
-            value = true,
-            desc = enText("process.encrypt.number.number_basic_encrypt.integer.desc", "Encrypt integers")
+    // TODO: hide chances when disabled
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Encrypt integers")
+        val integer: Boolean = true,
+        @SettingDesc(enText = "Integer encrypt rate. Range: 0.0..1.0")
+        @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
+        val integerChance: Double = 1.0,
+        @SettingDesc(enText = "Encrypt longs")
+        val long: Boolean = true,
+        @SettingDesc(enText = "Long encrypt rate. Range: 0.0..1.0")
+        @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
+        val longChance: Double = 1.0,
+        @SettingDesc(enText = "Encrypt floats")
+        val float: Boolean = true,
+        @SettingDesc(enText = "Float encrypt rate. Range: 0.0..1.0")
+        @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
+        val floatChance: Double = 1.0,
+        @SettingDesc(enText = "Encrypt doubles")
+        val double: Boolean = true,
+        @SettingDesc(enText = "Double encrypt rate. Range: 0.0..1.0")
+        @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
+        val doubleChance: Double = 1.0,
+        @SettingDesc(enText = "The upper limit of instruction count for a Method. Typically, each instruction occupies 2-3 bytes, and the upper limit for each Method is 65536 bytes")
+        val maxInstructions: Int = 16384,
+        @SettingDesc(enText = "When enabled, a modifier will be applied to all chances. Modifier = (MaxInsn - CurrentInsn) / MaxInsn")
+        val dynamicStrength: Boolean = true,
+        @SettingDesc(enText = "Specify method exclusions.")
+        val exclusion: List<String> = listOf(
+            "net/dummy/**",
+            "net/dummy/Class",
+            "net/dummy/Class.method",
+            "net/dummy/Class.method()V"
         )
-        val integer by integer0
-        val integerChance by setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.integer_chance", "Integer chance"),
-            value = 1f,
-            range = 0f..1f,
-            desc = enText(
-                "process.encrypt.number.number_basic_encrypt.integer_chance.desc",
-                "Integer encrypt rate. Range: 0.0..1.0"
-            )
-        ).whenTrue(integer0)
-
-        // Long
-        private val long0 = setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.long", "Long"),
-            value = true,
-            desc = enText("process.encrypt.number.number_basic_encrypt.long.desc", "Encrypt longs")
-        )
-        val long by long0
-        val longChance by setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.long_chance", "Long chance"),
-            value = 1f,
-            range = 0f..1f,
-            desc = enText(
-                "process.encrypt.number.number_basic_encrypt.long_chance.desc",
-                "Long encrypt rate. Range: 0.0..1.0"
-            )
-        ).whenTrue(long0)
-
-        // Float
-        val float0 = setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.float", "Float"),
-            value = true,
-            desc = enText("process.encrypt.number.number_basic_encrypt.float.desc", "Encrypt floats")
-        )
-        val float by float0
-        val floatChance by setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.float_chance", "Float chance"),
-            value = 1f,
-            range = 0f..1f,
-            desc = enText(
-                "process.encrypt.number.number_basic_encrypt.float_chance.desc",
-                "Float encrypt rate. Range: 0.0..1.0"
-            )
-        ).whenTrue(float0)
-
-        // Double
-        val double0 = setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.double", "Double"),
-            value = true,
-            desc = enText("process.encrypt.number.number_basic_encrypt.double.desc", "Encrypt doubles")
-        )
-        val double by double0
-        val doubleChance by setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.float_chance", "Double chance"),
-            value = 1f,
-            range = 0f..1f,
-            desc = enText(
-                "process.encrypt.number.number_basic_encrypt.double_chance.desc",
-                "Double encrypt rate. Range: 0.0..1.0"
-            )
-        ).whenTrue(double0)
-
-        // Dynamic
-        val maxInstructions by setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.max_instructions", "Max instructions"),
-            value = 16384,
-            desc = enText(
-                "process.encrypt.number.number_basic_encrypt.max_instruction.desc",
-                "The upper limit of instruction count for a Method. Typically, each instruction occupies 2-3 bytes, and the upper limit for each Method is 65536 bytes"
-            )
-        )
-        val dynamicStrength by setting(
-            name = enText("process.encrypt.number.number_basic_encrypt.dynamic_strength", "Dynamic strength"),
-            value = true,
-            desc = enText(
-                "process.encrypt.number.number_basic_encrypt.dynamic_strength.desc",
-                "When enabled, a modifier will be applied to all chances. Modifier = (MaxInsn - CurrentInsn) / MaxInsn"
-            )
-        )
-
-        // Exclusion
-        val exclusion by setting(
-            enText("process.encrypt.number.number_basic_encrypt.method_exclusion", "Method exclusion"),
-            listOf(
-                "net/dummy/**", // Exclude package
-                "net/dummy/Class", // Exclude class
-                "net/dummy/Class.method", // Exclude method name
-                "net/dummy/Class.method()V", // Exclude method with desc
-            ),
-            enText("process.encrypt.number.number_basic_encrypt.method_exclusion.desc", "Specify method exclusions."),
-        )
-    }
+    ) : TransformerConfig
 
     private lateinit var methodExPredicate: NamePredicates
 
@@ -155,7 +90,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val shuffledListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             if (classNode.isExcluded(DISABLE_NUMBER_ENCRYPT)) return@parForEachClassesFiltered
             classNode.methods.asSequence()
@@ -296,3 +231,4 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     }
 
 }
+

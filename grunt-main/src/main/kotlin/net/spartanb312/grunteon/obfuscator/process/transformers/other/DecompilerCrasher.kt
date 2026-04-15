@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.other
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
@@ -16,13 +18,11 @@ class DecompilerCrasher : Transformer<DecompilerCrasher.Config>(
         "Crash decompilers"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val blankString = false
-    }
+    @Serializable
+    data class Config(
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        val blankString: Boolean = false
+    ) : TransformerConfig
 
     context(config: Config)
     private val String?.bigBrainSignature
@@ -36,7 +36,7 @@ class DecompilerCrasher : Transformer<DecompilerCrasher.Config>(
             //Logger.info(" > DecompilerCrasher: Insert crashers to classes...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             context(config) {
                 val counter = counter.local
                 classNode.methods.forEach { methodNode ->

@@ -2,6 +2,7 @@ package net.spartanb312.grunteon.obfuscator.process.resource
 
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
+import kotlinx.serialization.Serializable
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
@@ -99,14 +100,14 @@ class NameGenerator(private val dictionary: Dictionary) {
         context(instance: Grunteon)
         private fun customIncr() = Dictionary(
             "CustomIncrementable",
-            instance.configGroup.customIncrementalDictionary
+            instance.obfConfig.customIncrementalDictionary
         )
 
         context(instance: Grunteon)
         private fun custom() = Dictionary(
             "Custom",
             run {
-                val file = File(instance.configGroup.customDictionary)
+                val file = File(instance.obfConfig.customDictionary)
                 if (!file.exists()) {
                     // Dictionary file does not exist, use default dictionary
                     Logger.error("Could not find custom dictionary ${file.name}")
@@ -131,6 +132,7 @@ class NameGenerator(private val dictionary: Dictionary) {
             }
     }
 
+    @Serializable
     enum class DictionaryType(override val displayName: CharSequence) : DisplayEnum {
         Alphabet("Alphabet"),
         Numbers("Numbers"),

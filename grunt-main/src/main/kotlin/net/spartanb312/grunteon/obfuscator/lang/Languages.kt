@@ -36,6 +36,10 @@ enum class Languages(override val displayName: CharSequence, val code: String) :
     Vietnamese("Tiếng Việt", "vi_VN"),
 }
 
+@Retention(AnnotationRetention.RUNTIME)
+@Target(AnnotationTarget.CLASS)
+annotation class I18NDescriptorPath(val value: String)
+
 fun enText(descriptor: String, value: String): MultiText = MultiText(descriptor).addLang(Languages.English, value).reg()
 
 fun MultiText.ar(value: String): MultiText = addLang(Languages.Arabic, value)

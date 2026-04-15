@@ -1,6 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
+import kotlinx.serialization.Serializable
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
@@ -21,9 +22,6 @@ class ClassShrink : Transformer<ClassShrink.Config>(
     )
 ) {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         before(Category.Encryption, "Optimizer should run before encryption category")
         before(Category.Controlflow, "Optimizer should run before controlflow category")
@@ -35,40 +33,19 @@ class ClassShrink : Transformer<ClassShrink.Config>(
         before(Category.Renaming, "Optimizer should run before renaming category")
     }
 
-    class Config : TransformerConfig() {
-        val innerClasses by setting(
-            name = enText("process.optimize.class_shrink.remove_inner_classes", "Inner class remove"),
-            value = true,
-            desc = enText(
-                "process.optimize.class_shrink.remove_inner_classes.desc",
-                "Remove redundant inner classes"
-            )
-        )
-        val unusedLabels by setting(
-            name = enText("process.optimize.class_shrink.remove_unused_labels", "Unused labels remove"),
-            value = true,
-            desc = enText(
-                "process.optimize.class_shrink.remove_unused_labels.desc",
-                "Remove unused labels"
-            )
-        )
-        val nopRemove by setting(
-            name = enText("process.optimize.class_shrink.nop_remove", "NOP remove"),
-            value = true,
-            desc = enText(
-                "process.optimize.class_shrink.nop_remove.desc",
-                "Remove redundant NOP instructions"
-            )
-        )
-        val methodSignatures by setting(
-            name = enText("process.optimize.class_shrink.remove_method_signatures", "Method signatures remove"),
-            value = true,
-            desc = enText(
-                "process.optimize.class_shrink.remove_method_signatures.desc",
-                "Remove method signatures"
-            )
-        )
-    }
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Remove redundant inner classes")
+        val innerClasses: Boolean = true,
+        @SettingDesc(enText = "Remove unused labels")
+        val unusedLabels: Boolean = true,
+        @SettingDesc(enText = "Remove redundant NOP instructions")
+        val nopRemove: Boolean = true,
+        @SettingDesc(enText = "Remove method signatures")
+        val methodSignatures: Boolean = true
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -79,7 +56,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
         val unusedLabels = reducibleScopeValue { MergeableCounter() }
         val nops = reducibleScopeValue { MergeableCounter() }
         val methodSignatures = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             val innerClasses = innerClasses.local
             val unusedLabels = unusedLabels.local

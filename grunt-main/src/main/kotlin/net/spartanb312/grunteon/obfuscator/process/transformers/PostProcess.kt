@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import kotlinx.serialization.Serializable
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
@@ -20,45 +21,26 @@ class PostProcess : Transformer<PostProcess.Config>(
         "Post resource process. Manifest/YML/JSON remap"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val manifest by setting(
-            name = enText("process.other.post_process.manifest", "Manifest"),
-            value = true,
-            desc = enText("process.other.post_process.manifest.desc", "Remap manifest")
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Remap manifest")
+        val manifest: Boolean = true,
+        @SettingDesc(enText = "Remap Plugin YML")
+        val pluginMain: Boolean = true,
+        @SettingDesc(enText = "Remap Bungee YML")
+        val bungeeMain: Boolean = true,
+        @SettingDesc(enText = "Remap Fabric JSON")
+        val fabricMain: Boolean = true,
+        @SettingDesc(enText = "Remap Velocity JSON")
+        val velocityMain: Boolean = true,
+        @SettingDesc(enText = "Main class manifest key")
+        val manifestReplace: List<String> = listOf(
+            "Main-Class:",
+            "Launch-Entry:"
         )
-        val pluginMain by setting(
-            name = enText("process.other.post_process.plugin_yml", "Plugin YML"),
-            value = true,
-            desc = enText("process.other.post_process.plugin_yml.desc", "Remap Plugin YML")
-        )
-        val bungeeMain by setting(
-            name = enText("process.other.post_process.bungee_yml", "Bungee YML"),
-            value = true,
-            desc = enText("process.other.post_process.bungee_yml.desc", "Remap Bungee YML")
-        )
-        val fabricMain by setting(
-            name = enText("process.other.post_process.fabric_json", "Fabric JSON"),
-            value = true,
-            desc = enText("process.other.post_process.fabric_json.desc", "Remap Fabric JSON")
-        )
-        val velocityMain by setting(
-            name = enText("process.other.post_process.velocity_json", "Velocity JSON"),
-            value = true,
-            desc = enText("process.other.post_process.velocity_json.desc", "Remap Velocity JSON"),
-        )
-        val manifestReplace by setting(
-            name = enText("process.other.post_process.manifest_prefix", "ManifestPrefix"),
-            value = listOf(
-                "Main-Class:",
-                "Launch-Entry:",
-            ),
-            desc = enText("process.other.post_process.manifest_prefix.desc", "Main class manifest key"),
-        )
-    }
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -72,7 +54,7 @@ class PostProcess : Transformer<PostProcess.Config>(
         }
         // Clean up
         val annotationList = DISABLER + IGNORE + INTERNAL
-        val filter = buildFilterStrategy(config)
+        val filter = config.classFilter.buildFilterStrategy()
         parForEachClasses { classNode ->
             val include = filter.testClass(classNode)
             // annotations

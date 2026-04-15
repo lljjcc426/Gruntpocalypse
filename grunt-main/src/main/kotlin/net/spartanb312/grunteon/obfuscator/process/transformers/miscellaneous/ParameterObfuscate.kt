@@ -2,12 +2,16 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import kotlinx.serialization.Serializable
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
-import net.spartanb312.grunteon.obfuscator.util.extensions.*
+import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
+import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
+import net.spartanb312.grunteon.obfuscator.util.extensions.isPrivate
+import net.spartanb312.grunteon.obfuscator.util.extensions.isStatic
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
 import org.objectweb.asm.Opcodes
@@ -25,23 +29,18 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
         "Obfuscate parameters to object type"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        // Exclusion
-        val exclusion by setting(
-            enText("process.miscellaneous.parameter_obfuscate.method_exclusion", "Method exclusion"),
-            listOf(
-                "net/dummy/**", // Exclude package
-                "net/dummy/Class", // Exclude class
-                "net/dummy/Class.method", // Exclude method name
-                "net/dummy/Class.method()V", // Exclude method with desc
-            ),
-            enText("process.miscellaneous.parameter_obfuscate.method_exclusion.desc", "Specify method exclusions."),
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Specify method exclusions.")
+        val exclusion: List<String> = listOf(
+            "net/dummy/**",
+            "net/dummy/Class",
+            "net/dummy/Class.method",
+            "net/dummy/Class.method()V"
         )
-    }
+    ) : TransformerConfig
 
     private lateinit var methodExPredicate: NamePredicates
 
@@ -52,7 +51,7 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             val callInstances = Object2ObjectOpenHashMap<MethodNode, MutableList<MethodInsnNode>>()
             // Collect method call instance

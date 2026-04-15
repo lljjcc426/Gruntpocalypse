@@ -1,7 +1,8 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.grunteon.obfuscator.Grunteon
-import net.spartanb312.grunteon.obfuscator.config.at
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
@@ -25,9 +26,6 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
     )
 ) {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         before(Category.Encryption, "Optimizer should run before encryption category")
         before(Category.Controlflow, "Optimizer should run before controlflow category")
@@ -39,34 +37,17 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
         before(Category.Renaming, "Optimizer should run before renaming category")
     }
 
-    class Config : TransformerConfig() {
-        val sourceFiles by setting(
-            name = enText("process.optimize.source_debug_info_hide.source_files", "Remove/Edit source files"),
-            value = SourceFileAction.Remove,
-            desc = enText(
-                "process.optimize.source_debug_info_hide.source_files.desc",
-                "Remove or edit source file information"
-            ),
-        )
-        val lineNumbers by setting(
-            name = enText("process.optimize.source_debug_info_hide.line_numbers", "Remove line numbers"),
-            value = true,
-            desc = enText(
-                "process.optimize.source_debug_info_hide.line_numbers.desc",
-                "Remove line numbers"
-            ),
-        )
-        val sourceNames by setting(
-            name = enText("process.optimize.source_debug_info_hide.source_names", "Source file names"),
-            value = listOf(
-                ""
-            ),
-            desc = enText(
-                "process.optimize.source_debug_info_hide.source_names.desc",
-                "Customize source names"
-            )
-        ).at { sourceFiles == SourceFileAction.Replace }
-    }
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Remove or edit source file information")
+        val sourceFiles: SourceFileAction = SourceFileAction.Remove,
+        @SettingDesc(enText = "Remove line numbers")
+        val lineNumbers: Boolean = true,
+        @SettingDesc(enText = "Customize source names")
+        val sourceNames: List<String> = listOf("")
+    ) : TransformerConfig
 
     enum class SourceFileAction(override val displayName: CharSequence) : DisplayEnum {
         Off("No operation"),
@@ -80,7 +61,7 @@ class SourceDebugInfoHide : Transformer<SourceDebugInfoHide.Config>(
             //Logger.info(" > SourceDebugInfoHide: Removing/Editing debug information...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             val counter = counter.local
             val randomGen = Xoshiro256PPRandom(getSeed(classNode.name))

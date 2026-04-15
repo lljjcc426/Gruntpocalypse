@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.genesis.kotlin.clinit
 import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.genesis.kotlin.extensions.insn.*
@@ -28,11 +30,10 @@ class DeclaredFieldsExtract : Transformer<DeclaredFieldsExtract.Config>(
         "Extract field initialization to <init> or <clinit>"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig()
+    @Serializable
+    data class Config(
+        val classFilter: ClassFilterConfig = ClassFilterConfig()
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -40,7 +41,7 @@ class DeclaredFieldsExtract : Transformer<DeclaredFieldsExtract.Config>(
             //Logger.info(" > DeclaredFieldsExtract: Transforming local variables...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isAnnotation) return@parForEachClassesFiltered
             if (classNode.isInterface) return@parForEachClassesFiltered // compile-time constant won't invoke <clinit>
             val counter = counter.local

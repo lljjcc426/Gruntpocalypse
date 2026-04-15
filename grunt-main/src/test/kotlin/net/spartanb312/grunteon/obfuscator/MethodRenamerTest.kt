@@ -1,9 +1,10 @@
-import net.spartanb312.grunteon.obfuscator.config.manager.ConfigGroup
-import net.spartanb312.grunteon.obfuscator.pipeline.ProcessPipeline
+package net.spartanb312.grunteon.obfuscator
+
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MethodRenamer
 import net.spartanb312.grunteon.obfuscator.util.ClearClassNode
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
+import net.spartanb312.grunteon.testcase.Asserts
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.ClassWriter.COMPUTE_FRAMES
 import org.objectweb.asm.Opcodes
@@ -27,13 +28,16 @@ class MethodRenamerTest {
             Logger = SimpleLogger("Grunteon")
         }
         val instance = readTestClasses(
-            net.spartanb312.grunteon.testcase.Asserts::class.java,
-            ProcessPipeline(MethodRenamer()).apply { parseConfig(ConfigGroup()) }
+            Asserts::class.java,
+            ObfConfig(
+                transformerConfigs = listOf(MethodRenamer.Config())
+            )
         )
         context(instance.workRes, instance) {
-            instance.pipeline.execute()
+            instance.execute()
         }
-        tempDir = Path("build/tmp/grunteon-MethodRenamerTest").also { println(it.absolutePathString()) }
+        tempDir =
+            Path("build/tmp/grunteon-net.spartanb312.grunteon.obfuscator.MethodRenamerTest").also { println(it.absolutePathString()) }
         for (classNode in instance.workRes.inputClassCollection) {
             val bytes = ClassWriter(COMPUTE_FRAMES).apply {
                 classNode.accept(ClearClassNode(Opcodes.ASM9, this))
@@ -112,7 +116,7 @@ class MethodRenamerTest {
         runTestClass("net.spartanb312.grunteon.testcase.methodrename.functional.ObjectCapturing")
 
     @Test
-    fun TypeOverloadTest()=
+    fun TypeOverloadTest() =
         runTestClass("net.spartanb312.grunteon.testcase.methodrename.typeoverload.TypeOverload")
 
 }

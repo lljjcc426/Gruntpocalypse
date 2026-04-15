@@ -1,21 +1,13 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.other
 
-import net.spartanb312.genesis.kotlin.extensions.PRIVATE
-import net.spartanb312.genesis.kotlin.extensions.STATIC
-import net.spartanb312.genesis.kotlin.extensions.insn.ARETURN
-import net.spartanb312.genesis.kotlin.extensions.insn.LDC
+import kotlinx.serialization.Serializable
+import net.spartanb312.genesis.kotlin.extensions.*
+import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.field
 import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
-import net.spartanb312.grunteon.obfuscator.process.Category
-import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
-import net.spartanb312.grunteon.obfuscator.process.Transformer
-import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
-import net.spartanb312.grunteon.obfuscator.process.parForEachClassesFiltered
-import net.spartanb312.grunteon.obfuscator.process.post
-import net.spartanb312.grunteon.obfuscator.process.pre
-import net.spartanb312.grunteon.obfuscator.process.reducibleScopeValue
+import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
@@ -28,36 +20,22 @@ class Watermark : Transformer<Watermark.Config>(
         "Add watermarks"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val names by setting(
-            name = enText("process.other.watermark.names", "Names"),
-            value = listOf("Grunt", "Gruntpocalypse", "Grunteon"),
-            desc = enText("process.other.watermark.names.desc", "Watermark member names")
-        )
-        val messages by setting(
-            name = enText("process.other.watermark.messages", "Messages"),
-            value = listOf(
-                "PROTECTED BY GRUNTEON",
-                "PROTECTED BY EVERETT",
-                "PROTECTED BY YuShengJun"
-            ),
-            desc = enText("process.other.watermark.messages.desc", "Watermark messages"),
-        )
-        val fieldMark by setting(
-            name = enText("process.other.watermark.field", "Field mark"),
-            value = true,
-            desc = enText("process.other.watermark.field.desc", "Add field watermark")
-        )
-        val methodMark by setting(
-            name = enText("process.other.watermark.method", "Method mark"),
-            value = true,
-            desc = enText("process.other.watermark.method.desc", "Add method watermark")
-        )
-    }
+    @Serializable
+    data class Config(
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Watermark member names")
+        val names: List<String> = listOf("Grunt", "Gruntpocalypse", "Grunteon"),
+        @SettingDesc(enText = "Watermark messages")
+        val messages: List<String> = listOf(
+            "PROTECTED BY GRUNTEON",
+            "PROTECTED BY EVERETT",
+            "PROTECTED BY YuShengJun"
+        ),
+        @SettingDesc(enText = "Add field watermark")
+        val fieldMark: Boolean = true,
+        @SettingDesc(enText = "Add method watermark")
+        val methodMark: Boolean = true
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -65,7 +43,7 @@ class Watermark : Transformer<Watermark.Config>(
             //Logger.info(" > Watermark: Adding watermarks...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isInterface) return@parForEachClassesFiltered
             val counter = counter.local
             if (config.fieldMark) {

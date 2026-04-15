@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.other
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
@@ -14,16 +16,14 @@ class ShuffleMembers : Transformer<ShuffleMembers.Config>(
         "Shuffle members in classes"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val methods = true
-        val fields = true
-        val annotations = true
-        val exceptions = true
-    }
+    @Serializable
+    data class Config(
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        val methods: Boolean = true,
+        val fields: Boolean = true,
+        val annotations: Boolean = true,
+        val exceptions: Boolean = true
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -31,7 +31,7 @@ class ShuffleMembers : Transformer<ShuffleMembers.Config>(
             //Logger.info(" > ShuffleMembers: Shuffling members...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             if (config.methods) classNode.methods?.let {
                 classNode.methods = it.shuffled()

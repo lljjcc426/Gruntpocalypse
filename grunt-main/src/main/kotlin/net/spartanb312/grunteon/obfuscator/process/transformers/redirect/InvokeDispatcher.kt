@@ -1,11 +1,9 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.redirect
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import kotlinx.serialization.Serializable
 import net.spartanb312.genesis.kotlin.extensions.*
-import net.spartanb312.genesis.kotlin.extensions.insn.CHECKCAST
-import net.spartanb312.genesis.kotlin.extensions.insn.ILOAD
-import net.spartanb312.genesis.kotlin.extensions.insn.INVOKESTATIC
-import net.spartanb312.genesis.kotlin.extensions.insn.INVOKEVIRTUAL
+import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
@@ -31,36 +29,23 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
         "Redirect multiple method invokes to a single dispatcher"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val chance by setting(
-            name = enText("process.redirect.invoke_dispatcher.replace_chance", "Replace chance"),
-            value = 0.3f,
-            range = 0f..1f,
-            desc = enText(
-                "process.redirect.invoke_dispatcher.replace_chance.desc",
-                "The chance that attempt to replace put/set to getter/setter"
-            )
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "The chance that attempt to replace put/set to getter/setter")
+        @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
+        val chance: Double = 0.3,
+        val maxParams: Int = 10,
+        val maxHandles: Int = 10,
+        @SettingDesc(enText = "Specify method exclusions.")
+        val exclusion: List<String> = listOf(
+            "net/dummy/**",
+            "net/dummy/Class",
+            "net/dummy/Class.method",
+            "net/dummy/Class.method()V"
         )
-
-        val maxParams = 10
-        val maxHandles = 10
-
-        // Exclusion
-        val exclusion by setting(
-            enText("process.redirect.invoke_dispatcher.method_exclusion", "Method exclusion"),
-            listOf(
-                "net/dummy/**", // Exclude package
-                "net/dummy/Class", // Exclude class
-                "net/dummy/Class.method", // Exclude method name
-                "net/dummy/Class.method()V", // Exclude method with desc
-            ),
-            enText("process.redirect.invoke_dispatcher.method_exclusion.desc", "Specify method exclusions."),
-        )
-    }
+    ) : TransformerConfig
 
     private lateinit var methodExPredicate: NamePredicates
 
@@ -73,7 +58,7 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val counter2 = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             val counter2 = counter2.local
             if (classNode.isExcluded(DISABLE_INVOKE_DISPATCHER)) return@parForEachClassesFiltered
@@ -224,7 +209,7 @@ class InvokeDispatcher : Transformer<InvokeDispatcher.Config>(
         val returnType = Type.getReturnType(callingMethod.desc).descriptor
     }
 
-    private fun String.correctCast() : String {
+    private fun String.correctCast(): String {
         return if (startsWith("L")) removePrefix("L").removeSuffix(";") else this
     }
 

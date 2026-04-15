@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.instructions
 import net.spartanb312.grunteon.obfuscator.Grunteon
@@ -20,9 +22,6 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
     )
 ) {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         before(Category.Encryption, "Optimizer should run before encryption category")
         before(Category.Controlflow, "Optimizer should run before controlflow category")
@@ -34,13 +33,13 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
         before(Category.Renaming, "Optimizer should run before renaming category")
     }
 
-    class Config : TransformerConfig() {
-        val ignoreCase by setting(
-            name = enText("process.optimize.string_equals_optimize.ignore_case", "Ignore case"),
-            value = true,
-            desc = enText("process.optimize.string_equals_optimize.ignore_case.desc", "Redirect equalsIgnoreCase()")
-        )
-    }
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Redirect equalsIgnoreCase()")
+        val ignoreCase: Boolean = true
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -48,7 +47,7 @@ class StringEqualsOptimize : Transformer<StringEqualsOptimize.Config>(
             //Logger.info(" > StringEqualsOptimize: Redirecting string equals calls...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             classNode.methods.forEach { methodNode ->
                 val counter = counter.local
                 for (insnNode in methodNode.instructions.toArray()) {

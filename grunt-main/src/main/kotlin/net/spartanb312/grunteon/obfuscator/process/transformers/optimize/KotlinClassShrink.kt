@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
@@ -25,9 +27,6 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
     )
 ) {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         before(Category.Encryption, "Optimizer should run before encryption category")
         before(Category.Controlflow, "Optimizer should run before controlflow category")
@@ -39,47 +38,26 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         before(Category.Renaming, "Optimizer should run before renaming category")
     }
 
-    class Config : TransformerConfig() {
-        val metaData by setting(
-            name = enText("process.optimize.kotlin_class_shrink.remove_metadata", "Metadata remove"),
-            value = true,
-            desc = enText(
-                "process.optimize.kotlin_class_shrink.remove_metadata.desc",
-                "Remove kotlin metadata. Warning: It will render KReflect unusable"
-            )
-        )
-        val intrinsics by setting(
-            name = enText("process.optimize.kotlin_class_shrink.remove_intrinsics", "Intrinsics remove"),
-            value = true,
-            desc = enText(
-                "process.optimize.kotlin_class_shrink.remove_intrinsics.desc",
-                "Remove kotlin intrinsics like parameter check"
-            )
-        )
-        val intrinsicsRemoval by setting(
-            name = enText("process.optimize.kotlin_class_shrink.remove_intrinsics_target", "Intrinsics remove target"),
-            value = listOf(
-                "checkExpressionValueIsNotNull",
-                "checkNotNullExpressionValue",
-                "checkReturnedValueIsNotNull",
-                "checkFieldIsNotNull",
-                "checkParameterIsNotNull",
-                "checkNotNullParameter"
-            ),
-            desc = enText(
-                "process.optimize.kotlin_class_shrink.remove_intrinsics_target.desc",
-                "Specify intrinsics remove target"
-            )
-        )
-        val replaceLDC by setting(
-            name = enText("process.optimize.kotlin_class_shrink.replace_ldc", "Replace LDC"),
-            value = true,
-            desc = enText(
-                "process.optimize.kotlin_class_shrink.replace_ldc.desc",
-                "Replace LDC to avoid reference leaking"
-            )
-        )
-    }
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Remove kotlin metadata. Warning: It will render KReflect unusable")
+        val metaData: Boolean = true,
+        @SettingDesc(enText = "Remove kotlin intrinsics like parameter check")
+        val intrinsics: Boolean = true,
+        @SettingDesc(enText = "Specify intrinsics remove target")
+        val intrinsicsRemoval: List<String> = listOf(
+            "checkExpressionValueIsNotNull",
+            "checkNotNullExpressionValue",
+            "checkReturnedValueIsNotNull",
+            "checkFieldIsNotNull",
+            "checkParameterIsNotNull",
+            "checkNotNullParameter"
+        ),
+        @SettingDesc(enText = "Replace LDC to avoid reference leaking")
+        val replaceLDC: Boolean = true
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -89,7 +67,7 @@ class KotlinClassShrink : Transformer<KotlinClassShrink.Config>(
         val intrinsics = reducibleScopeValue { MergeableCounter() }
         val metadata = reducibleScopeValue { MergeableCounter() }
         val pendingReplaceCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             if (config.intrinsics) {
                 val intrinsics = intrinsics.local

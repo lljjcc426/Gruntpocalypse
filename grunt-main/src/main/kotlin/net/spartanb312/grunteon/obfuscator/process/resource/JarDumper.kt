@@ -27,7 +27,7 @@ object JarDumper {
     @OptIn(ExperimentalCoroutinesApi::class)
     context(instance: Grunteon)
     fun dumpJar(outputFile: Path) {
-        val config = instance.configGroup
+        val config = instance.obfConfig
 
         fun checkFileNameRemove(name: String): Boolean {
             return config.fileRemovePrefix.any { name.startsWith(it) }
@@ -44,7 +44,7 @@ object JarDumper {
             val random = Xoshiro256PPRandom(
                 getSeed(
                     config.input,
-                    config.output,
+                    outputFile.name,
                     "corruptHeader",
                 )
             )
@@ -149,7 +149,7 @@ object JarDumper {
                         val random = Xoshiro256PPRandom(
                             getSeed(
                                 config.input,
-                                config.output,
+                                outputFile.name,
                                 "corruptCRC32",
                             )
                         )

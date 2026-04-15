@@ -1,10 +1,9 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.redirect
 
-import net.spartanb312.genesis.kotlin.extensions.PRIVATE
-import net.spartanb312.genesis.kotlin.extensions.PUBLIC
-import net.spartanb312.genesis.kotlin.extensions.STATIC
-import net.spartanb312.genesis.kotlin.extensions.insn.INVOKESTATIC
-import net.spartanb312.genesis.kotlin.extensions.insn.INVOKEVIRTUAL
+import kotlinx.serialization.Serializable
+
+import net.spartanb312.genesis.kotlin.extensions.*
+import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
@@ -29,41 +28,23 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
         "Redirect method invokes"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val chance by setting(
-            name = enText("process.redirect.field_access_proxy.replace_chance", "Replace chance"),
-            value = 0.3f,
-            range = 0f..1f,
-            desc = enText(
-                "process.redirect.field_access_proxy.replace_chance.desc",
-                "The chance that attempt to replace put/set to getter/setter"
-            )
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "The chance that attempt to replace put/set to getter/setter")
+        @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
+        val chance: Double = 0.3,
+        @SettingDesc(enText = "Generate an outer class to store proxies")
+        val outer: Boolean = true,
+        @SettingDesc(enText = "Specify method exclusions.")
+        val exclusion: List<String> = listOf(
+            "net/dummy/**",
+            "net/dummy/Class",
+            "net/dummy/Class.method",
+            "net/dummy/Class.method()V"
         )
-        val outer by setting(
-            name = enText("process.redirect.field_access_proxy.outer", "Outer class"),
-            value = true,
-            desc = enText(
-                "process.redirect.field_access_proxy.outer.desc",
-                "Generate an outer class to store proxies"
-            )
-        )
-
-        // Exclusion
-        val exclusion by setting(
-            enText("process.redirect.field_access_proxy.method_exclusion", "Method exclusion"),
-            listOf(
-                "net/dummy/**", // Exclude package
-                "net/dummy/Class", // Exclude class
-                "net/dummy/Class.method", // Exclude method name
-                "net/dummy/Class.method()V", // Exclude method with desc
-            ),
-            enText("process.redirect.field_access_proxy.method_exclusion.desc", "Specify method exclusions."),
-        )
-    }
+    ) : TransformerConfig
 
     private lateinit var methodExPredicate: NamePredicates
 
@@ -76,7 +57,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val newClasses = globalScopeValue { mutableMapOf<ClassNode, ClassNode>() }// Owner Companion
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             if (classNode.isExcluded(DISABLE_INVOKE_PROXY)) return@parForEachClassesFiltered
             classNode.methods.toList().asSequence()

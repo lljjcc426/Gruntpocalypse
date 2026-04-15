@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
@@ -26,9 +28,6 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
     )
 ) {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         before(Category.Encryption, "Optimizer should run before encryption category")
         before(Category.Controlflow, "Optimizer should run before controlflow category")
@@ -40,23 +39,17 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
         before(Category.Renaming, "Optimizer should run before renaming category")
     }
 
-    class Config : TransformerConfig() {
-        val pop by setting(
-            name = enText("process.optimize.dead_code_remove.pop_remove", "Pop remove"),
-            value = true,
-            desc = enText("process.optimize.dead_code_remove.pop_remove.desc", "Remove redundant load and pop")
-        )
-        val pop2 by setting(
-            name = enText("process.optimize.dead_code_remove.pop2_remove", "Pop2 remove"),
-            value = true,
-            desc = enText("process.optimize.dead_code_remove.pop2_remove.desc", "Remove redundant load and pop2")
-        )
-        val fallthrough by setting(
-            name = enText("process.optimize.dead_code_remove.fallthrough", "Fallthrough remove"),
-            value = true,
-            desc = enText("process.optimize.dead_code_remove.fallthrough.desc", "Remove fall through goto")
-        )
-    }
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Remove redundant load and pop")
+        val pop: Boolean = true,
+        @SettingDesc(enText = "Remove redundant load and pop2")
+        val pop2: Boolean = true,
+        @SettingDesc(enText = "Remove fall through goto")
+        val fallthrough: Boolean = true
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -65,7 +58,7 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val instListCache = localScopeValue { FastObjectArrayList<AbstractInsnNode>() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             val instListCache = instListCache.local
             classNode.methods.asSequence()
@@ -118,3 +111,4 @@ class DeadCodeRemove : Transformer<DeadCodeRemove.Config>(
         }
     }
 }
+

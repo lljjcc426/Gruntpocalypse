@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
@@ -9,7 +11,6 @@ import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.collection.shuffled
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
-import net.spartanb312.grunteon.obfuscator.util.extensions.isMainMethod
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 
@@ -27,9 +28,6 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
     )
 ), MappingSource {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         after(Category.Encryption, "Renamer should run after encryption category")
         after(Category.Controlflow, "Renamer should run after controlflow category")
@@ -41,45 +39,25 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         after(Category.Redirect, "Renamer should run after redirect category")
     }
 
-    class Config : TransformerConfig() {
-        val dictionary by setting(
-            name = enText("process.rename.class_renamer.dictionary", "Dictionary"),
-            value = NameGenerator.DictionaryType.Alphabet,
-            desc = enText("process.rename.class_renamer.dictionary.desc", "Dictionary for renamer")
-        )
-        val parent by setting(
-            name = enText("process.rename.class_renamer.package", "Package"),
-            value = "net/spartanb312/obf/",
-            desc = enText("process.rename.class_renamer.package.desc", "Parent package for target name")
-        )
-        val prefix by setting(
-            name = enText("process.rename.class_renamer.prefix", "Prefix"),
-            value = "",
-            desc = enText("process.rename.class_renamer.prefix.desc", "Prefix for target name")
-        )
-        val reversed by setting(
-            name = enText("process.rename.class_renamer.reversed", "Reversed name"),
-            value = false,
-            desc = enText("process.rename.class_renamer.reversed.desc", "Append special char to reverse name")
-        )
-        val shuffled by setting(
-            name = enText("process.rename.class_renamer.shuffled", "Shuffled name"),
-            value = false,
-            desc = enText("process.rename.class_renamer.shuffled.desc", "Shuffled mappings for classes"),
-        )
-        val corruptedName by setting(
-            name = enText("process.rename.class_renamer.corrupted", "Corrupted name"),
-            value = false,
-            desc = enText("process.rename.class_renamer.corrupted.desc", "Corrupted name for class in zip"),
-        )
-        val corruptedExclusion by setting(
-            name = enText("process.rename.class_renamer.corrupted_exclusion", "Corrupted exclusion"),
-            value = listOf(),
-            desc = enText(
-                "process.rename.class_renamer.corrupted_exclusion.desc",
-                "Class exclusion for corrupted name"
-            ),
-        )
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Dictionary for renamer")
+        val dictionary: NameGenerator.DictionaryType = NameGenerator.DictionaryType.Alphabet,
+        @SettingDesc(enText = "Parent package for target name")
+        val parent: String = "net/spartanb312/obf/",
+        @SettingDesc(enText = "Prefix for target name")
+        val prefix: String = "",
+        @SettingDesc(enText = "Append special char to reverse name")
+        val reversed: Boolean = false,
+        @SettingDesc(enText = "Shuffled mappings for classes")
+        val shuffled: Boolean = false,
+        @SettingDesc(enText = "Corrupted name for class in zip")
+        val corruptedName: Boolean = false,
+        @SettingDesc(enText = "Class exclusion for corrupted name")
+        val corruptedExclusion: List<String> = listOf()
+    ) : TransformerConfig {
 
         val corruptExPredicate = buildClassNamePredicates(corruptedExclusion)
 
@@ -98,7 +76,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
         seq {
             val instance = contextOf<Grunteon>()
             Logger.info(" > ClassRenamer: Generating class mappings...")
-            val strategy = buildFilterStrategy(config)
+            val strategy = config.classFilter.buildFilterStrategy()
             val dictionary = NameGenerator.getDictionary(config.dictionary)
             val nameGenerator = NameGenerator(dictionary)
             val randomGen = Xoshiro256PPRandom(getSeed("Global"))

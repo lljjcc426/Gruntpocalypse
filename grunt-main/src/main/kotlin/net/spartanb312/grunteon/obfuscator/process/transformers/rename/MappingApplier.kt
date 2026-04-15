@@ -16,10 +16,8 @@ class MappingApplier : Transformer<MappingApplier.Config>(
         "Applying mappings"
     )
 ), MappingSource {
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig()
+    // Dummy
+    class Config : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {

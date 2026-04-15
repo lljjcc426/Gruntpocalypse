@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
@@ -26,9 +28,6 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
     )
 ) {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         after(Category.Encryption, "Renamer should run after encryption category")
         after(Category.Controlflow, "Renamer should run after controlflow category")
@@ -40,36 +39,24 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
         after(Category.Redirect, "Renamer should run after redirect category")
     }
 
-    class Config : TransformerConfig() {
-        val dictionary by setting(
-            name = enText("process.rename.local_var_renamer.dictionary", "Dictionary"),
-            value = NameGenerator.DictionaryType.Alphabet,
-            desc = enText("process.rename.local_var_renamer.dictionary.desc", "Dictionary for renamer")
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Dictionary for renamer")
+        val dictionary: NameGenerator.DictionaryType = NameGenerator.DictionaryType.Alphabet,
+        @SettingDesc(enText = "Prefix for new name")
+        val prefix: String = "\u202E",
+        @SettingDesc(enText = "Delete local vars and parameters info")
+        val deleteASMInfo: Boolean = false,
+        @SettingDesc(enText = "Specify method exclusions.")
+        val exclusion: List<String> = listOf(
+            "net/dummy/**",
+            "net/dummy/Class",
+            "net/dummy/Class.method",
+            "net/dummy/Class.method()V"
         )
-        val prefix by setting(
-            name = enText("process.rename.local_var_renamer.prefix", "Prefix"),
-            value = "\u202E",
-            desc = enText("process.rename.local_var_renamer.prefix.desc", "Prefix for new name")
-        )
-        val deleteASMInfo by setting(
-            name = enText("process.rename.local_var_renamer.delete_names", "Delete names"),
-            value = false,
-            desc = enText(
-                "process.rename.local_var_renamer.delete_names.desc",
-                "Delete local vars and parameters info"
-            ),
-        )
-        val exclusion by setting(
-            enText("process.rename.local_var_renamer.method_exclusion", "Method exclusion"),
-            listOf(
-                "net/dummy/**", // Exclude package
-                "net/dummy/Class", // Exclude class
-                "net/dummy/Class.method", // Exclude method name
-                "net/dummy/Class.method()V", // Exclude method with desc
-            ),
-            enText("process.rename.local_var_renamer.method_exclusion.desc", "Specify method exclusions."),
-        )
-    }
+    ) : TransformerConfig
 
     private lateinit var methodExPredicate: NamePredicates
 
@@ -82,7 +69,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val dictionary = globalScopeValue { NameGenerator.getDictionary(config.dictionary) }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             val dictionary = dictionary.global
             classNode.methods.asSequence()

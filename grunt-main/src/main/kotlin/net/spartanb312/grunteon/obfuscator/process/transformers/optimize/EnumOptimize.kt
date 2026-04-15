@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.optimize
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.before
@@ -23,9 +25,6 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
     )
 ) {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         before(Category.Encryption, "Optimizer should run before encryption category")
         before(Category.Controlflow, "Optimizer should run before controlflow category")
@@ -37,7 +36,10 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
         before(Category.Renaming, "Optimizer should run before renaming category")
     }
 
-    class Config : TransformerConfig()
+    @Serializable
+    data class Config(
+        val classFilter: ClassFilterConfig = ClassFilterConfig()
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -45,7 +47,7 @@ class EnumOptimize : Transformer<EnumOptimize.Config>(
             //Logger.info(" > EnumOptimize: Optimizing enums...")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             if (!classNode.isEnum) return@parForEachClassesFiltered
             val counter = counter.local

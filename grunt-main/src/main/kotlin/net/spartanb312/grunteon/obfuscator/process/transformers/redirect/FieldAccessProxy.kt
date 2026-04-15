@@ -1,5 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.redirect
 
+import kotlinx.serialization.Serializable
+
 import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.method
@@ -27,73 +29,31 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
         "Redirect get/put field operations to getter/setter"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val chance by setting(
-            name = enText("process.redirect.field_access_proxy.replace_chance", "Replace chance"),
-            value = 1.0f,
-            range = 0f..1f,
-            desc = enText(
-                "process.redirect.field_access_proxy.replace_chance.desc",
-                "The chance that attempt to replace put/set to getter/setter"
-            )
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "The chance that attempt to replace put/set to getter/setter")
+        @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
+        val chance: Double = 1.0,
+        @SettingDesc(enText = "Replace GETSTATIC to static getter")
+        val getStatic: Boolean = true,
+        @SettingDesc(enText = "Replace PUTSTATIC to static setter")
+        val putStatic: Boolean = true,
+        @SettingDesc(enText = "Replace GETFIELD to getter")
+        val getField: Boolean = true,
+        @SettingDesc(enText = "Replace PUTFIELD to setter")
+        val putField: Boolean = true,
+        @SettingDesc(enText = "Generate an outer class to store proxies")
+        val outer: Boolean = true,
+        @SettingDesc(enText = "Specify method exclusions.")
+        val exclusion: List<String> = listOf(
+            "net/dummy/**",
+            "net/dummy/Class",
+            "net/dummy/Class.method",
+            "net/dummy/Class.method()V"
         )
-        val getStatic by setting(
-            name = enText("process.redirect.field_access_proxy.get_static", "Replace GETSTATIC"),
-            value = true,
-            desc = enText(
-                "process.redirect.field_access_proxy.get_static.desc",
-                "Replace GETSTATIC to static getter"
-            )
-        )
-        val putStatic by setting(
-            name = enText("process.redirect.field_access_proxy.put_static", "Replace PUTSTATIC"),
-            value = true,
-            desc = enText(
-                "process.redirect.field_access_proxy.put_static.desc",
-                "Replace PUTSTATIC to static setter"
-            )
-        )
-        val getField by setting(
-            name = enText("process.redirect.field_access_proxy.get_field", "Replace GETFIELD"),
-            value = true,
-            desc = enText(
-                "process.redirect.field_access_proxy.get_field.desc",
-                "Replace GETFIELD to getter"
-            )
-        )
-        val putField by setting(
-            name = enText("process.redirect.field_access_proxy.put_field", "Replace PUTFIELD"),
-            value = true,
-            desc = enText(
-                "process.redirect.field_access_proxy.put_field.desc",
-                "Replace PUTFIELD to setter"
-            )
-        )
-        val outer by setting(
-            name = enText("process.redirect.field_access_proxy.outer", "Outer class"),
-            value = true,
-            desc = enText(
-                "process.redirect.field_access_proxy.outer.desc",
-                "Generate an outer class to store proxies"
-            )
-        )
-
-        // Exclusion
-        val exclusion by setting(
-            enText("process.redirect.field_access_proxy.method_exclusion", "Method exclusion"),
-            listOf(
-                "net/dummy/**", // Exclude package
-                "net/dummy/Class", // Exclude class
-                "net/dummy/Class.method", // Exclude method name
-                "net/dummy/Class.method()V", // Exclude method with desc
-            ),
-            enText("process.redirect.field_access_proxy.method_exclusion.desc", "Specify method exclusions."),
-        )
-    }
+    ) : TransformerConfig
 
     private lateinit var methodExPredicate: NamePredicates
 
@@ -112,7 +72,7 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
             MergeableObjectList<ProxyMethod>(FastObjectArrayList())
         }
 
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             val genMethods = genMethods.local
             if (classNode.isExcluded(DISABLE_FIELD_PROXY)) return@parForEachClassesFiltered

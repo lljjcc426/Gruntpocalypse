@@ -1,5 +1,6 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.string
 
+import kotlinx.serialization.Serializable
 import net.spartanb312.genesis.kotlin.clinit
 import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.genesis.kotlin.extensions.insn.*
@@ -33,40 +34,22 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
         "Encrypt string and replace ldc to array load"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val carray by setting(
-            name = enText("process.encrypt.string.string_arrayed_encrypt.carray", "Char array style"),
-            value = true,
-            desc = enText(
-                "process.encrypt.string.string_arrayed_encrypt.carray.desc",
-                "Using char array instead of string LDC"
-            )
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Using char array instead of string LDC")
+        val carray: Boolean = true,
+        @SettingDesc(enText = "Replace invokedynamic string concat")
+        val invokeDynamics: Boolean = true,
+        @SettingDesc(enText = "Specify method exclusions.")
+        val exclusion: List<String> = listOf(
+            "net/dummy/**",
+            "net/dummy/Class",
+            "net/dummy/Class.method",
+            "net/dummy/Class.method()V"
         )
-        val invokeDynamics by setting(
-            name = enText("process.encrypt.string.string_arrayed_encrypt.indy", "Invokedynamic concat"),
-            value = true,
-            desc = enText(
-                "process.encrypt.string.string_arrayed_encrypt.indy.desc",
-                "Replace invokedynamic string concat"
-            )
-        )
-
-        // Exclusion
-        val exclusion by setting(
-            enText("process.encrypt.string.string_arrayed_encrypt.method_exclusion", "Method exclusion"),
-            listOf(
-                "net/dummy/**", // Exclude package
-                "net/dummy/Class", // Exclude class
-                "net/dummy/Class.method", // Exclude method name
-                "net/dummy/Class.method()V", // Exclude method with desc
-            ),
-            enText("process.encrypt.string.string_arrayed_encrypt.method_exclusion.desc", "Specify method exclusions."),
-        )
-    }
+    ) : TransformerConfig
 
     private lateinit var methodExPredicate: NamePredicates
 
@@ -78,7 +61,7 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
         }
         val counter = reducibleScopeValue { MergeableCounter() }
 
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.version < Opcodes.V1_5) return@parForEachClassesFiltered
             if (classNode.isExcluded(DISABLE_STRING_ENCRYPT)) return@parForEachClassesFiltered
             val counter = counter.local
@@ -216,7 +199,7 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
 
     fun isStringConcatenation(instruction: InvokeDynamicInsnNode): Boolean {
         return instruction.name.equals("makeConcatWithConstants")
-                && instruction.bsmArgs[0].toString().find { it != '\u0001' } != null
+            && instruction.bsmArgs[0].toString().find { it != '\u0001' } != null
     }
 
     fun processStringConcatenation(

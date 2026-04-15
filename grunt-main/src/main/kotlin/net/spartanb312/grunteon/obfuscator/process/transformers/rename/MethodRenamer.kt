@@ -7,6 +7,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
+import kotlinx.serialization.Serializable
 import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
@@ -20,7 +21,6 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.other.FakeSynthe
 import net.spartanb312.grunteon.obfuscator.util.IndyChecker
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.*
-import net.spartanb312.grunteon.obfuscator.util.interfaces.DisplayEnum
 import org.objectweb.asm.Type
 
 /**
@@ -39,9 +39,6 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
     )
 ), MappingSource {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         after(Category.Encryption, "Renamer should run after encryption category")
         after(Category.Controlflow, "Renamer should run after controlflow category")
@@ -55,46 +52,22 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         before(FakeSyntheticBridge::class.java, "MethodRenamer should run before FakeSyntheticBridge")
     }
 
-    class Config : TransformerConfig() {
-        val dictionary by setting(
-            name = enText("process.rename.method_renamer.dictionary", "Dictionary"),
-            value = NameGenerator.DictionaryType.Alphabet,
-            desc = enText("process.rename.method_renamer.dictionary.desc", "Dictionary for renamer")
-        )
-        val enums by setting(
-            name = enText("process.rename.method_renamer.enums", "Enums"),
-            value = true,
-            desc = enText(
-                "process.rename.method_renamer.enums.desc",
-                "Obfuscate methods in enum classes"
-            )
-        )
-        val interfaces by setting(
-            name = enText("process.rename.method_renamer.interfaces", "Interfaces"),
-            value = true,
-            desc = enText(
-                "process.rename.method_renamer.interfaces.desc",
-                "Obfuscate methods in interfaces"
-            )
-        )
-        val heavyOverloads by setting(
-            name = enText("process.rename.method_renamer.heavy_overloads", "Heavy overloads"),
-            value = true,
-            desc = enText(
-                "process.rename.method_renamer.heavy_overloads.desc",
-                "Overload method names as much as possible"
-            )
-        )
-        val aggressiveShadowNames by setting(
-            name = enText("process.rename.method_renamer.aggressive_shadow_names", "Aggressive shadow names"),
-            value = true,
-            desc = enText(
-                "process.rename.method_renamer.aggressive_shadow_names.desc",
-                "Shadow method names as much as possible"
-            )
-        )
-        val solveBridge = true
-    }
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Dictionary for renamer")
+        val dictionary: NameGenerator.DictionaryType = NameGenerator.DictionaryType.Alphabet,
+        @SettingDesc(enText = "Obfuscate methods in enum classes")
+        val enums: Boolean = true,
+        @SettingDesc(enText = "Obfuscate methods in interfaces")
+        val interfaces: Boolean = true,
+        @SettingDesc(enText = "Overload method names as much as possible")
+        val heavyOverloads: Boolean = true,
+        @SettingDesc(enText = "Shadow method names as much as possible")
+        val aggressiveShadowNames: Boolean = true,
+        val solveBridge: Boolean = true
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -120,7 +93,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         seq {
             val methodHierarchy = methodHierarchy.global
             val classHierarchy = methodHierarchy.classHierarchy
-            val strategy = buildFilterStrategy(config)
+            val strategy = config.classFilter.buildFilterStrategy()
             // ClassHierarchy.build() sorts inputClassNodes by name and places them at
             // classNodes[0..inputClassCount) before appending any looked-up library ancestors.
             // Iterating that slice directly gives a deterministic name-sorted order with no
@@ -302,11 +275,11 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                     // OR if they share a common descendant (diamond inheritance:
                                     // two sibling parents whose descendant overrides both cancel()s).
                                     val shouldMerge = classHierarchy.descendantsSet[ownerI].contains(ownerJ) ||
-                                            classHierarchy.descendantsSet[ownerJ].contains(ownerI) ||
-                                            run {
-                                                val descsJSet = classHierarchy.descendantsSet[ownerJ]
-                                                descsI.any { descsJSet.contains(it) }
-                                            }
+                                        classHierarchy.descendantsSet[ownerJ].contains(ownerI) ||
+                                        run {
+                                            val descsJSet = classHierarchy.descendantsSet[ownerJ]
+                                            descsI.any { descsJSet.contains(it) }
+                                        }
                                     if (shouldMerge) {
                                         val ri = findLocal(i)
                                         val rj = findLocal(j)

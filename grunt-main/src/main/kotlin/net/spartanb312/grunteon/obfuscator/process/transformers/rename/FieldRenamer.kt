@@ -2,6 +2,7 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.rename
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntLinkedOpenHashSet
+import kotlinx.serialization.Serializable
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
@@ -27,9 +28,6 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
     )
 ), MappingSource {
 
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         after(Category.Encryption, "Renamer should run after encryption category")
         after(Category.Controlflow, "Renamer should run after controlflow category")
@@ -42,16 +40,17 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
         after(ClassRenamer::class.java, "MethodRenamer should run after ClassRenamer")
     }
 
-    class Config : TransformerConfig() {
-        val dictionary = NameGenerator.DictionaryType.Alphabet
-
-        //val randomKeywordPrefix = false TODO: impl this
-        val prefix = ""
-        val reversed = false
-        val shuffled = true
-        val heavyOverloads = true
-        val aggressiveShadowNames = true
-        val excludedNames = listOf("INSTANCE", "Companion")
+    @Serializable
+    data class Config(
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        val dictionary: NameGenerator.DictionaryType = NameGenerator.DictionaryType.Alphabet,
+        val prefix: String = "",
+        val reversed: Boolean = false,
+        val shuffled: Boolean = true,
+        val heavyOverloads: Boolean = true,
+        val aggressiveShadowNames: Boolean = true,
+        val excludedNames: List<String> = listOf("INSTANCE", "Companion")
+    ) : TransformerConfig {
 
         // getter
         val malPrefix = prefix //(if (randomKeywordPrefix) "$nextBadKeyword " else "") + prefix
@@ -80,7 +79,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
         seq {
             val fieldHierarchy = fieldHierarchy.global
             val classHierarchy = fieldHierarchy.classHierarchy
-            val strategy = buildFilterStrategy(config)
+            val strategy = config.classFilter.buildFilterStrategy()
             val nonExcluded = instance.workRes.inputClassCollection
                 .filter {
                     strategy.testClass(it)
@@ -155,7 +154,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                             }
                             // Disable up apply for private and static
                             val upApply = (!fieldEntry.node.isPrivate && !fieldEntry.node.isStatic)
-                                    || fieldEntry.node.isProtected
+                                || fieldEntry.node.isProtected
                             // Apply to children
                             if (upApply) {
                                 val affected = mutableSetOf(classEntry.index)

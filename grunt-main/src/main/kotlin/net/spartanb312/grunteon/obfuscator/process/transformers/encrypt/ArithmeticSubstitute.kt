@@ -1,5 +1,6 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.encrypt
 
+import kotlinx.serialization.Serializable
 import net.spartanb312.genesis.kotlin.extensions.insn.*
 import net.spartanb312.genesis.kotlin.instructions
 import net.spartanb312.grunteon.obfuscator.Grunteon
@@ -31,52 +32,25 @@ class ArithmeticSubstitute : Transformer<ArithmeticSubstitute.Config>(
         "Replace arithmetic ops to substitutions"
     )
 ) {
-
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
-    class Config : TransformerConfig() {
-        val chance by setting(
-            name = enText("process.encrypt.arithmetic_substitute.chance", "Replace chance"),
-            value = 0.3f,
-            range = 0f..1f,
-            desc = enText(
-                "process.encrypt.arithmetic_substitute.chance.desc",
-                "Ops replace rate. Range: 0.0..1.0"
-            )
+    @Serializable
+    data class Config(
+        @SettingDesc(enText = "Specify class include/exclude rules")
+        val classFilter: ClassFilterConfig = ClassFilterConfig(),
+        @SettingDesc(enText = "Ops replace rate. Range: 0.0..1.0")
+        @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
+        val chance: Double = 0.3,
+        @SettingDesc(enText = "The upper limit of instruction count for a Method. Typically, each instruction occupies 2-3 bytes, and the upper limit for each Method is 65536 bytes")
+        val maxInstructions: Int = 16384,
+        @SettingDesc(enText = "When enabled, a modifier will be applied to all chances. Modifier = (MaxInsn - CurrentInsn) / MaxInsn")
+        val dynamicStrength: Boolean = true,
+        @SettingDesc(enText = "Specify method exclusions.")
+        val exclusion: List<String> = listOf(
+            "net/dummy/**",
+            "net/dummy/Class",
+            "net/dummy/Class.method",
+            "net/dummy/Class.method()V"
         )
-
-        // Dynamic
-        val maxInstructions by setting(
-            name = enText("process.encrypt.arithmetic_substitute.max_instructions", "Max instructions"),
-            value = 16384,
-            desc = enText(
-                "process.encrypt.arithmetic_substitute.max_instruction.desc",
-                "The upper limit of instruction count for a Method. Typically, each instruction occupies 2-3 bytes, and the upper limit for each Method is 65536 bytes"
-            )
-        )
-
-        val dynamicStrength by setting(
-            name = enText("process.encrypt.arithmetic_substitute.dynamic_strength", "Dynamic strength"),
-            value = true,
-            desc = enText(
-                "process.encrypt.arithmetic_substitute.dynamic_strength.desc",
-                "When enabled, a modifier will be applied to all chances. Modifier = (MaxInsn - CurrentInsn) / MaxInsn"
-            )
-        )
-
-        // Exclusion
-        val exclusion by setting(
-            enText("process.encrypt.arithmetic_substitute.method_exclusion", "Method exclusion"),
-            listOf(
-                "net/dummy/**", // Exclude package
-                "net/dummy/Class", // Exclude class
-                "net/dummy/Class.method", // Exclude method name
-                "net/dummy/Class.method()V", // Exclude method with desc
-            ),
-            enText("process.encrypt.arithmetic_substitute.method_exclusion.desc", "Specify method exclusions."),
-        )
-    }
+    ) : TransformerConfig
 
     private lateinit var methodExPredicate: NamePredicates
 
@@ -87,7 +61,7 @@ class ArithmeticSubstitute : Transformer<ArithmeticSubstitute.Config>(
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             if (classNode.isExcluded(DISABLE_ARITHMETIC_SUBSTITUTE)) return@parForEachClassesFiltered
             classNode.methods.asSequence()

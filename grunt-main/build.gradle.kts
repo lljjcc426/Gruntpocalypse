@@ -1,6 +1,6 @@
 plugins {
     id("buildsrc.convention.kotlin-jvm")
-    //alias(libs.plugins.compose)
+    alias(libs.plugins.kotlinxSerialization)
     //alias(libs.plugins.compose.compiler)
     //alias(libs.plugins.compose.hotReload)
 }
@@ -22,6 +22,9 @@ dependencies {
     library("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutineVersion")
 
     // libraries
+    library(libs.kotlinReflect)
+    library(libs.kotlinxSerializationCore)
+    library(libs.kotlinxSerializationJson)
     library(libs.bundles.asm)
     library(libs.bundles.utils)
     library(libs.bundles.apache.common)

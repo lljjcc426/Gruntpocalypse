@@ -1,6 +1,8 @@
 package net.spartanb312.grunteon.obfuscator.process.transformers.other
 
-import net.spartanb312.genesis.kotlin.extensions.isSynthetic
+import kotlinx.serialization.Serializable
+
+import net.spartanb312.genesis.kotlin.extensions.*
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.pipeline.after
@@ -17,16 +19,16 @@ import org.objectweb.asm.Opcodes
 class FakeSyntheticBridge : Transformer<FakeSyntheticBridge.Config>(
     name = enText("process.other.fake_synthetic_bridge", "FakeSyntheticBridge"),
     category = Category.Other,
-    description = enText("process.other.fake_synthetic_bridge.desc", "Insert fake synthetic bridge flag"),
+    description = enText("process.other.fake_synthetic_bridge.desc", "Insert fake synthetic bridge flag")
 ) {
-    override val defConfig: TransformerConfig get() = Config()
-    override val confType: Class<Config> get() = Config::class.java
-
     init {
         after(MethodRenamer::class.java, "FakeSyntheticBridge should run after MethodRenamer")
     }
 
-    class Config : TransformerConfig()
+    @Serializable
+    data class Config(
+        val classFilter: ClassFilterConfig = ClassFilterConfig()
+    ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -34,7 +36,7 @@ class FakeSyntheticBridge : Transformer<FakeSyntheticBridge.Config>(
             //Logger.info(" > FakeSyntheticBridge:Inserting fake synthetic bridge flags")
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
+        parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             // Synthetic
             if (!classNode.access.isSynthetic && !classNode.hasAnnotations) {
