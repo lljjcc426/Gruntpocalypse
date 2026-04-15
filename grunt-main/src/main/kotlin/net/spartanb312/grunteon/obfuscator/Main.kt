@@ -1,7 +1,12 @@
 package net.spartanb312.grunteon.obfuscator
 
+import net.spartanb312.grunteon.obfuscator.util.Logger
+import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.io.path.Path
-import kotlin.io.path.readText
+import kotlin.time.DurationUnit
+import kotlin.time.measureTime
 
 /**
  * Grunteon
@@ -13,7 +18,34 @@ const val SUBTITLE = "build 260415"
 const val GITHUB = "https://github.com/SpartanB312/Grunt"
 
 fun main(args: Array<String>) {
-    val config = ObfConfig.read(Path("config.json").readText())
+    if ("--silent" !in args) {
+        Logger = SimpleLogger(
+            "Grunteon",
+            "logs/${SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(Date())}.txt"
+        )
+    }
+    println(
+        """
+             ________  __________   ____ ___   _______    ___________
+            /  _____/  \______   \ |    |   \  \      \   \__    ___/
+           /   \  ___   |       _/ |    |   /  /   |   \    |    |   
+           \    \_\  \  |    |   \ |    |  /  /    |    \   |    |   
+            \______  /  |____|_  / |______/   \____|__  /   |____|   
+        """.trimIndent()
+    )
+    println("==========================================================")
+    println(" Grunteon $VERSION [${SUBTITLE}]")
+    println(" GitHub: $GITHUB")
+    println("==========================================================")
+
+    Logger.info("Initializing obfuscator...")
+
+    val config = ObfConfig.read(Path("config.json"))
     val instance = Grunteon.create(config)
-    instance.execute()
+
+    measureTime {
+        instance.execute()
+    }.toDouble(DurationUnit.MILLISECONDS).also { time ->
+        println("Execution time: ${"%.2f".format(time)} ms")
+    }
 }

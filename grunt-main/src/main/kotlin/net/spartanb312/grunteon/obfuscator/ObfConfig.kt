@@ -7,7 +7,6 @@ import net.spartanb312.grunteon.obfuscator.process.SettingDesc
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import java.nio.file.Path
 import java.util.zip.Deflater
-import kotlin.io.path.Path
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.random.Random
@@ -80,8 +79,8 @@ data class ObfConfig(
             ignoreUnknownKeys = true
         }
 
-        fun read(path: String): ObfConfig {
-            return JSON.decodeFromString(serializer(), Path(path).readText())
+        fun read(path: Path): ObfConfig {
+            return JSON.decodeFromString(serializer(), path.readText())
         }
 
         fun write(config: ObfConfig, path: Path) {
