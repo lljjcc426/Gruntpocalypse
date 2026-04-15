@@ -176,7 +176,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                         groupsByName.getOrPut(sources.first.firstInt()) { IntArrayList() }
                             .add(index)
                     }
-                    val standaloneSyntheticSources = mutableSetOf<MethodHierarchy.Entry>()
+                    val standaloneSyntheticSources = IntLinkedOpenHashSet()
                     bridgeMethodSources.forEach { bridge ->
                         //if (
                         //    !bridge.name.contains("access") &&
@@ -240,16 +240,16 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             }
                         }
                         if (!findCommon) {
-                            standaloneSyntheticSources.add(bridge)
+                            standaloneSyntheticSources.add(bridge.index)
                         }
                     }
                     // Consider standalone synthetic methods - group those whose owners are in an
                     // ancestor-descendant relationship (same name+desc) so they all get the same
                     // name and don't produce duplicate-mapping conflicts.
-                    val standaloneBySignature = Object2ObjectOpenHashMap<String, IntArrayList>()
+                    val standaloneBySignature = Int2ObjectOpenHashMap<IntArrayList>()
                     standaloneSyntheticSources.forEach { bridge ->
-                        standaloneBySignature.computeIfAbsent(bridge.name + bridge.desc) { IntArrayList() }
-                            .add(bridge.index)
+                        standaloneBySignature.computeIfAbsent(MethodHierarchy.Entry(bridge).methodCode) { IntArrayList() }
+                            .add(bridge)
                     }
                     standaloneBySignature.values.forEach { sameSignatureIndices ->
                         val n = sameSignatureIndices.size
