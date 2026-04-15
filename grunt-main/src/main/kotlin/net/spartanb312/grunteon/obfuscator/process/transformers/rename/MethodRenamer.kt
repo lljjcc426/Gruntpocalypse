@@ -345,7 +345,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     var newName: String
                     // TODO: add prefix/suffix support here when needed
                     loop@ while (true) {
-                        newName = dic.nextName(config.heavyOverloads, first.desc)
+                        newName = dic.nextName(config.heavyOverloads, first.descCode)
                         var keepThisName = true
                         run check@{
                             checkList.forEach { owner ->

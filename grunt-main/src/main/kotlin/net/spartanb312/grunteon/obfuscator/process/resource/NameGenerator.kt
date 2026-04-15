@@ -1,7 +1,7 @@
 package net.spartanb312.grunteon.obfuscator.process.resource
 
 import it.unimi.dsi.fastutil.ints.IntArrayList
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import kotlinx.serialization.Serializable
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.util.Logger
@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class NameGenerator(private val dictionary: Dictionary) {
     private val index = AtomicInteger(0/*dictionaryStartIndex*/)
-    private val methodOverloads = mutableListOf<Pair<String, MutableSet<String>>>() // Name Descs
+    private val methodOverloads = mutableListOf<Pair<String, IntOpenHashSet>>() // Name Descs
 
     var overloadsCount = 0; private set
     var actualNameCount = 0; private set
@@ -41,12 +41,12 @@ class NameGenerator(private val dictionary: Dictionary) {
     }
 
     @Synchronized
-    fun nextName(overload: Boolean, desc: String): String {
+    fun nextName(overload: Boolean, descCode: Int): String {
         if (!overload) {
             return nextName()
         } else {
             for (pair in methodOverloads) {
-                if (pair.second.add(desc)) {
+                if (pair.second.add(descCode)) {
                     overloadsCount++
                     return pair.first
                 }
@@ -54,7 +54,7 @@ class NameGenerator(private val dictionary: Dictionary) {
 
             // Generate a new one
             val newName = nextName()
-            methodOverloads.add(newName to ObjectOpenHashSet.of(desc))
+            methodOverloads.add(newName to IntOpenHashSet.of(descCode))
             actualNameCount++
             return newName
         }

@@ -66,7 +66,9 @@ class MethodHierarchy(
     val sourceMethodOverrides: Array<EntryArray>,
     val methodCodeLookup: Object2IntOpenHashMap<String>,
     val methodToMethodCode: IntArray,
-    val methodCodeToMethods: Array<EntryArray>
+    val methodCodeToMethods: Array<EntryArray>,
+    val descCodeLookup: Object2IntOpenHashMap<String>,
+    val descCode: IntArray
 ) {
     /**
      * Validate entry using .isValid before using the returned entry
@@ -125,6 +127,9 @@ class MethodHierarchy(
         inline val desc: String get() = mh.methodNodes[index].desc
 
         context(mh: MethodHierarchy)
+        inline val descCode: Int get() = mh.descCode[index]
+
+        context(mh: MethodHierarchy)
         inline val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(mh.methodOwners[index])
 
         context(mh: MethodHierarchy)
@@ -177,12 +182,6 @@ class MethodHierarchy(
             val methodNodes = ObjectArrayList<MethodNode>(realClassCount)
             val methodOwner = IntArrayList(realClassCount)
             val classToMethod = arrayOfNulls<IntArrayList>(realClassCount) as Array<IntArrayList>
-            val classNodeMethodCodeMethodLookup = Array(realClassCount) {
-                Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
-            }
-            val methodCodeLookup = Object2IntOpenHashMap<String>()
-            methodCodeLookup.defaultReturnValue(-1)
-            val methodCodeToMethods = ObjectArrayList<IntArrayList>()
 
             for (i in 0..<realClassCount) {
                 val classNode = classHierarchy.classNodes[i]
@@ -199,9 +198,21 @@ class MethodHierarchy(
                 }
             }
 
+            val classNodeMethodCodeMethodLookup = Array(realClassCount) {
+                Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
+            }
+            val methodCodeLookup = Object2IntOpenHashMap<String>()
+            methodCodeLookup.defaultReturnValue(-1)
+            val methodCodeToMethods = ObjectArrayList<IntArrayList>()
+
+            val descCodeLookup = Object2IntOpenHashMap<String>()
+            descCodeLookup.defaultReturnValue(-1)
+
             val methodCount = methodNodes.size
             val methodCode = IntArray(methodCount)
             val methodAccess = IntArray(methodCount)
+
+            val descCode = IntArray(methodCount)
 
             for (methodIdx in 0..<methodCount) {
                 val methodNode = methodNodes[methodIdx]
@@ -214,6 +225,11 @@ class MethodHierarchy(
                 methodAccess[methodIdx] = methodNode.access
                 methodCodeToMethods[mc].add(methodIdx)
                 classNodeMethodCodeMethodLookup[methodOwner.getInt(methodIdx)][mc] = methodIdx
+
+                val dc = descCodeLookup.computeIfAbsent(methodNode.desc, ToIntFunction {
+                    descCodeLookup.size
+                })
+                descCode[methodIdx] = dc
             }
 
             // Phase 2: Topological sort of class indices (ancestors before descendants) using
@@ -398,7 +414,9 @@ class MethodHierarchy(
                 Array(sourceCount) { EntryArray(sourceMethodOverrideBuilders[it].toIntArray()) },
                 methodCodeLookup,
                 methodCode,
-                Array(methodCodeToMethods.size) { EntryArray(methodCodeToMethods[it].toIntArray()) }
+                Array(methodCodeToMethods.size) { EntryArray(methodCodeToMethods[it].toIntArray()) },
+                descCodeLookup,
+                descCode
             )
         }
     }

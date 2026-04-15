@@ -51,6 +51,8 @@ class FieldHierarchy(
      * or its owner class does not have an ancestor class that has the same field (same name and descriptor).
      */
     val isSourceField: BooleanArray,
+    val descCodeLookup: Object2IntOpenHashMap<String>,
+    val descCode: IntArray,
 ) {
     /**
      * Validate entry using .isValid before using the returned entry
@@ -103,6 +105,9 @@ class FieldHierarchy(
         val owner: ClassHierarchy.Entry get() = ClassHierarchy.Entry(fh.fieldOwner[index])
 
         context(fh: FieldHierarchy)
+        val descCode: Int get() = fh.descCode[index]
+
+        context(fh: FieldHierarchy)
         val node: FieldNode get() = fh.fieldNodes[index]
 
         context(fh: FieldHierarchy)
@@ -152,6 +157,11 @@ class FieldHierarchy(
                 Int2ObjectOpenHashMap<IntArraySet>()
             } // Tells a class's field code belongs to which field tree(s)
 
+            val descCodeLookup = Object2IntOpenHashMap<String>(fieldCount).apply {
+                defaultReturnValue(-1)
+            }
+            val descCode = IntArray(fieldCount)
+
             fun assignFieldCodeAndBroadcastToDescendants() {
                 for (fieldIdx in 0..<fieldCount) {
                     val fieldNode = fieldNodes[fieldIdx]
@@ -161,6 +171,11 @@ class FieldHierarchy(
                     })
                     fieldCode[fieldIdx] = myFieldCode
                     fieldAccess[fieldIdx] = fieldNode.access
+
+                    val dc = descCodeLookup.computeIfAbsent(fieldNode.desc, ToIntFunction {
+                        descCodeLookup.size
+                    })
+                    descCode[fieldIdx] = dc
 
                     // Fill inherent field bits
                     if (fieldNode.access.isPrivate) continue
@@ -223,7 +238,9 @@ class FieldHierarchy(
                 fieldOwner.toIntArray(),
                 Array(classHierarchy.realClassCount) { classToField[it].toIntArray() },
                 classFieldNodeLookup,
-                isSourceField
+                isSourceField,
+                descCodeLookup,
+                descCode
             )
         }
     }

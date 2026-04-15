@@ -132,7 +132,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                             loop@ while (true) {
                                 newName = config.malPrefix + dic.nextName(
                                     config.heavyOverloads,
-                                    fieldEntry.desc
+                                    fieldEntry.descCode
                                 ) + config.suffix
                                 var keepThisName = true
                                 check@ for (check in checkList.array) {
