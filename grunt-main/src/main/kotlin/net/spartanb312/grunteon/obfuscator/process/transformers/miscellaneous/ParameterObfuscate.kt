@@ -2,29 +2,19 @@ package net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
-import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import kotlinx.serialization.Serializable
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
-import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
-import net.spartanb312.grunteon.obfuscator.util.extensions.isBridge
-import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
-import net.spartanb312.grunteon.obfuscator.util.extensions.isPrivate
-import net.spartanb312.grunteon.obfuscator.util.extensions.isStatic
-import net.spartanb312.grunteon.obfuscator.util.extensions.isSynthetic
+import net.spartanb312.grunteon.obfuscator.util.extensions.*
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.ClassNode
-import org.objectweb.asm.tree.MethodInsnNode
-import org.objectweb.asm.tree.MethodNode
-import org.objectweb.asm.tree.TypeInsnNode
-import org.objectweb.asm.tree.VarInsnNode
-import java.util.concurrent.ConcurrentLinkedQueue
+import org.objectweb.asm.tree.*
+import java.util.concurrent.ConcurrentHashMap
 
 class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
     name = enText("process.miscellaneous.parameter_obfuscate", "ParameterObfuscate"),
@@ -58,8 +48,10 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
-        val remapJob = ConcurrentLinkedQueue<RemapJob>()
+        val remapJobs = globalScopeValue { ConcurrentHashMap<String, String>() }
+
         parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
+            val remapJobs = remapJobs.global
             val counter = counter.local
             val callInstances = Object2ObjectOpenHashMap<CallTarget, MutableSet<MethodInsnNode>>()
             // Collect method call instance
@@ -113,14 +105,9 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
                     callingMethod.desc = newDesc
                     instances.forEach { it.desc = newDesc }
                     // Scan job
-                    if (!config.onlyPrivateMethod) remapJob.add(
-                        RemapJob(
-                            callingOwner.name,
-                            callingMethod.name,
-                            oldDesc,
-                            newDesc
-                        )
-                    )
+                    if (!config.onlyPrivateMethod) {
+                        remapJobs["${callingOwner.name}.${callingMethod.name}${callingMethod.desc}"] = oldDesc
+                    }
                     callingMethod.instructions.forEach { instruction ->
                         if (instruction is VarInsnNode && instruction.opcode == Opcodes.ALOAD) {
                             val index = if (isStatic) instruction.`var`
@@ -139,23 +126,15 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
                 }
             }
         }
-        seq {
-            // search all
-            if (!config.onlyPrivateMethod) {
-                val list = ObjectArrayList(remapJob)
-                instance.workRes.inputClassCollection.forEach { classNode ->
-                    classNode.methods.forEach { method ->
-                        method.instructions.forEach { instr ->
-                            if (instr is MethodInsnNode) {
-                                for (remapJob in list) {
-                                    if (instr.owner == remapJob.owner && instr.name == remapJob.name && instr.desc == remapJob.preDesc) {
-                                        instr.desc = remapJob.newDesc
-                                        //println("${remapJob.owner}.${remapJob.name}${remapJob.preDesc}->${remapJob.newDesc}")
-                                        break
-                                    }
-                                }
-                            }
-                        }
+        barrier()
+        if (!config.onlyPrivateMethod) {
+            parForEachClasses { classNode ->
+                classNode.methods.forEach { method ->
+                    method.instructions.forEach { instr ->
+                        if (instr !is MethodInsnNode) return@forEach
+                        val key = "${instr.owner}.${instr.name}${instr.desc}"
+                        val remapJob = remapJobs.global[key] ?: return@forEach
+                        instr.desc = remapJob
                     }
                 }
             }
@@ -169,13 +148,6 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
     data class CallTarget(
         val owner: ClassNode,
         val method: MethodNode,
-    )
-
-    class RemapJob(
-        val owner: String,
-        val name: String,
-        val preDesc: String,
-        val newDesc: String,
     )
 
     private fun String.correctCast(): String {
