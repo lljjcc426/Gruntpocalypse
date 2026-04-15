@@ -131,7 +131,6 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             val methodEntry = MethodHierarchy.Entry(methodIndex)
                             // Source check
                             if (!methodEntry.isSourceMethod) continue
-                            if (blackList.contains(methodEntry.index)) continue
                             // Info check
                             val methodNode = methodEntry.node
                             if (methodNode.isNative) continue
@@ -149,6 +148,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                     continue
                                 }
                             }
+                            if (blackList.contains(methodEntry.index)) continue
 
                             // Bind group
                             val related = methodEntry.connectedComponent
@@ -160,12 +160,9 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                                 }
                             }
                             // apply group – single pass avoids IntArrayList wrapper + intermediate List
-                            val entries = IntLinkedOpenHashSet(related.size * 2 + 1)
-                            for (i in 0 until related.size) {
-                                val idx = related.array[i]
-                                blackList.add(idx)
-                                entries.add(idx)
-                            }
+                            val relatedWrapped = IntArrayList.wrap(related.array)
+                            val entries = IntLinkedOpenHashSet(relatedWrapped)
+                            blackList.addAll(relatedWrapped)
                             relatedGroups.add(entries to ObjectLinkedOpenHashSet.of(methodEntry.desc))
                         }
                     }
@@ -174,9 +171,9 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                 // Bind synthetic bridge method group
                 if (config.solveBridge) {
                     // Build a name-indexed map to avoid O(G) linear scan per bridge method
-                    val groupsByName = HashMap<String, MutableList<Int>>(relatedGroups.size * 2)
+                    val groupsByName = Int2ObjectOpenHashMap<IntArrayList>(relatedGroups.size * 2)
                     relatedGroups.forEachIndexed { index, sources ->
-                        groupsByName.getOrPut(MethodHierarchy.Entry(sources.first.first()).name) { mutableListOf() }
+                        groupsByName.getOrPut(sources.first.firstInt()) { IntArrayList() }
                             .add(index)
                     }
                     val standaloneSyntheticSources = mutableSetOf<MethodHierarchy.Entry>()
@@ -193,11 +190,12 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                         var findCommon = false
 
                         // Only visit groups whose source method name matches the bridge name
-                        val candidateIndices = groupsByName[bridge.name]
+                        val candidateIndices = groupsByName.get(bridge.index)
                         if (candidateIndices != null) {
-                            treeSearch@ for (groupIndex in candidateIndices) {
+                            treeSearch@ for (i in candidateIndices.indices) {
+                                val groupIndex = candidateIndices.getInt(i)
                                 val sources = relatedGroups[groupIndex]
-                                val first = MethodHierarchy.Entry(sources.first.first())
+                                val first = MethodHierarchy.Entry(sources.first.firstInt())
                                 // Try to link bridge method on override tree
                                 //val inSameOverrideTree = sources.first.any { sourceIdx ->
                                 //    val srcOwnerName = MethodHierarchy.Entry(sourceIdx).owner.name
