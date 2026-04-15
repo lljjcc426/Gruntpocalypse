@@ -68,6 +68,10 @@ class ParameterObfuscate : Transformer<ParameterObfuscate.Config>(
                         } ?: return@forEach
                         //if (callingMethod.isInitializer) return@forEach
                         if (!callingMethod.isPrivate) return@forEach
+                        val shadowNames = callingOwner.methods.filter {
+                            it.name == callingMethod.name && it.desc == callingMethod.desc
+                        }
+                        if (shadowNames.size > 1) return@forEach // avoid bridge method shadow
                         callInstances.getOrPut(callingMethod) { mutableListOf() }.add(instruction)
                     }
                 }

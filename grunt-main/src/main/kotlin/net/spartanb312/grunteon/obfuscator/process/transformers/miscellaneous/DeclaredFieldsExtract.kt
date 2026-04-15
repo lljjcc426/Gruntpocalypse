@@ -11,6 +11,7 @@ import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
 import net.spartanb312.grunteon.obfuscator.util.extensions.init
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAnnotation
+import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
 import org.objectweb.asm.Opcodes.RETURN
 import org.objectweb.asm.tree.*
 import java.lang.reflect.Modifier
@@ -41,6 +42,7 @@ class DeclaredFieldsExtract : Transformer<DeclaredFieldsExtract.Config>(
         val counter = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(buildFilterStrategy(config)) { classNode ->
             if (classNode.isAnnotation) return@parForEachClassesFiltered
+            if (classNode.isInterface) return@parForEachClassesFiltered // compile-time constant won't invoke <clinit>
             val counter = counter.local
             var clinit = classNode.methods.firstOrNull { it.name.equals("<clinit>") }
             var init = classNode.methods.firstOrNull { it.name.equals("<init>") }
