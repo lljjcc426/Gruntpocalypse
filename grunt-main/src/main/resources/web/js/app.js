@@ -8,7 +8,7 @@
         bottom: 'grunt.web.split.bottomPct'
     };
     const CFG = {
-        theme: 'dark',
+        theme: 'light',
         left: 30,
         bottom: 28,
         minLeft: 280,
@@ -33,6 +33,7 @@
     let consoleWs = null;
     let progressWs = null;
     let schemaFieldMap = Object.create(null);
+    let expandedCategories = Object.create(null);
 
     const uploadState = {
         inputFileName: '',
@@ -57,6 +58,7 @@
         panelConfig: document.getElementById('panel-config'),
         panelProject: document.getElementById('panel-project'),
         panelConsole: document.getElementById('panel-console'),
+        configPanel: document.getElementById('config-panel'),
         splitV: document.getElementById('splitter-vertical'),
         splitH: document.getElementById('splitter-horizontal'),
         configFileInput: document.getElementById('config-file-input'),
@@ -163,6 +165,7 @@
     function setStatus(kind, text) {
         el.statusDot.className = 'status-dot ' + kind;
         el.statusText.textContent = text;
+        document.body.setAttribute('data-status', kind);
     }
 
     function log(msg, level) {
@@ -272,19 +275,14 @@
     }
 
     function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        el.themeIcon.className = theme === 'dark' ? 'ui-icon fas fa-moon' : 'ui-icon fas fa-sun';
-        el.themeText.textContent = theme === 'dark' ? 'Dark' : 'Light';
-        document.querySelectorAll('.ui-icon[data-icon-dark][data-icon-light]').forEach((icon) => {
-            const cls = theme === 'dark' ? icon.getAttribute('data-icon-dark') : icon.getAttribute('data-icon-light');
-            if (cls) icon.className = 'ui-icon ' + cls;
-        });
-        localStorage.setItem(K.theme, theme);
+        document.documentElement.setAttribute('data-theme', 'light');
+        el.themeIcon.className = 'ui-icon fas fa-satellite-dish';
+        el.themeText.textContent = 'Telemetry';
+        localStorage.setItem(K.theme, 'light');
     }
 
     function applySavedTheme() {
-        const saved = localStorage.getItem(K.theme);
-        applyTheme(saved === 'light' || saved === 'dark' ? saved : CFG.theme);
+        applyTheme('light');
     }
 
     function buildSchemaFieldMap() {
@@ -507,45 +505,54 @@
             (typeof field.max === 'number' ? ' max="' + esc(field.max) + '"' : '') +
             (typeof field.step === 'number' ? ' step="' + esc(field.step) + '"' : '');
         const optionsHtml = getFieldOptions(field);
-        const trailing = description + metaHtml;
+        const detailHtml = description + metaHtml;
         if (field.type === 'boolean') {
-            return '<div class="config-item"><label><input type="checkbox" id="' + id + '"' +
+            return '<div class="config-item config-item-boolean"><div class="config-item-head">' +
+                '<div class="config-copy"><label class="config-label" for="' + id + '">' + label + '</label>' +
+                detailHtml + '</div>' +
+                '<label class="toggle-switch' + (value ? ' is-checked' : '') + '" for="' + id + '">' +
+                '<input type="checkbox" class="toggle-input" id="' + id + '"' +
                 (value ? ' checked' : '') + disabled +
-                ' data-config-path="' + esc(pathKey) + '" data-config-type="boolean"> ' + label +
-                '</label>' + trailing + '</div>';
+                ' data-config-path="' + esc(pathKey) + '" data-config-type="boolean">' +
+                '<span class="toggle-slider"></span></label></div></div>';
         }
         if (optionsHtml.length) {
-            return '<div class="config-item"><label for="' + id + '">' + label + '</label>' +
+            return '<div class="config-item config-item-select"><label class="config-label" for="' + id + '">' + label + '</label>' +
+                detailHtml + '<div class="config-control">' +
                 '<select class="config-input" id="' + id + '"' + disabled +
                 ' data-config-path="' + esc(pathKey) + '" data-config-type="' + esc(field.type || 'string') + '">' +
                 optionsHtml.map((option) => {
                     const selected = String(option.value) === String(value) ? ' selected' : '';
                     return '<option value="' + esc(option.value) + '"' + selected + '>' + esc(option.label) + '</option>';
-                }).join('') + '</select>' + trailing + '</div>';
+                }).join('') + '</select><span class="config-control-icon"><i class="ui-icon fas fa-chevron-down"></i></span></div></div>';
         }
         if (field.type === 'int') {
-            return '<div class="config-item"><label for="' + id + '">' + label + '</label>' +
+            return '<div class="config-item config-item-number"><label class="config-label" for="' + id + '">' + label + '</label>' +
+                detailHtml + '<div class="config-control">' +
                 '<input type="number" class="config-input" id="' + id + '" value="' + esc(value) + '"' + disabled +
                 numberAttrs + placeholder +
-                ' data-config-path="' + esc(pathKey) + '" data-config-type="int">' + trailing + '</div>';
+                ' data-config-path="' + esc(pathKey) + '" data-config-type="int"></div></div>';
         }
         if (field.type === 'float') {
-            return '<div class="config-item"><label for="' + id + '">' + label + '</label>' +
+            return '<div class="config-item config-item-number"><label class="config-label" for="' + id + '">' + label + '</label>' +
+                detailHtml + '<div class="config-control">' +
                 '<input type="number" class="config-input" id="' + id + '" value="' + esc(value) + '"' + disabled +
                 (typeof field.step === 'number' ? ' step="' + esc(field.step) + '"' : ' step="0.1"') +
                 (typeof field.min === 'number' ? ' min="' + esc(field.min) + '"' : '') +
                 (typeof field.max === 'number' ? ' max="' + esc(field.max) + '"' : '') + placeholder +
-                ' data-config-path="' + esc(pathKey) + '" data-config-type="float">' + trailing + '</div>';
+                ' data-config-path="' + esc(pathKey) + '" data-config-type="float"></div></div>';
         }
         if (field.type === 'list') {
-            return '<div class="config-item"><label for="' + id + '">' + label + '</label>' +
+            return '<div class="config-item config-item-list"><label class="config-label" for="' + id + '">' + label + '</label>' +
+                detailHtml + '<div class="config-control">' +
                 '<textarea class="config-input" rows="3" id="' + id + '"' + disabled + placeholder +
                 ' data-config-path="' + esc(pathKey) + '" data-config-type="list">' +
-                esc(Array.isArray(value) ? value.join('\n') : '') + '</textarea>' + trailing + '</div>';
+                esc(Array.isArray(value) ? value.join('\n') : '') + '</textarea></div></div>';
         }
-        return '<div class="config-item"><label for="' + id + '">' + label + '</label>' +
+        return '<div class="config-item config-item-text"><label class="config-label" for="' + id + '">' + label + '</label>' +
+            detailHtml + '<div class="config-control">' +
             '<input type="text" class="config-input" id="' + id + '" value="' + esc(value) + '"' + disabled + placeholder +
-            ' data-config-path="' + esc(pathKey) + '" data-config-type="string">' + trailing + '</div>';
+            ' data-config-path="' + esc(pathKey) + '" data-config-type="string"></div></div>';
     }
 
     function renderConfig() {
@@ -562,7 +569,9 @@
         generalSections.forEach((section) => {
             (section.fields || []).forEach((field) => generalFields.push(renderField(field)));
         });
-        el.settingsWrap.innerHTML = generalFields.join('') || '<div class="empty-state">No settings available</div>';
+        el.settingsWrap.innerHTML = generalFields.length
+            ? '<div class="settings-card settings-card-flat"><div class="settings-card-body">' + generalFields.join('') + '</div></div>'
+            : '<div class="empty-state">No settings available</div>';
 
         const grouped = {};
         schema.sections.filter((section) => section.kind === 'transformer').forEach((section) => {
@@ -575,23 +584,36 @@
         TF_ORDER.forEach((category) => {
             const items = grouped[category] ? grouped[category].slice().sort((a, b) => (a.order || 0) - (b.order || 0)) : null;
             if (!items || !items.length) return;
-            html += '<div class="category-group"><div class="category-group-header"><span class="category-badge category-' +
-                esc(category) + '">' + esc(category) + '</span></div>';
+            const categoryExpanded = expandedCategories[category] !== false;
+            html += '<div class="category-group' + (categoryExpanded ? ' expanded' : ' collapsed') + '">' +
+                '<div class="category-group-header" data-transformer-category="' + esc(category) + '">' +
+                '<span class="category-badge category-' + esc(category) + '">' + esc(category) + '</span>' +
+                '<span class="category-actions"><span class="category-count">' + items.length + ' modules</span>' +
+                '<span class="category-chevron">' + (categoryExpanded ? '&#8722;' : '&#43;') + '</span></span></div>' +
+                '<div class="category-group-body' + (categoryExpanded ? ' open' : '') + '">';
             items.forEach((section) => {
                 const enabledField = (section.fields || []).find((field) => field.key === 'Enabled');
                 const enabled = enabledField ? !!getPath(configDoc, enabledField.path) : false;
                 const fields = (section.fields || []).filter((field) => field.key !== 'Enabled');
-                html += '<div class="transformer-card"><div class="transformer-header" data-transformer-header="' +
-                    esc(section.key) + '"><div class="transformer-name">' + esc(section.key) +
-                    '</div><div class="transformer-toggle ' + (enabled ? 'active' : '') +
-                    '" data-transformer-toggle="' + esc(section.key) + '"></div></div>';
+                const isExpanded = !!expanded[section.key];
+                html += '<div class="transformer-card' + (enabled ? ' enabled' : '') + (isExpanded ? ' expanded' : '') + '">' +
+                    '<div class="transformer-header" data-transformer-header="' + esc(section.key) + '">' +
+                    '<div class="transformer-summary"><div class="transformer-name-row"><div class="transformer-name">' + esc(section.key) +
+                    '</div><span class="transformer-pill">' + (enabled ? 'Live' : 'Standby') + '</span></div>' +
+                    '<div class="transformer-caption">' + (fields.length ? (fields.length + ' configurable controls') : 'Toggle module state only') +
+                    '</div></div><div class="transformer-actions">' +
+                    '<button type="button" class="transformer-toggle ' + (enabled ? 'active' : '') +
+                    '" data-transformer-toggle="' + esc(section.key) + '" aria-label="Toggle ' + esc(section.key) + '">' +
+                    '<span class="transformer-toggle-thumb"></span></button>' +
+                    '<span class="transformer-chevron">' + (isExpanded ? '&#8722;' : '&#43;') + '</span>' +
+                    '</div></div>';
                 if (fields.length) {
-                    html += '<div class="transformer-settings ' + (expanded[section.key] ? 'open' : '') + '">' +
+                    html += '<div class="transformer-settings ' + (isExpanded ? 'open' : '') + '">' +
                         fields.map((field) => renderField(field, { rawLabel: true })).join('') + '</div>';
                 }
                 html += '</div>';
             });
-            html += '</div>';
+            html += '</div></div>';
         });
         el.tfWrap.innerHTML = html || '<div class="empty-state">No transformers available</div>';
     }
@@ -599,7 +621,8 @@
     function syncSectionHeader(header, body) {
         const label = header.getAttribute('data-label') || header.textContent.replace(/^[\u25B6\u25BC]\s*/, '').trim();
         const isCollapsed = body.classList.contains('collapsed');
-        header.textContent = (isCollapsed ? '\u25B6 ' : '\u25BC ') + label;
+        header.innerHTML = '<span class="section-kicker">' + esc(label) + '</span>' +
+            '<span class="section-chevron">' + (isCollapsed ? '&#9656;' : '&#9662;') + '</span>';
     }
 
     function findSection(key) {
@@ -617,6 +640,11 @@
 
     function toggleTransformerSettings(key) {
         expanded[key] = !expanded[key];
+        renderConfig();
+    }
+
+    function toggleTransformerCategory(category) {
+        expandedCategories[category] = expandedCategories[category] === false;
         renderConfig();
     }
 
@@ -643,15 +671,16 @@
         Object.keys(node).filter((key) => key !== '__files').sort().forEach((folder) => {
             const id = 'ptree-' + Math.random().toString(36).slice(2);
             html += '<div class="tree-node tree-folder" data-folder-children="' + id + '">' + indent +
-                '<span class="icon">&#9662;</span><span class="label">' + esc(folder) + '</span></div>';
-            html += '<div id="' + id + '">' + renderNode(node[folder], depth + 1) + '</div>';
+                '<span class="icon">&#9662;</span><span class="folder-icon"><i class="ui-icon far fa-folder-open"></i></span>' +
+                '<span class="label">' + esc(folder) + '</span></div>';
+            html += '<div class="tree-children" id="' + id + '">' + renderNode(node[folder], depth + 1) + '</div>';
         });
         (node.__files || []).sort().forEach((full) => {
             const active = project.selected[scope] === full ? ' active' : '';
             const name = full.split('/').pop() || full;
             html += '<div class="tree-node tree-class' + active + '" data-class-enc="' + encodeURIComponent(full) + '">' +
-                indent + '<span class="tree-indent"></span><span class="icon">&#9679;</span><span class="label">' +
-                esc(name) + '</span></div>';
+                indent + '<span class="tree-indent"></span><span class="icon file-icon"><i class="ui-icon far fa-file-code"></i></span>' +
+                '<span class="label">' + esc(name) + '</span></div>';
         });
         return html;
     }
@@ -671,8 +700,9 @@
         el.tabs.innerHTML = tabs.map((tab) => {
             const encoded = encodeURIComponent(tab.className);
             return '<div class="editor-tab' + (tab.className === active ? ' active' : '') + '" data-class-enc="' +
-                encoded + '"><span class="editor-tab-title">' + esc(tab.title) + '</span>' +
-                '<button class="editor-tab-close" data-close-enc="' + encoded + '">&times;</button></div>';
+                encoded + '"><span class="editor-tab-icon"><i class="ui-icon far fa-file-code"></i></span>' +
+                '<span class="editor-tab-title">' + esc(tab.title) + '</span>' +
+                '<button class="editor-tab-close" data-close-enc="' + encoded + '" aria-label="Close tab">&times;</button></div>';
         }).join('');
     }
 
@@ -696,10 +726,11 @@
             el.code.innerHTML = '<div class="empty-state">No code available</div>';
             return;
         }
-        el.code.innerHTML = tab.code.split('\n').map((line, index) => {
+        const linesHtml = tab.code.split('\n').map((line, index) => {
             return '<div class="code-line"><span class="line-no">' + (index + 1) +
                 '</span><span class="line-text">' + renderHighlightedLine(line) + '</span></div>';
         }).join('');
+        el.code.innerHTML = '<div class="code-sheet">' + linesHtml + '</div>';
     }
 
     async function refreshMeta(nextScope) {
@@ -786,6 +817,7 @@
     function syncSession(session) {
         if (!session) return;
         running = session.status === 'RUNNING';
+        el.progressWrap.classList.toggle('active', running || session.status === 'COMPLETED' || session.status === 'ERROR');
         if (session.inputFileName) uploadState.inputFileName = session.inputFileName;
         if (Array.isArray(session.libraryFiles)) uploadState.libraryFiles = session.libraryFiles.slice();
         if (Array.isArray(session.assetFiles)) uploadState.assetFiles = session.assetFiles.slice();
@@ -1021,7 +1053,7 @@
 
         running = true;
         setStatus('running', 'Running...');
-        el.progressWrap.style.display = 'block';
+        el.progressWrap.classList.add('active');
         el.progressBar.style.width = '0%';
         el.progressText.textContent = '0%';
         el.btnObf.disabled = true;
@@ -1068,6 +1100,11 @@
                 toggleTransformer(toggle.getAttribute('data-transformer-toggle'));
                 return;
             }
+            const category = event.target.closest('[data-transformer-category]');
+            if (category) {
+                toggleTransformerCategory(category.getAttribute('data-transformer-category'));
+                return;
+            }
             const header = event.target.closest('[data-transformer-header]');
             if (header) toggleTransformerSettings(header.getAttribute('data-transformer-header'));
         });
@@ -1089,8 +1126,7 @@
         });
         document.getElementById('btn-reset-config').addEventListener('click', resetLocalConfig);
         el.btnTheme.addEventListener('click', () => {
-            const current = document.documentElement.getAttribute('data-theme') || CFG.theme;
-            applyTheme(current === 'dark' ? 'light' : 'dark');
+            log('Aurora dashboard profile is locked to the high-tech light preset.', 'info');
         });
         el.btnScopeIn.addEventListener('click', () => setScope('input'));
         el.btnScopeOut.addEventListener('click', () => setScope('output'));
@@ -1098,6 +1134,16 @@
             const pane = btn.getAttribute('data-pane');
             if (pane) setActivePane(pane);
         }));
+        el.configPanel.addEventListener('wheel', (event) => {
+            const panel = el.configPanel;
+            if (!panel || panel.scrollHeight <= panel.clientHeight) return;
+            if (event.ctrlKey || event.metaKey) return;
+            const previous = panel.scrollTop;
+            panel.scrollTop += event.deltaY;
+            if (panel.scrollTop !== previous) {
+                event.preventDefault();
+            }
+        }, { passive: false });
         el.tree.addEventListener('click', (event) => {
             const folder = event.target.closest('.tree-folder');
             if (folder) {

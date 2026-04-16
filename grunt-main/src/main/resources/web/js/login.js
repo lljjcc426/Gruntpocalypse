@@ -4,6 +4,8 @@
     var tabButtons = Array.prototype.slice.call(document.querySelectorAll('[data-tab-trigger]'));
     var tabContents = Array.prototype.slice.call(document.querySelectorAll('[data-tab-content]'));
     var forms = Array.prototype.slice.call(document.querySelectorAll('.auth-form'));
+    var passwordToggles = Array.prototype.slice.call(document.querySelectorAll('[data-password-toggle]'));
+    var tierButtons = Array.prototype.slice.call(document.querySelectorAll('[data-direct-tier]'));
 
     function activateTab(tabName) {
         tabButtons.forEach(function (button) {
@@ -27,9 +29,27 @@
     forms.forEach(function (form) {
         form.addEventListener('submit', function (event) {
             event.preventDefault();
-            var tab = form.getAttribute('data-tab-content');
-            var tier = tab === 'signin' ? 'basic' : 'pro';
+            var tier = form.getAttribute('data-tier') || 'basic';
             window.location.href = '/index.html?tier=' + tier;
+        });
+    });
+
+    tierButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            var tier = button.getAttribute('data-direct-tier') || 'basic';
+            window.location.href = '/index.html?tier=' + tier;
+        });
+    });
+
+    passwordToggles.forEach(function (button) {
+        button.addEventListener('click', function () {
+            var shell = button.parentElement;
+            if (!shell) return;
+            var input = shell.querySelector('input');
+            if (!input) return;
+            var isPassword = input.getAttribute('type') === 'password';
+            input.setAttribute('type', isPassword ? 'text' : 'password');
+            button.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
         });
     });
 })();
