@@ -8,11 +8,13 @@ import net.spartanb312.grunteon.testcase.Asserts
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.ClassWriter.COMPUTE_FRAMES
 import org.objectweb.asm.Opcodes
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.outputStream
+import kotlin.io.path.pathString
 import kotlin.test.BeforeTest
 import kotlin.test.Ignore
 import kotlin.test.Test
@@ -54,7 +56,19 @@ class MethodRenamerTest {
         val javaHome = Path.of(System.getProperty("java.home"))
         val isWindows = System.getProperty("os.name").lowercase().startsWith("windows")
         val javaExe = javaHome.resolve("bin").resolve(if (isWindows) "java.exe" else "java").toString()
-        val process = ProcessBuilder(javaExe, "-cp", tempDir.absolutePathString(), className)
+        val classPath = buildString {
+            append(tempDir.absolutePathString())
+            append(File.pathSeparatorChar)
+            append(System.getProperty("java.class.path"))
+        }
+        val process = ProcessBuilder(
+            javaExe,
+            "-cp",
+            classPath,
+            MethodRenamerTestLauncher::class.java.name,
+            tempDir.pathString,
+            className
+        )
             .redirectErrorStream(true)
             .start()
         val output = process.inputStream.bufferedReader().readText()
@@ -119,4 +133,22 @@ class MethodRenamerTest {
     fun TypeOverloadTest() =
         runTestClass("net.spartanb312.grunteon.testcase.methodrename.typeoverload.TypeOverload")
 
+}
+
+object MethodRenamerTestLauncher {
+    @JvmStatic
+    fun main(args: Array<String>) {
+        require(args.size >= 2) { "Usage: <classesDir> <className>" }
+        val classesDir = Path.of(args[0]).toUri().toURL()
+        val className = args[1]
+        val loader = java.net.URLClassLoader(arrayOf(classesDir), MethodRenamerTestLauncher::class.java.classLoader)
+        val clazz = Class.forName(className, true, loader)
+        val mainMethod = clazz.getDeclaredMethod("main", Array<String>::class.java)
+        mainMethod.isAccessible = true
+        try {
+            mainMethod.invoke(null, emptyArray<String>())
+        } catch (throwable: java.lang.reflect.InvocationTargetException) {
+            throw throwable.targetException ?: throwable
+        }
+    }
 }

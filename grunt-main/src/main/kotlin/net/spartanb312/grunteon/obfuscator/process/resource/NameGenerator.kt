@@ -10,8 +10,11 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
 
-class NameGenerator(private val dictionary: Dictionary) {
-    private val index = AtomicInteger(0/*dictionaryStartIndex*/)
+class NameGenerator(
+    private val dictionary: Dictionary,
+    startIndex: Int = 0
+) {
+    private val index = AtomicInteger(startIndex.coerceAtLeast(0))
     private val methodOverloads = mutableListOf<Pair<String, IntOpenHashSet>>() // Name Descs
 
     var overloadsCount = 0; private set

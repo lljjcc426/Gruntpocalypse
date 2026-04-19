@@ -7,6 +7,8 @@ import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import org.objectweb.asm.commons.ClassRemapper
 import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.MethodInsnNode
 
 class MappingApplier : Transformer<MappingApplier.Config>(
     name = enText("process.rename.mapping_applier", "MappingApplier"),
@@ -32,6 +34,7 @@ class MappingApplier : Transformer<MappingApplier.Config>(
             val copy = ClassNode()
             val adapter = ClassRemapper(copy, instance.nameMapping)
             it.accept(adapter)
+            remapReflectionLiterals(instance, copy)
             newClasses.local.add(copy)
         }
         seq {
@@ -39,5 +42,44 @@ class MappingApplier : Transformer<MappingApplier.Config>(
             instance.workRes.inputClassMap.clear()
             newClasses.global.forEach { instance.workRes.inputClassMap[it.name] = it }
         }
+    }
+
+    private fun remapReflectionLiterals(instance: Grunteon, classNode: ClassNode) {
+        classNode.methods.forEach { methodNode ->
+            methodNode.instructions?.forEach { insnNode ->
+                if (insnNode !is MethodInsnNode) return@forEach
+                val pre = insnNode.previous
+                if (pre !is LdcInsnNode || pre.cst !is String) return@forEach
+                val literal = pre.cst as String
+                when {
+                    insnNode.owner == "java/lang/Class" && insnNode.name == "forName" -> {
+                        val mapped = instance.nameMapping.getMapping(literal.replace('.', '/'))?.replace('/', '.')
+                        if (mapped != null && mapped != literal) pre.cst = mapped
+                    }
+
+                    insnNode.name == "findClass" && insnNode.desc == "(Ljava/lang/String;)Ljava/lang/Class;" -> {
+                        val mapped = instance.nameMapping.getMapping(literal.replace('.', '/'))?.replace('/', '.')
+                        if (mapped != null && mapped != literal) pre.cst = mapped
+                    }
+
+                    insnNode.name == "getResource" && insnNode.desc == "(Ljava/lang/String;)Ljava/net/URL;" -> {
+                        remapClassResourceLiteral(instance, pre)
+                    }
+
+                    insnNode.name == "getResourceAsStream" && insnNode.desc == "(Ljava/lang/String;)Ljava/io/InputStream;" -> {
+                        remapClassResourceLiteral(instance, pre)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun remapClassResourceLiteral(instance: Grunteon, ldc: LdcInsnNode) {
+        val literal = ldc.cst as? String ?: return
+        if (!literal.endsWith(".class", true)) return
+        val hasLeadingSlash = literal.startsWith("/")
+        val classPart = literal.removePrefix("/").dropLast(".class".length).replace('.', '/')
+        val mapped = instance.nameMapping.getMapping(classPart) ?: return
+        ldc.cst = (if (hasLeadingSlash) "/" else "") + mapped + ".class"
     }
 }

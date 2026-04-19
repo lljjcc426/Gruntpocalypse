@@ -36,6 +36,10 @@ data class ObfConfig(
     val inputSeed: String = "I love XJP",
     @SettingDesc("Dump class/method/field mappings")
     val dumpMappings: Boolean = true,
+    @SettingDesc("Enable pipeline multithreading")
+    val multithreading: Boolean = false,
+    @SettingDesc("Print execution time usage")
+    val printTimeUsage: Boolean = true,
     @SettingDesc("Enable profiler for performance analysis")
     val profiler: Boolean = false,
     @SettingDesc("Enable debug mode for more verbose logging")
@@ -60,6 +64,8 @@ data class ObfConfig(
     // Custom dictionary
     @SettingDesc("Custom dictionary file. Each line is a name")
     val customDictionary: String = "customDictionary.txt",
+    @SettingDesc("Start index for generated dictionary names")
+    val dictionaryStartIndex: Int = 0,
     @SettingDesc("Custom incremental elements for dictionary")
     val customIncrementalDictionary: List<String> = listOf(
         "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"

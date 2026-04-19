@@ -78,7 +78,7 @@ class ClassRenamer : Transformer<ClassRenamer.Config>(
             Logger.info(" > ClassRenamer: Generating class mappings...")
             val strategy = config.classFilter.buildFilterStrategy()
             val dictionary = NameGenerator.getDictionary(config.dictionary)
-            val nameGenerator = NameGenerator(dictionary)
+            val nameGenerator = NameGenerator(dictionary, instance.obfConfig.dictionaryStartIndex)
             val randomGen = Xoshiro256PPRandom(getSeed("Global"))
             val classes = if (config.shuffled) instance.workRes.inputClassCollection.shuffled(randomGen)
             else instance.workRes.inputClassCollection

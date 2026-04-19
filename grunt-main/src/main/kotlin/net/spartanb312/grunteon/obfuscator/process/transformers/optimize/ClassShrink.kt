@@ -9,6 +9,7 @@ import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.DISABLE_OPTIMIZER
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.extensions.removeAnnotation
 import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.*
@@ -44,7 +45,9 @@ class ClassShrink : Transformer<ClassShrink.Config>(
         @SettingDesc(enText = "Remove redundant NOP instructions")
         val nopRemove: Boolean = true,
         @SettingDesc(enText = "Remove method signatures")
-        val methodSignatures: Boolean = true
+        val methodSignatures: Boolean = true,
+        @SettingDesc(enText = "Remove configured annotations from class, fields and methods")
+        val annotationRemovals: List<String> = listOf("Ljava/lang/Override;")
     ) : TransformerConfig
 
     context(instance: Grunteon, _: PipelineBuilder)
@@ -56,12 +59,14 @@ class ClassShrink : Transformer<ClassShrink.Config>(
         val unusedLabels = reducibleScopeValue { MergeableCounter() }
         val nops = reducibleScopeValue { MergeableCounter() }
         val methodSignatures = reducibleScopeValue { MergeableCounter() }
+        val annotationRemovals = reducibleScopeValue { MergeableCounter() }
         parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isExcluded(DISABLE_OPTIMIZER)) return@parForEachClassesFiltered
             val innerClasses = innerClasses.local
             val unusedLabels = unusedLabels.local
             val nops = nops.local
             val methodSignatures = methodSignatures.local
+            val annotationRemovals = annotationRemovals.local
             if (config.innerClasses) {
                 classNode.outerClass = null
                 classNode.outerMethod = null
@@ -128,6 +133,26 @@ class ClassShrink : Transformer<ClassShrink.Config>(
                     }
                 }
             }
+            if (config.annotationRemovals.isNotEmpty()) {
+                config.annotationRemovals.forEach { desc ->
+                    val classBefore = (classNode.visibleAnnotations?.size ?: 0) + (classNode.invisibleAnnotations?.size ?: 0)
+                    classNode.removeAnnotation(desc)
+                    annotationRemovals.add(classBefore - ((classNode.visibleAnnotations?.size ?: 0) + (classNode.invisibleAnnotations?.size ?: 0)))
+
+                    classNode.fields.forEach { fieldNode ->
+                        val before = (fieldNode.visibleAnnotations?.size ?: 0) + (fieldNode.invisibleAnnotations?.size ?: 0)
+                        fieldNode.removeAnnotation(desc)
+                        annotationRemovals.add(before - ((fieldNode.visibleAnnotations?.size ?: 0) + (fieldNode.invisibleAnnotations?.size ?: 0)))
+                    }
+
+                    classNode.methods.forEach { methodNode ->
+                        if (methodNode.isExcluded(DISABLE_OPTIMIZER)) return@forEach
+                        val before = (methodNode.visibleAnnotations?.size ?: 0) + (methodNode.invisibleAnnotations?.size ?: 0)
+                        methodNode.removeAnnotation(desc)
+                        annotationRemovals.add(before - ((methodNode.visibleAnnotations?.size ?: 0) + (methodNode.invisibleAnnotations?.size ?: 0)))
+                    }
+                }
+            }
         }
         post {
             Logger.info(" - ClassShrink:")
@@ -135,6 +160,7 @@ class ClassShrink : Transformer<ClassShrink.Config>(
             if (config.unusedLabels) Logger.info("    Removed ${unusedLabels.global.get()} unused labels")
             if (config.nopRemove) Logger.info("    Removed ${nops.global.get()} NOP instructions")
             if (config.methodSignatures) Logger.info("    Removed ${methodSignatures.global.get()} method signatures")
+            if (config.annotationRemovals.isNotEmpty()) Logger.info("    Removed ${annotationRemovals.global.get()} configured annotations")
         }
     }
 }

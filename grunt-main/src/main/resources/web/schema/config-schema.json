@@ -1,0 +1,3528 @@
+{
+  "version": 2,
+  "defaults": {
+    "Settings": {
+      "Input": "input.jar",
+      "Output": "output.jar",
+      "Libraries": [],
+      "Exclusions": [],
+      "MixinPackage": [
+        "net/spartanb312/client/mixins/"
+      ],
+      "DumpMappings": true,
+      "ControllableRandom": true,
+      "InputSeed": "I love XJP",
+      "Multithreading": false,
+      "PrintTimeUsage": true,
+      "Profiler": false,
+      "ForceUseComputeMax": false,
+      "LibsMissingCheck": true,
+      "CustomDictionaryFile": "customDictionary.txt",
+      "DictionaryStartIndex": 0,
+      "CorruptOutput": false,
+      "RemoveTimeStamps": false,
+      "CompressionLevel": 9,
+      "ArchiveComment": "",
+      "FileRemovePrefix": [],
+      "FileRemoveSuffix": []
+    },
+    "UI": {
+      "DarkTheme": true
+    },
+    "SourceDebugRemove": {
+      "Enabled": false,
+      "SourceDebug": true,
+      "LineDebug": true,
+      "RenameSourceDebug": false,
+      "SourceNames": [
+        "114514.java",
+        "1919810.kt",
+        "69420.java",
+        "你妈死了.kt"
+      ],
+      "Exclusion": []
+    },
+    "Shrinking": {
+      "Enabled": false,
+      "RemoveInnerClass": true,
+      "RemoveUnusedLabel": true,
+      "RemoveNOP": false,
+      "AnnotationRemovals": [
+        "Ljava/lang/Override;"
+      ],
+      "Exclusion": []
+    },
+    "KotlinOptimizer": {
+      "Enabled": false,
+      "Annotations": true,
+      "Intrinsics": true,
+      "IntrinsicsRemoval": [
+        "checkExpressionValueIsNotNull",
+        "checkNotNullExpressionValue",
+        "checkReturnedValueIsNotNull",
+        "checkFieldIsNotNull",
+        "checkParameterIsNotNull",
+        "checkNotNullParameter"
+      ],
+      "ReplaceLdc": true,
+      "IntrinsicsExclusion": [],
+      "MetadataExclusion": []
+    },
+    "EnumOptimize": {
+      "Enabled": false,
+      "Exclusion": []
+    },
+    "DeadCodeRemove": {
+      "Enabled": false,
+      "Exclusion": []
+    },
+    "AntiDebug": {
+      "Enabled": false,
+      "CheckJDWP": true,
+      "CheckXDebug": true,
+      "CheckJavaAgent": true,
+      "CustomKeywords": [],
+      "Message": "Debugger detected",
+      "Exclusion": []
+    },
+    "ClonedClass": {
+      "Enabled": false,
+      "Count": 0,
+      "Suffix": "-cloned",
+      "RemoveAnnotations": true,
+      "Exclusion": []
+    },
+    "TrashClass": {
+      "Enabled": false,
+      "Package": "net/spartanb312/obf/",
+      "Prefix": "Trash",
+      "Count": 0
+    },
+    "HWIDAuthentication": {
+      "Enabled": false,
+      "OnlineMode": true,
+      "OfflineHWID": [
+        "Put HWID here (For offline mode only)"
+      ],
+      "OnlineURL": "https://pastebin.com/XXXXX",
+      "EncryptKey": "1186118611861186",
+      "CachePools": 5,
+      "ShowHWIDWhenFailed": true,
+      "EncryptConst": true,
+      "Exclusion": []
+    },
+    "HideDeclaredFields": {
+      "Enabled": false,
+      "Exclusion": []
+    },
+    "ParameterObfuscate": {
+      "Enabled": false,
+      "OnlyPrivateMethod": true,
+      "Exclusion": []
+    },
+    "ReflectionSupport": {
+      "Enabled": false,
+      "PrintLog": true,
+      "Class": true,
+      "Method": true,
+      "Field": true
+    },
+    "StringEncrypt": {
+      "Enabled": false,
+      "Arrayed": false,
+      "ReplaceInvokeDynamics": true,
+      "Exclusion": []
+    },
+    "NumberEncrypt": {
+      "Enabled": false,
+      "Intensity": 1,
+      "FloatingPoint": true,
+      "Arrayed": false,
+      "MaxInsnSize": 16384,
+      "Exclusion": []
+    },
+    "ArithmeticEncrypt": {
+      "Enabled": false,
+      "Intensity": 1,
+      "MaxInsnSize": 16384,
+      "Exclusion": []
+    },
+    "Controlflow": {
+      "Enabled": false,
+      "Intensity": 1,
+      "ExecuteBeforeEncrypt": false,
+      "SwitchExtractor": true,
+      "ExtractRate": 30,
+      "BogusConditionJump": true,
+      "GotoReplaceRate": 80,
+      "MangledCompareJump": true,
+      "IfReplaceRate": 50,
+      "IfICompareReplaceRate": 100,
+      "SwitchProtect": true,
+      "ProtectRate": 30,
+      "TableSwitchJump": true,
+      "MutateJumps": true,
+      "MutateRate": 10,
+      "SwitchReplaceRate": 30,
+      "MaxSwitchCase": 5,
+      "ReverseExistedIf": true,
+      "ReverseChance": 50,
+      "TrappedSwitchCase": true,
+      "TrapChance": 50,
+      "ArithmeticExprBuilder": true,
+      "BuilderIntensity": 1,
+      "JunkBuilderParameter": true,
+      "BuilderNativeAnnotation": false,
+      "UseLocalVar": true,
+      "JunkCode": true,
+      "MaxJunkCode": 2,
+      "ExpandedJunkCode": true,
+      "Exclusion": []
+    },
+    "ConstBuilder": {
+      "Enabled": false,
+      "NumberSwitchBuilder": true,
+      "SplitLong": true,
+      "HeavyEncrypt": false,
+      "SkipControlFlow": true,
+      "ReplacePercentage": 10,
+      "MaxCases": 5,
+      "Exclusion": []
+    },
+    "ConstPollEncrypt": {
+      "Enabled": false,
+      "Integer": true,
+      "Long": true,
+      "Float": true,
+      "Double": true,
+      "String": true,
+      "HeavyEncrypt": false,
+      "DontScramble": true,
+      "NativeAnnotation": false,
+      "Exclusion": []
+    },
+    "RedirectStringEquals": {
+      "Enabled": false,
+      "IgnoreCase": true,
+      "Exclusion": []
+    },
+    "FieldScramble": {
+      "Enabled": false,
+      "Intensity": 1,
+      "ReplacePercentage": 10,
+      "RandomName": false,
+      "GetStatic": true,
+      "SetStatic": true,
+      "GetValue": true,
+      "SetField": true,
+      "GenerateOuterClass": false,
+      "NativeAnnotation": false,
+      "ExcludedClasses": [],
+      "ExcludedFieldName": []
+    },
+    "MethodScramble": {
+      "Enabled": false,
+      "ReplacePercentage": 10,
+      "GenerateOuterClass": false,
+      "RandomCall": true,
+      "NativeAnnotation": false,
+      "ExcludedClasses": [],
+      "ExcludedMethodName": []
+    },
+    "InvokeDispatcher": {
+      "Enabled": false,
+      "ReplacePercentage": 30,
+      "MaxParams": 10,
+      "MaxHandles": 10,
+      "Exclusion": []
+    },
+    "NativeCandidate": {
+      "Enabled": false,
+      "NativeAnnotation": "Lnet/spartanb312/example/Native;",
+      "SearchCandidate": true,
+      "UpCallLimit": 0,
+      "Exclusion": [],
+      "AnnotationGroups": [
+        "{ \"annotation\": \"Lnet/spartanb312/grunt/Native;\"",
+        "\"includeRegexes\": [\"^(?:[^./\\\\[;]+/)*[^./\\\\[;]+$\"]",
+        "\"excludeRegexes\": [] }",
+        "{ \"annotation\": \"Lnet/spartanb312/grunt/VMProtect;\"",
+        "\"includeRegexes\": [\"^(?:[^./\\\\[;]+\\\\/)*(?:[^./\\\\[;])+\\\\.(?:[^./\\\\[;()\\\\/])+(?:\\\\(((\\\\[*L[^./\\\\[;]([^./\\\\[;]*[^.\\\\[;][^./\\\\[;])*;)|(\\\\[*[ZBCSIJFD]+))*\\\\))((\\\\[*L[^./\\\\[;]([^./\\\\[;]*[^.\\\\[;][^./\\\\[;])*;)|V|(\\\\[*[ZBCSIJFD]))$\"]",
+        "\"excludeRegexes\": [] }"
+      ]
+    },
+    "SyntheticBridge": {
+      "Enabled": false,
+      "Exclusion": []
+    },
+    "LocalVariableRename": {
+      "Enabled": false,
+      "Dictionary": "Alphabet",
+      "ThisReference": false,
+      "DeleteLocalVars": false,
+      "DeleteParameters": false,
+      "Exclusion": []
+    },
+    "MethodRename": {
+      "Enabled": false,
+      "Enums": true,
+      "Interfaces": false,
+      "Dictionary": "Alphabet",
+      "HeavyOverloads": false,
+      "RandomKeywordPrefix": false,
+      "Prefix": "",
+      "Reversed": false,
+      "Exclusion": [
+        "net/spartanb312/Example1",
+        "net/spartanb312/Example2.method",
+        "net/spartanb312/Example3.method()V"
+      ],
+      "ExcludedName": [
+        "methodName"
+      ]
+    },
+    "FieldRename": {
+      "Enabled": false,
+      "Dictionary": "Alphabet",
+      "RandomKeywordPrefix": false,
+      "Prefix": "",
+      "Reversed": false,
+      "Exclusion": [
+        "net/spartanb312/Example1",
+        "net/spartanb312/Example2.field"
+      ],
+      "ExcludedName": [
+        "INSTANCE",
+        "Companion"
+      ]
+    },
+    "ClassRename": {
+      "Enabled": false,
+      "Dictionary": "Alphabet",
+      "Parent": "net/spartanb312/obf/",
+      "Prefix": "",
+      "Reversed": false,
+      "Shuffled": false,
+      "CorruptedName": false,
+      "CorruptedNameExclusion": [],
+      "Exclusion": [
+        "net/spartanb312/Example",
+        "net/spartanb312/component/Component**",
+        "net/spartanb312/package/**"
+      ]
+    },
+    "MixinFieldRename": {
+      "Enabled": false,
+      "Dictionary": "Alphabet",
+      "Prefix": "",
+      "Exclusion": [
+        "net/spartanb312/Example1",
+        "net/spartanb312/Example2.field"
+      ],
+      "ExcludedName": [
+        "INSTANCE",
+        "Companion"
+      ]
+    },
+    "MixinClassRename": {
+      "Enabled": false,
+      "Dictionary": "Alphabet",
+      "TargetMixinPackage": "net/spartanb312/obf/mixins/",
+      "MixinFile": "mixins.example.json",
+      "RefmapFile": "mixins.example.refmap.json",
+      "Exclusion": [
+        "net/spartanb312/Example",
+        "net/spartanb312/component/Component**",
+        "net/spartanb312/package/**"
+      ]
+    },
+    "InvokeDynamic": {
+      "Enabled": false,
+      "ReplacePercentage": 10,
+      "HeavyProtection": false,
+      "MetadataClass": "net/spartanb312/grunt/GruntMetadata",
+      "MassiveRandomBlank": false,
+      "Reobfuscate": true,
+      "EnhancedFlowReobf": false,
+      "BSMNativeAnnotation": false,
+      "Exclusion": []
+    },
+    "ShuffleMembers": {
+      "Enabled": false,
+      "Methods": true,
+      "Fields": true,
+      "Annotations": true,
+      "Exceptions": true,
+      "Exclusion": []
+    },
+    "Crasher": {
+      "Enabled": false,
+      "Random": false,
+      "Exclusion": []
+    },
+    "Watermark": {
+      "Enabled": false,
+      "Names": [
+        "I AM WATERMARK",
+        "CYKA BLYAT",
+        "NAME"
+      ],
+      "Messages": [
+        "PROTECTED BY GRUNT KLASS MASTER",
+        "PROTECTED BY SPARTAN EVERETT",
+        "PROTECTED BY SPARTAN 1186",
+        "PROTECTED BY NOBLE SIX"
+      ],
+      "FieldMark": true,
+      "MethodMark": true,
+      "AnnotationMark": false,
+      "Annotations": [
+        "ProtectedByGrunt",
+        "JvavMetadata"
+      ],
+      "Versions": [
+        "114514",
+        "1919810",
+        "69420"
+      ],
+      "InterfaceMark": false,
+      "FatherOfJava": "jvav/lang/YuShengJun",
+      "CustomTrashMethod": false,
+      "CustomMethodName": "protected by YuShengJun",
+      "CustomMethodCode": "public static String method() {    return \"Protected by YuShengJun\";}",
+      "Exclusion": []
+    },
+    "PostProcess": {
+      "Enabled": false,
+      "Manifest": true,
+      "Plugin YML": true,
+      "Bungee YML": true,
+      "Fabric JSON": true,
+      "Velocity JSON": true,
+      "ManifestPrefix": [
+        "Main-Class:"
+      ]
+    }
+  },
+  "sections": [
+    {
+      "key": "Settings",
+      "title": "Settings",
+      "kind": "general",
+      "category": "General",
+      "order": 0,
+      "fields": [
+        {
+          "key": "Input",
+          "label": "Input",
+          "path": [
+            "Settings",
+            "Input"
+          ],
+          "type": "string",
+          "description": "Input JAR file name. This value is synced automatically after the main JAR is uploaded.",
+          "placeholder": "input.jar",
+          "readOnly": true,
+          "fileBinding": "input"
+        },
+        {
+          "key": "Output",
+          "label": "Output",
+          "path": [
+            "Settings",
+            "Output"
+          ],
+          "type": "string",
+          "description": "Output JAR file name. The server writes the obfuscated artifact to the current session output directory.",
+          "placeholder": "output.jar",
+          "required": true
+        },
+        {
+          "key": "Libraries",
+          "label": "Libraries",
+          "path": [
+            "Settings",
+            "Libraries"
+          ],
+          "type": "list",
+          "description": "Dependency JAR file names. This list is synced automatically after files are uploaded from Advanced.",
+          "readOnly": true,
+          "fileBinding": "library"
+        },
+        {
+          "key": "Exclusions",
+          "label": "Exclusions",
+          "path": [
+            "Settings",
+            "Exclusions"
+          ],
+          "type": "list",
+          "description": "Global exclusion rules. Matching classes or members skip selected processing steps.",
+          "placeholder": "com/example/KeepMe"
+        },
+        {
+          "key": "MixinPackage",
+          "label": "MixinPackage",
+          "path": [
+            "Settings",
+            "MixinPackage"
+          ],
+          "type": "list",
+          "description": "Mixin package path list used by related Minecraft rename logic.",
+          "placeholder": "net/spartanb312/client/mixins/"
+        },
+        {
+          "key": "DumpMappings",
+          "label": "DumpMappings",
+          "path": [
+            "Settings",
+            "DumpMappings"
+          ],
+          "type": "boolean",
+          "description": "Export rename mappings for debugging and symbol tracing."
+        },
+        {
+          "key": "ControllableRandom",
+          "label": "ControllableRandom",
+          "path": [
+            "Settings",
+            "ControllableRandom"
+          ],
+          "type": "boolean",
+          "description": "Use a fixed base seed so repeated runs with the same seed produce stable random-driven output."
+        },
+        {
+          "key": "InputSeed",
+          "label": "InputSeed",
+          "path": [
+            "Settings",
+            "InputSeed"
+          ],
+          "type": "string",
+          "description": "Base seed used when ControllableRandom is enabled.",
+          "placeholder": "I love XJP"
+        },
+        {
+          "key": "Multithreading",
+          "label": "Multithreading",
+          "path": [
+            "Settings",
+            "Multithreading"
+          ],
+          "type": "boolean",
+          "description": "Enable parallel processing. This can improve speed but uses more CPU resources."
+        },
+        {
+          "key": "PrintTimeUsage",
+          "label": "PrintTimeUsage",
+          "path": [
+            "Settings",
+            "PrintTimeUsage"
+          ],
+          "type": "boolean",
+          "description": "Print stage timing information to the console output."
+        },
+        {
+          "key": "Profiler",
+          "label": "Profiler",
+          "path": [
+            "Settings",
+            "Profiler"
+          ],
+          "type": "boolean",
+          "description": "Print per-transformer execution timing to the log output."
+        },
+        {
+          "key": "ForceUseComputeMax",
+          "label": "ForceUseComputeMax",
+          "path": [
+            "Settings",
+            "ForceUseComputeMax"
+          ],
+          "type": "boolean",
+          "description": "Force ASM COMPUTE_MAXS when rebuilding methods."
+        },
+        {
+          "key": "LibsMissingCheck",
+          "label": "LibsMissingCheck",
+          "path": [
+            "Settings",
+            "LibsMissingCheck"
+          ],
+          "type": "boolean",
+          "description": "Check for missing dependency libraries before processing. Recommended when external dependencies exist."
+        },
+        {
+          "key": "CustomDictionaryFile",
+          "label": "CustomDictionaryFile",
+          "path": [
+            "Settings",
+            "CustomDictionaryFile"
+          ],
+          "type": "string",
+          "description": "Custom dictionary asset file name. Upload the asset first when Dictionary is set to Custom.",
+          "placeholder": "customDictionary.txt"
+        },
+        {
+          "key": "DictionaryStartIndex",
+          "label": "DictionaryStartIndex",
+          "path": [
+            "Settings",
+            "DictionaryStartIndex"
+          ],
+          "type": "int",
+          "description": "Starting index used by the generated dictionary sequence.",
+          "min": 0,
+          "step": 1
+        },
+        {
+          "key": "CorruptOutput",
+          "label": "CorruptOutput",
+          "path": [
+            "Settings",
+            "CorruptOutput"
+          ],
+          "type": "boolean",
+          "description": "Produce intentionally corrupted output. Keep disabled unless you need this special mode."
+        },
+        {
+          "key": "RemoveTimeStamps",
+          "label": "RemoveTimeStamps",
+          "path": [
+            "Settings",
+            "RemoveTimeStamps"
+          ],
+          "type": "boolean",
+          "description": "Set ZIP entry timestamps to zero when writing the output archive."
+        },
+        {
+          "key": "CompressionLevel",
+          "label": "CompressionLevel",
+          "path": [
+            "Settings",
+            "CompressionLevel"
+          ],
+          "type": "int",
+          "description": "ZIP compression level used for the output archive.",
+          "min": 0,
+          "max": 9,
+          "step": 1
+        },
+        {
+          "key": "ArchiveComment",
+          "label": "ArchiveComment",
+          "path": [
+            "Settings",
+            "ArchiveComment"
+          ],
+          "type": "string",
+          "description": "ZIP archive comment written to the output JAR.",
+          "placeholder": "Built by Grunteon"
+        },
+        {
+          "key": "FileRemovePrefix",
+          "label": "FileRemovePrefix",
+          "path": [
+            "Settings",
+            "FileRemovePrefix"
+          ],
+          "type": "list",
+          "description": "Output resource name prefixes to remove during post processing.",
+          "placeholder": "META-INF/"
+        },
+        {
+          "key": "FileRemoveSuffix",
+          "label": "FileRemoveSuffix",
+          "path": [
+            "Settings",
+            "FileRemoveSuffix"
+          ],
+          "type": "list",
+          "description": "Output resource name suffixes to remove during post processing.",
+          "placeholder": ".DSA"
+        }
+      ]
+    },
+    {
+      "key": "UI",
+      "title": "UI",
+      "kind": "general",
+      "category": "General",
+      "order": 1,
+      "fields": [
+        {
+          "key": "DarkTheme",
+          "label": "DarkTheme",
+          "path": [
+            "UI",
+            "DarkTheme"
+          ],
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "key": "SourceDebugRemove",
+      "title": "SourceDebugRemove",
+      "kind": "transformer",
+      "category": "Optimization",
+      "order": 0,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "SourceDebugRemove",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "SourceDebug",
+          "label": "SourceDebug",
+          "path": [
+            "SourceDebugRemove",
+            "SourceDebug"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "LineDebug",
+          "label": "LineDebug",
+          "path": [
+            "SourceDebugRemove",
+            "LineDebug"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "RenameSourceDebug",
+          "label": "RenameSourceDebug",
+          "path": [
+            "SourceDebugRemove",
+            "RenameSourceDebug"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "SourceNames",
+          "label": "SourceNames",
+          "path": [
+            "SourceDebugRemove",
+            "SourceNames"
+          ],
+          "type": "list",
+          "description": "Candidate source file names used when RenameSourceDebug is enabled.",
+          "placeholder": "Example.java"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "SourceDebugRemove",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "Shrinking",
+      "title": "Shrinking",
+      "kind": "transformer",
+      "category": "Optimization",
+      "order": 1,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "Shrinking",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "RemoveInnerClass",
+          "label": "RemoveInnerClass",
+          "path": [
+            "Shrinking",
+            "RemoveInnerClass"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "RemoveUnusedLabel",
+          "label": "RemoveUnusedLabel",
+          "path": [
+            "Shrinking",
+            "RemoveUnusedLabel"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "RemoveNOP",
+          "label": "RemoveNOP",
+          "path": [
+            "Shrinking",
+            "RemoveNOP"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "AnnotationRemovals",
+          "label": "AnnotationRemovals",
+          "path": [
+            "Shrinking",
+            "AnnotationRemovals"
+          ],
+          "type": "list",
+          "description": "Annotation descriptors that should be removed by shrinking.",
+          "placeholder": "Ljava/lang/Override;"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "Shrinking",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "KotlinOptimizer",
+      "title": "KotlinOptimizer",
+      "kind": "transformer",
+      "category": "Optimization",
+      "order": 2,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "KotlinOptimizer",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Annotations",
+          "label": "Annotations",
+          "path": [
+            "KotlinOptimizer",
+            "Annotations"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Intrinsics",
+          "label": "Intrinsics",
+          "path": [
+            "KotlinOptimizer",
+            "Intrinsics"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "IntrinsicsRemoval",
+          "label": "IntrinsicsRemoval",
+          "path": [
+            "KotlinOptimizer",
+            "IntrinsicsRemoval"
+          ],
+          "type": "list"
+        },
+        {
+          "key": "ReplaceLdc",
+          "label": "ReplaceLdc",
+          "path": [
+            "KotlinOptimizer",
+            "ReplaceLdc"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "IntrinsicsExclusion",
+          "label": "IntrinsicsExclusion",
+          "path": [
+            "KotlinOptimizer",
+            "IntrinsicsExclusion"
+          ],
+          "type": "list"
+        },
+        {
+          "key": "MetadataExclusion",
+          "label": "MetadataExclusion",
+          "path": [
+            "KotlinOptimizer",
+            "MetadataExclusion"
+          ],
+          "type": "list"
+        }
+      ]
+    },
+    {
+      "key": "EnumOptimize",
+      "title": "EnumOptimize",
+      "kind": "transformer",
+      "category": "Optimization",
+      "order": 3,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "EnumOptimize",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "EnumOptimize",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "DeadCodeRemove",
+      "title": "DeadCodeRemove",
+      "kind": "transformer",
+      "category": "Optimization",
+      "order": 4,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "DeadCodeRemove",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "DeadCodeRemove",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "AntiDebug",
+      "title": "AntiDebug",
+      "kind": "transformer",
+      "category": "AntiDebug",
+      "order": 50,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "AntiDebug",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "CheckJDWP",
+          "label": "CheckJDWP",
+          "path": [
+            "AntiDebug",
+            "CheckJDWP"
+          ],
+          "type": "boolean",
+          "description": "Detect JDWP debugger arguments."
+        },
+        {
+          "key": "CheckXDebug",
+          "label": "CheckXDebug",
+          "path": [
+            "AntiDebug",
+            "CheckXDebug"
+          ],
+          "type": "boolean",
+          "description": "Detect legacy debug flags such as -Xdebug and -Xrunjdwp."
+        },
+        {
+          "key": "CheckJavaAgent",
+          "label": "CheckJavaAgent",
+          "path": [
+            "AntiDebug",
+            "CheckJavaAgent"
+          ],
+          "type": "boolean",
+          "description": "Detect javaagent startup arguments."
+        },
+        {
+          "key": "CustomKeywords",
+          "label": "CustomKeywords",
+          "path": [
+            "AntiDebug",
+            "CustomKeywords"
+          ],
+          "type": "list",
+          "description": "Extra lowercase keywords matched against JVM input arguments."
+        },
+        {
+          "key": "Message",
+          "label": "Message",
+          "path": [
+            "AntiDebug",
+            "Message"
+          ],
+          "type": "string",
+          "description": "Message thrown when debugging is detected.",
+          "placeholder": "Debugger detected"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "AntiDebug",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "ClonedClass",
+      "title": "ClonedClass",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 100,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "ClonedClass",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Count",
+          "label": "Count",
+          "path": [
+            "ClonedClass",
+            "Count"
+          ],
+          "type": "int",
+          "description": "Number of cloned classes to generate. 0 disables clone generation.",
+          "min": 0,
+          "step": 1
+        },
+        {
+          "key": "Suffix",
+          "label": "Suffix",
+          "path": [
+            "ClonedClass",
+            "Suffix"
+          ],
+          "type": "string",
+          "description": "Suffix appended to cloned class names.",
+          "placeholder": "-cloned"
+        },
+        {
+          "key": "RemoveAnnotations",
+          "label": "RemoveAnnotations",
+          "path": [
+            "ClonedClass",
+            "RemoveAnnotations"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "ClonedClass",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "TrashClass",
+      "title": "TrashClass",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 101,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "TrashClass",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Package",
+          "label": "Package",
+          "path": [
+            "TrashClass",
+            "Package"
+          ],
+          "type": "string",
+          "description": "Target package path used when generating trash classes.",
+          "placeholder": "net/spartanb312/obf/"
+        },
+        {
+          "key": "Prefix",
+          "label": "Prefix",
+          "path": [
+            "TrashClass",
+            "Prefix"
+          ],
+          "type": "string",
+          "description": "Shared prefix used by generated trash class names.",
+          "placeholder": "Trash"
+        },
+        {
+          "key": "Count",
+          "label": "Count",
+          "path": [
+            "TrashClass",
+            "Count"
+          ],
+          "type": "int",
+          "description": "Number of trash classes to generate.",
+          "min": 0,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "key": "HWIDAuthentication",
+      "title": "HWIDAuthentication",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 102,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "HWIDAuthentication",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "OnlineMode",
+          "label": "OnlineMode",
+          "path": [
+            "HWIDAuthentication",
+            "OnlineMode"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "OfflineHWID",
+          "label": "OfflineHWID",
+          "path": [
+            "HWIDAuthentication",
+            "OfflineHWID"
+          ],
+          "type": "list",
+          "description": "Offline mode HWID allow list.",
+          "placeholder": "Put HWID here (For offline mode only)"
+        },
+        {
+          "key": "OnlineURL",
+          "label": "OnlineURL",
+          "path": [
+            "HWIDAuthentication",
+            "OnlineURL"
+          ],
+          "type": "string",
+          "description": "URL used to fetch the remote HWID list in online mode.",
+          "placeholder": "https://pastebin.com/XXXXX"
+        },
+        {
+          "key": "EncryptKey",
+          "label": "EncryptKey",
+          "path": [
+            "HWIDAuthentication",
+            "EncryptKey"
+          ],
+          "type": "string",
+          "description": "Encryption key used by HWID authentication helpers.",
+          "placeholder": "1186118611861186"
+        },
+        {
+          "key": "CachePools",
+          "label": "CachePools",
+          "path": [
+            "HWIDAuthentication",
+            "CachePools"
+          ],
+          "type": "int",
+          "description": "Cache pool size used by the HWID authentication module.",
+          "min": 0,
+          "step": 1
+        },
+        {
+          "key": "ShowHWIDWhenFailed",
+          "label": "ShowHWIDWhenFailed",
+          "path": [
+            "HWIDAuthentication",
+            "ShowHWIDWhenFailed"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "EncryptConst",
+          "label": "EncryptConst",
+          "path": [
+            "HWIDAuthentication",
+            "EncryptConst"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "HWIDAuthentication",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "HideDeclaredFields",
+      "title": "HideDeclaredFields",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 103,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "HideDeclaredFields",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "HideDeclaredFields",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "NativeCandidate",
+      "title": "NativeCandidate",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 700,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "NativeCandidate",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "NativeAnnotation",
+          "label": "NativeAnnotation",
+          "path": [
+            "NativeCandidate",
+            "NativeAnnotation"
+          ],
+          "type": "string",
+          "description": "Annotation descriptor that marks native method candidates.",
+          "placeholder": "Lnet/spartanb312/example/Native;"
+        },
+        {
+          "key": "SearchCandidate",
+          "label": "SearchCandidate",
+          "path": [
+            "NativeCandidate",
+            "SearchCandidate"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "UpCallLimit",
+          "label": "UpCallLimit",
+          "path": [
+            "NativeCandidate",
+            "UpCallLimit"
+          ],
+          "type": "int",
+          "description": "Maximum upward call search depth. 0 means unlimited.",
+          "min": 0,
+          "step": 1
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "NativeCandidate",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        },
+        {
+          "key": "AnnotationGroups",
+          "label": "AnnotationGroups",
+          "path": [
+            "NativeCandidate",
+            "AnnotationGroups"
+          ],
+          "type": "list",
+          "description": "Annotation group descriptors used by native candidate matching.",
+          "placeholder": "Ljava/lang/Deprecated;"
+        }
+      ]
+    },
+    {
+      "key": "SyntheticBridge",
+      "title": "SyntheticBridge",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 701,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "SyntheticBridge",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "SyntheticBridge",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "ShuffleMembers",
+      "title": "ShuffleMembers",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 1001,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "ShuffleMembers",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Methods",
+          "label": "Methods",
+          "path": [
+            "ShuffleMembers",
+            "Methods"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Fields",
+          "label": "Fields",
+          "path": [
+            "ShuffleMembers",
+            "Fields"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Annotations",
+          "label": "Annotations",
+          "path": [
+            "ShuffleMembers",
+            "Annotations"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exceptions",
+          "label": "Exceptions",
+          "path": [
+            "ShuffleMembers",
+            "Exceptions"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "ShuffleMembers",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "Crasher",
+      "title": "Crasher",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 1002,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "Crasher",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Random",
+          "label": "Random",
+          "path": [
+            "Crasher",
+            "Random"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "Crasher",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "Watermark",
+      "title": "Watermark",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 1003,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "Watermark",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Names",
+          "label": "Names",
+          "path": [
+            "Watermark",
+            "Names"
+          ],
+          "type": "list"
+        },
+        {
+          "key": "Messages",
+          "label": "Messages",
+          "path": [
+            "Watermark",
+            "Messages"
+          ],
+          "type": "list"
+        },
+        {
+          "key": "FieldMark",
+          "label": "FieldMark",
+          "path": [
+            "Watermark",
+            "FieldMark"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "MethodMark",
+          "label": "MethodMark",
+          "path": [
+            "Watermark",
+            "MethodMark"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "AnnotationMark",
+          "label": "AnnotationMark",
+          "path": [
+            "Watermark",
+            "AnnotationMark"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Annotations",
+          "label": "Annotations",
+          "path": [
+            "Watermark",
+            "Annotations"
+          ],
+          "type": "list"
+        },
+        {
+          "key": "Versions",
+          "label": "Versions",
+          "path": [
+            "Watermark",
+            "Versions"
+          ],
+          "type": "list"
+        },
+        {
+          "key": "InterfaceMark",
+          "label": "InterfaceMark",
+          "path": [
+            "Watermark",
+            "InterfaceMark"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "FatherOfJava",
+          "label": "FatherOfJava",
+          "path": [
+            "Watermark",
+            "FatherOfJava"
+          ],
+          "type": "string"
+        },
+        {
+          "key": "CustomTrashMethod",
+          "label": "CustomTrashMethod",
+          "path": [
+            "Watermark",
+            "CustomTrashMethod"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "CustomMethodName",
+          "label": "CustomMethodName",
+          "path": [
+            "Watermark",
+            "CustomMethodName"
+          ],
+          "type": "string"
+        },
+        {
+          "key": "CustomMethodCode",
+          "label": "CustomMethodCode",
+          "path": [
+            "Watermark",
+            "CustomMethodCode"
+          ],
+          "type": "string"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "Watermark",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "PostProcess",
+      "title": "PostProcess",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 2147483647,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "PostProcess",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Manifest",
+          "label": "Manifest",
+          "path": [
+            "PostProcess",
+            "Manifest"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Plugin YML",
+          "label": "Plugin YML",
+          "path": [
+            "PostProcess",
+            "Plugin YML"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Bungee YML",
+          "label": "Bungee YML",
+          "path": [
+            "PostProcess",
+            "Bungee YML"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Fabric JSON",
+          "label": "Fabric JSON",
+          "path": [
+            "PostProcess",
+            "Fabric JSON"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Velocity JSON",
+          "label": "Velocity JSON",
+          "path": [
+            "PostProcess",
+            "Velocity JSON"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "ManifestPrefix",
+          "label": "ManifestPrefix",
+          "path": [
+            "PostProcess",
+            "ManifestPrefix"
+          ],
+          "type": "list",
+          "description": "Manifest prefixes to replace or append during post processing.",
+          "placeholder": "Main-Class:"
+        }
+      ]
+    },
+    {
+      "key": "Controlflow",
+      "title": "Controlflow",
+      "kind": "transformer",
+      "category": "Controlflow",
+      "order": 400,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "Controlflow",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Intensity",
+          "label": "Intensity",
+          "path": [
+            "Controlflow",
+            "Intensity"
+          ],
+          "type": "int",
+          "description": "Control flow obfuscation intensity.",
+          "min": 1,
+          "max": 3,
+          "step": 1
+        },
+        {
+          "key": "ExecuteBeforeEncrypt",
+          "label": "ExecuteBeforeEncrypt",
+          "path": [
+            "Controlflow",
+            "ExecuteBeforeEncrypt"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "SwitchExtractor",
+          "label": "SwitchExtractor",
+          "path": [
+            "Controlflow",
+            "SwitchExtractor"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "ExtractRate",
+          "label": "ExtractRate",
+          "path": [
+            "Controlflow",
+            "ExtractRate"
+          ],
+          "type": "int",
+          "description": "Switch extractor activation rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "BogusConditionJump",
+          "label": "BogusConditionJump",
+          "path": [
+            "Controlflow",
+            "BogusConditionJump"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "GotoReplaceRate",
+          "label": "GotoReplaceRate",
+          "path": [
+            "Controlflow",
+            "GotoReplaceRate"
+          ],
+          "type": "int",
+          "description": "Goto replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "MangledCompareJump",
+          "label": "MangledCompareJump",
+          "path": [
+            "Controlflow",
+            "MangledCompareJump"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "IfReplaceRate",
+          "label": "IfReplaceRate",
+          "path": [
+            "Controlflow",
+            "IfReplaceRate"
+          ],
+          "type": "int",
+          "description": "If branch replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "IfICompareReplaceRate",
+          "label": "IfICompareReplaceRate",
+          "path": [
+            "Controlflow",
+            "IfICompareReplaceRate"
+          ],
+          "type": "int",
+          "description": "Integer compare replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "SwitchProtect",
+          "label": "SwitchProtect",
+          "path": [
+            "Controlflow",
+            "SwitchProtect"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "ProtectRate",
+          "label": "ProtectRate",
+          "path": [
+            "Controlflow",
+            "ProtectRate"
+          ],
+          "type": "int",
+          "description": "Switch protect activation rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "TableSwitchJump",
+          "label": "TableSwitchJump",
+          "path": [
+            "Controlflow",
+            "TableSwitchJump"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "MutateJumps",
+          "label": "MutateJumps",
+          "path": [
+            "Controlflow",
+            "MutateJumps"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "MutateRate",
+          "label": "MutateRate",
+          "path": [
+            "Controlflow",
+            "MutateRate"
+          ],
+          "type": "int",
+          "description": "Jump mutation rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "SwitchReplaceRate",
+          "label": "SwitchReplaceRate",
+          "path": [
+            "Controlflow",
+            "SwitchReplaceRate"
+          ],
+          "type": "int",
+          "description": "Switch replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "MaxSwitchCase",
+          "label": "MaxSwitchCase",
+          "path": [
+            "Controlflow",
+            "MaxSwitchCase"
+          ],
+          "type": "int",
+          "description": "Maximum number of generated switch cases.",
+          "min": 1,
+          "max": 10,
+          "step": 1
+        },
+        {
+          "key": "ReverseExistedIf",
+          "label": "ReverseExistedIf",
+          "path": [
+            "Controlflow",
+            "ReverseExistedIf"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "ReverseChance",
+          "label": "ReverseChance",
+          "path": [
+            "Controlflow",
+            "ReverseChance"
+          ],
+          "type": "int",
+          "description": "Chance to reverse existing if conditions.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "TrappedSwitchCase",
+          "label": "TrappedSwitchCase",
+          "path": [
+            "Controlflow",
+            "TrappedSwitchCase"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "TrapChance",
+          "label": "TrapChance",
+          "path": [
+            "Controlflow",
+            "TrapChance"
+          ],
+          "type": "int",
+          "description": "Chance to inject trapped switch cases.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "ArithmeticExprBuilder",
+          "label": "ArithmeticExprBuilder",
+          "path": [
+            "Controlflow",
+            "ArithmeticExprBuilder"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "BuilderIntensity",
+          "label": "BuilderIntensity",
+          "path": [
+            "Controlflow",
+            "BuilderIntensity"
+          ],
+          "type": "int",
+          "description": "Arithmetic builder intensity.",
+          "min": 1,
+          "max": 3,
+          "step": 1
+        },
+        {
+          "key": "JunkBuilderParameter",
+          "label": "JunkBuilderParameter",
+          "path": [
+            "Controlflow",
+            "JunkBuilderParameter"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "BuilderNativeAnnotation",
+          "label": "BuilderNativeAnnotation",
+          "path": [
+            "Controlflow",
+            "BuilderNativeAnnotation"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "UseLocalVar",
+          "label": "UseLocalVar",
+          "path": [
+            "Controlflow",
+            "UseLocalVar"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "JunkCode",
+          "label": "JunkCode",
+          "path": [
+            "Controlflow",
+            "JunkCode"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "MaxJunkCode",
+          "label": "MaxJunkCode",
+          "path": [
+            "Controlflow",
+            "MaxJunkCode"
+          ],
+          "type": "int",
+          "description": "Maximum amount of junk code blocks to inject.",
+          "min": 1,
+          "max": 5,
+          "step": 1
+        },
+        {
+          "key": "ExpandedJunkCode",
+          "label": "ExpandedJunkCode",
+          "path": [
+            "Controlflow",
+            "ExpandedJunkCode"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "Controlflow",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "ConstBuilder",
+      "title": "ConstBuilder",
+      "kind": "transformer",
+      "category": "Controlflow",
+      "order": 500,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "ConstBuilder",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "NumberSwitchBuilder",
+          "label": "NumberSwitchBuilder",
+          "path": [
+            "ConstBuilder",
+            "NumberSwitchBuilder"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "SplitLong",
+          "label": "SplitLong",
+          "path": [
+            "ConstBuilder",
+            "SplitLong"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "HeavyEncrypt",
+          "label": "HeavyEncrypt",
+          "path": [
+            "ConstBuilder",
+            "HeavyEncrypt"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "SkipControlFlow",
+          "label": "SkipControlFlow",
+          "path": [
+            "ConstBuilder",
+            "SkipControlFlow"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "ReplacePercentage",
+          "label": "ReplacePercentage",
+          "path": [
+            "ConstBuilder",
+            "ReplacePercentage"
+          ],
+          "type": "int",
+          "description": "Constant builder replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "MaxCases",
+          "label": "MaxCases",
+          "path": [
+            "ConstBuilder",
+            "MaxCases"
+          ],
+          "type": "int",
+          "description": "Maximum switch case count used by const builder.",
+          "min": 1,
+          "step": 1
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "ConstBuilder",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "StringEncrypt",
+      "title": "StringEncrypt",
+      "kind": "transformer",
+      "category": "Encryption",
+      "order": 300,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "StringEncrypt",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Arrayed",
+          "label": "Arrayed",
+          "path": [
+            "StringEncrypt",
+            "Arrayed"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "ReplaceInvokeDynamics",
+          "label": "ReplaceInvokeDynamics",
+          "path": [
+            "StringEncrypt",
+            "ReplaceInvokeDynamics"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "StringEncrypt",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "NumberEncrypt",
+      "title": "NumberEncrypt",
+      "kind": "transformer",
+      "category": "Encryption",
+      "order": 301,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "NumberEncrypt",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Intensity",
+          "label": "Intensity",
+          "path": [
+            "NumberEncrypt",
+            "Intensity"
+          ],
+          "type": "int",
+          "description": "Number encryption intensity.",
+          "min": 1,
+          "step": 1
+        },
+        {
+          "key": "FloatingPoint",
+          "label": "FloatingPoint",
+          "path": [
+            "NumberEncrypt",
+            "FloatingPoint"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Arrayed",
+          "label": "Arrayed",
+          "path": [
+            "NumberEncrypt",
+            "Arrayed"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "MaxInsnSize",
+          "label": "MaxInsnSize",
+          "path": [
+            "NumberEncrypt",
+            "MaxInsnSize"
+          ],
+          "type": "int",
+          "description": "Maximum instruction count allowed for a processed method.",
+          "min": 1,
+          "step": 1
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "NumberEncrypt",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "ArithmeticEncrypt",
+      "title": "ArithmeticEncrypt",
+      "kind": "transformer",
+      "category": "Encryption",
+      "order": 302,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "ArithmeticEncrypt",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Intensity",
+          "label": "Intensity",
+          "path": [
+            "ArithmeticEncrypt",
+            "Intensity"
+          ],
+          "type": "int",
+          "description": "Arithmetic encryption intensity.",
+          "min": 1,
+          "step": 1
+        },
+        {
+          "key": "MaxInsnSize",
+          "label": "MaxInsnSize",
+          "path": [
+            "ArithmeticEncrypt",
+            "MaxInsnSize"
+          ],
+          "type": "int",
+          "description": "Maximum instruction count allowed for a processed method.",
+          "min": 1,
+          "step": 1
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "ArithmeticEncrypt",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "ConstPollEncrypt",
+      "title": "ConstPollEncrypt",
+      "kind": "transformer",
+      "category": "Encryption",
+      "order": 501,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "ConstPollEncrypt",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Integer",
+          "label": "Integer",
+          "path": [
+            "ConstPollEncrypt",
+            "Integer"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Long",
+          "label": "Long",
+          "path": [
+            "ConstPollEncrypt",
+            "Long"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Float",
+          "label": "Float",
+          "path": [
+            "ConstPollEncrypt",
+            "Float"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Double",
+          "label": "Double",
+          "path": [
+            "ConstPollEncrypt",
+            "Double"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "String",
+          "label": "String",
+          "path": [
+            "ConstPollEncrypt",
+            "String"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "HeavyEncrypt",
+          "label": "HeavyEncrypt",
+          "path": [
+            "ConstPollEncrypt",
+            "HeavyEncrypt"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "DontScramble",
+          "label": "DontScramble",
+          "path": [
+            "ConstPollEncrypt",
+            "DontScramble"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "NativeAnnotation",
+          "label": "NativeAnnotation",
+          "path": [
+            "ConstPollEncrypt",
+            "NativeAnnotation"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "ConstPollEncrypt",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "RedirectStringEquals",
+      "title": "RedirectStringEquals",
+      "kind": "transformer",
+      "category": "Redirect",
+      "order": 600,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "RedirectStringEquals",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "IgnoreCase",
+          "label": "IgnoreCase",
+          "path": [
+            "RedirectStringEquals",
+            "IgnoreCase"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "RedirectStringEquals",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "FieldScramble",
+      "title": "FieldScramble",
+      "kind": "transformer",
+      "category": "Redirect",
+      "order": 601,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "FieldScramble",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Intensity",
+          "label": "Intensity",
+          "path": [
+            "FieldScramble",
+            "Intensity"
+          ],
+          "type": "int",
+          "description": "Field scramble intensity.",
+          "min": 1,
+          "step": 1
+        },
+        {
+          "key": "ReplacePercentage",
+          "label": "ReplacePercentage",
+          "path": [
+            "FieldScramble",
+            "ReplacePercentage"
+          ],
+          "type": "int",
+          "description": "Field access replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "RandomName",
+          "label": "RandomName",
+          "path": [
+            "FieldScramble",
+            "RandomName"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "GetStatic",
+          "label": "GetStatic",
+          "path": [
+            "FieldScramble",
+            "GetStatic"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "SetStatic",
+          "label": "SetStatic",
+          "path": [
+            "FieldScramble",
+            "SetStatic"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "GetValue",
+          "label": "GetValue",
+          "path": [
+            "FieldScramble",
+            "GetValue"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "SetField",
+          "label": "SetField",
+          "path": [
+            "FieldScramble",
+            "SetField"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "GenerateOuterClass",
+          "label": "GenerateOuterClass",
+          "path": [
+            "FieldScramble",
+            "GenerateOuterClass"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "NativeAnnotation",
+          "label": "NativeAnnotation",
+          "path": [
+            "FieldScramble",
+            "NativeAnnotation"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "ExcludedClasses",
+          "label": "ExcludedClasses",
+          "path": [
+            "FieldScramble",
+            "ExcludedClasses"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        },
+        {
+          "key": "ExcludedFieldName",
+          "label": "ExcludedFieldName",
+          "path": [
+            "FieldScramble",
+            "ExcludedFieldName"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "MethodScramble",
+      "title": "MethodScramble",
+      "kind": "transformer",
+      "category": "Redirect",
+      "order": 602,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "MethodScramble",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "ReplacePercentage",
+          "label": "ReplacePercentage",
+          "path": [
+            "MethodScramble",
+            "ReplacePercentage"
+          ],
+          "type": "int",
+          "description": "Method call replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "GenerateOuterClass",
+          "label": "GenerateOuterClass",
+          "path": [
+            "MethodScramble",
+            "GenerateOuterClass"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "RandomCall",
+          "label": "RandomCall",
+          "path": [
+            "MethodScramble",
+            "RandomCall"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "NativeAnnotation",
+          "label": "NativeAnnotation",
+          "path": [
+            "MethodScramble",
+            "NativeAnnotation"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "ExcludedClasses",
+          "label": "ExcludedClasses",
+          "path": [
+            "MethodScramble",
+            "ExcludedClasses"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        },
+        {
+          "key": "ExcludedMethodName",
+          "label": "ExcludedMethodName",
+          "path": [
+            "MethodScramble",
+            "ExcludedMethodName"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "InvokeDispatcher",
+      "title": "InvokeDispatcher",
+      "kind": "transformer",
+      "category": "Redirect",
+      "order": 603,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "InvokeDispatcher",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "ReplacePercentage",
+          "label": "ReplacePercentage",
+          "path": [
+            "InvokeDispatcher",
+            "ReplacePercentage"
+          ],
+          "type": "int",
+          "description": "Dispatcher replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "MaxParams",
+          "label": "MaxParams",
+          "path": [
+            "InvokeDispatcher",
+            "MaxParams"
+          ],
+          "type": "int",
+          "description": "Maximum object parameters handled by a dispatcher.",
+          "min": 1,
+          "step": 1
+        },
+        {
+          "key": "MaxHandles",
+          "label": "MaxHandles",
+          "path": [
+            "InvokeDispatcher",
+            "MaxHandles"
+          ],
+          "type": "int",
+          "description": "Maximum call handles grouped into one dispatcher.",
+          "min": 2,
+          "step": 1
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "InvokeDispatcher",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "InvokeDynamic",
+      "title": "InvokeDynamic",
+      "kind": "transformer",
+      "category": "Redirect",
+      "order": 1000,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "InvokeDynamic",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "ReplacePercentage",
+          "label": "ReplacePercentage",
+          "path": [
+            "InvokeDynamic",
+            "ReplacePercentage"
+          ],
+          "type": "int",
+          "description": "InvokeDynamic replacement rate.",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "HeavyProtection",
+          "label": "HeavyProtection",
+          "path": [
+            "InvokeDynamic",
+            "HeavyProtection"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "MetadataClass",
+          "label": "MetadataClass",
+          "path": [
+            "InvokeDynamic",
+            "MetadataClass"
+          ],
+          "type": "string",
+          "description": "Class name used for generated bootstrap metadata.",
+          "placeholder": "net/spartanb312/grunt/GruntMetadata"
+        },
+        {
+          "key": "MassiveRandomBlank",
+          "label": "MassiveRandomBlank",
+          "path": [
+            "InvokeDynamic",
+            "MassiveRandomBlank"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Reobfuscate",
+          "label": "Reobfuscate",
+          "path": [
+            "InvokeDynamic",
+            "Reobfuscate"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "EnhancedFlowReobf",
+          "label": "EnhancedFlowReobf",
+          "path": [
+            "InvokeDynamic",
+            "EnhancedFlowReobf"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "BSMNativeAnnotation",
+          "label": "BSMNativeAnnotation",
+          "path": [
+            "InvokeDynamic",
+            "BSMNativeAnnotation"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "InvokeDynamic",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "ParameterObfuscate",
+      "title": "ParameterObfuscate",
+      "kind": "transformer",
+      "category": "Miscellaneous",
+      "order": 160,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "ParameterObfuscate",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "OnlyPrivateMethod",
+          "label": "OnlyPrivateMethod",
+          "path": [
+            "ParameterObfuscate",
+            "OnlyPrivateMethod"
+          ],
+          "type": "boolean",
+          "description": "Only obfuscate private methods."
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "ParameterObfuscate",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "ReflectionSupport",
+      "title": "ReflectionSupport",
+      "kind": "transformer",
+      "category": "Renaming",
+      "order": 199,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "ReflectionSupport",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "PrintLog",
+          "label": "PrintLog",
+          "path": [
+            "ReflectionSupport",
+            "PrintLog"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Class",
+          "label": "Class",
+          "path": [
+            "ReflectionSupport",
+            "Class"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Method",
+          "label": "Method",
+          "path": [
+            "ReflectionSupport",
+            "Method"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Field",
+          "label": "Field",
+          "path": [
+            "ReflectionSupport",
+            "Field"
+          ],
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "key": "LocalVariableRename",
+      "title": "LocalVariableRename",
+      "kind": "transformer",
+      "category": "Renaming",
+      "order": 800,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "LocalVariableRename",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Dictionary",
+          "label": "Dictionary",
+          "path": [
+            "LocalVariableRename",
+            "Dictionary"
+          ],
+          "type": "string",
+          "description": "Dictionary used for local variable renaming.",
+          "options": [
+            {
+              "value": "Alphabet",
+              "label": "Alphabet"
+            },
+            {
+              "value": "Numbers",
+              "label": "Numbers"
+            },
+            {
+              "value": "ConfuseIL",
+              "label": "ConfuseIL"
+            },
+            {
+              "value": "Confuse0O",
+              "label": "Confuse0O"
+            },
+            {
+              "value": "ConfuseS5",
+              "label": "ConfuseS5"
+            },
+            {
+              "value": "Arabic",
+              "label": "Arabic"
+            },
+            {
+              "value": "Custom",
+              "label": "Custom"
+            }
+          ]
+        },
+        {
+          "key": "ThisReference",
+          "label": "ThisReference",
+          "path": [
+            "LocalVariableRename",
+            "ThisReference"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "DeleteLocalVars",
+          "label": "DeleteLocalVars",
+          "path": [
+            "LocalVariableRename",
+            "DeleteLocalVars"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "DeleteParameters",
+          "label": "DeleteParameters",
+          "path": [
+            "LocalVariableRename",
+            "DeleteParameters"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "LocalVariableRename",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "MethodRename",
+      "title": "MethodRename",
+      "kind": "transformer",
+      "category": "Renaming",
+      "order": 801,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "MethodRename",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Enums",
+          "label": "Enums",
+          "path": [
+            "MethodRename",
+            "Enums"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Interfaces",
+          "label": "Interfaces",
+          "path": [
+            "MethodRename",
+            "Interfaces"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Dictionary",
+          "label": "Dictionary",
+          "path": [
+            "MethodRename",
+            "Dictionary"
+          ],
+          "type": "string",
+          "description": "Dictionary used for method renaming.",
+          "options": [
+            {
+              "value": "Alphabet",
+              "label": "Alphabet"
+            },
+            {
+              "value": "Numbers",
+              "label": "Numbers"
+            },
+            {
+              "value": "ConfuseIL",
+              "label": "ConfuseIL"
+            },
+            {
+              "value": "Confuse0O",
+              "label": "Confuse0O"
+            },
+            {
+              "value": "ConfuseS5",
+              "label": "ConfuseS5"
+            },
+            {
+              "value": "Arabic",
+              "label": "Arabic"
+            },
+            {
+              "value": "Custom",
+              "label": "Custom"
+            }
+          ]
+        },
+        {
+          "key": "HeavyOverloads",
+          "label": "HeavyOverloads",
+          "path": [
+            "MethodRename",
+            "HeavyOverloads"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "RandomKeywordPrefix",
+          "label": "RandomKeywordPrefix",
+          "path": [
+            "MethodRename",
+            "RandomKeywordPrefix"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Prefix",
+          "label": "Prefix",
+          "path": [
+            "MethodRename",
+            "Prefix"
+          ],
+          "type": "string",
+          "description": "Prefix applied to renamed method names.",
+          "placeholder": ""
+        },
+        {
+          "key": "Reversed",
+          "label": "Reversed",
+          "path": [
+            "MethodRename",
+            "Reversed"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "MethodRename",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        },
+        {
+          "key": "ExcludedName",
+          "label": "ExcludedName",
+          "path": [
+            "MethodRename",
+            "ExcludedName"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation.",
+          "placeholder": "methodName"
+        }
+      ]
+    },
+    {
+      "key": "FieldRename",
+      "title": "FieldRename",
+      "kind": "transformer",
+      "category": "Renaming",
+      "order": 802,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "FieldRename",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Dictionary",
+          "label": "Dictionary",
+          "path": [
+            "FieldRename",
+            "Dictionary"
+          ],
+          "type": "string",
+          "description": "Dictionary used for field renaming.",
+          "options": [
+            {
+              "value": "Alphabet",
+              "label": "Alphabet"
+            },
+            {
+              "value": "Numbers",
+              "label": "Numbers"
+            },
+            {
+              "value": "ConfuseIL",
+              "label": "ConfuseIL"
+            },
+            {
+              "value": "Confuse0O",
+              "label": "Confuse0O"
+            },
+            {
+              "value": "ConfuseS5",
+              "label": "ConfuseS5"
+            },
+            {
+              "value": "Arabic",
+              "label": "Arabic"
+            },
+            {
+              "value": "Custom",
+              "label": "Custom"
+            }
+          ]
+        },
+        {
+          "key": "RandomKeywordPrefix",
+          "label": "RandomKeywordPrefix",
+          "path": [
+            "FieldRename",
+            "RandomKeywordPrefix"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Prefix",
+          "label": "Prefix",
+          "path": [
+            "FieldRename",
+            "Prefix"
+          ],
+          "type": "string",
+          "description": "Prefix applied to renamed field names.",
+          "placeholder": ""
+        },
+        {
+          "key": "Reversed",
+          "label": "Reversed",
+          "path": [
+            "FieldRename",
+            "Reversed"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "FieldRename",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        },
+        {
+          "key": "ExcludedName",
+          "label": "ExcludedName",
+          "path": [
+            "FieldRename",
+            "ExcludedName"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation.",
+          "placeholder": "INSTANCE"
+        }
+      ]
+    },
+    {
+      "key": "ClassRename",
+      "title": "ClassRename",
+      "kind": "transformer",
+      "category": "Renaming",
+      "order": 803,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "ClassRename",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Dictionary",
+          "label": "Dictionary",
+          "path": [
+            "ClassRename",
+            "Dictionary"
+          ],
+          "type": "string",
+          "description": "Dictionary used for class renaming.",
+          "options": [
+            {
+              "value": "Alphabet",
+              "label": "Alphabet"
+            },
+            {
+              "value": "Numbers",
+              "label": "Numbers"
+            },
+            {
+              "value": "ConfuseIL",
+              "label": "ConfuseIL"
+            },
+            {
+              "value": "Confuse0O",
+              "label": "Confuse0O"
+            },
+            {
+              "value": "ConfuseS5",
+              "label": "ConfuseS5"
+            },
+            {
+              "value": "Arabic",
+              "label": "Arabic"
+            },
+            {
+              "value": "Custom",
+              "label": "Custom"
+            }
+          ]
+        },
+        {
+          "key": "Parent",
+          "label": "Parent",
+          "path": [
+            "ClassRename",
+            "Parent"
+          ],
+          "type": "string",
+          "description": "Destination parent package used by class renaming.",
+          "placeholder": "net/spartanb312/obf/"
+        },
+        {
+          "key": "Prefix",
+          "label": "Prefix",
+          "path": [
+            "ClassRename",
+            "Prefix"
+          ],
+          "type": "string",
+          "description": "Prefix applied to renamed class names.",
+          "placeholder": ""
+        },
+        {
+          "key": "Reversed",
+          "label": "Reversed",
+          "path": [
+            "ClassRename",
+            "Reversed"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "Shuffled",
+          "label": "Shuffled",
+          "path": [
+            "ClassRename",
+            "Shuffled"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "CorruptedName",
+          "label": "CorruptedName",
+          "path": [
+            "ClassRename",
+            "CorruptedName"
+          ],
+          "type": "boolean"
+        },
+        {
+          "key": "CorruptedNameExclusion",
+          "label": "CorruptedNameExclusion",
+          "path": [
+            "ClassRename",
+            "CorruptedNameExclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "ClassRename",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "MixinFieldRename",
+      "title": "MixinFieldRename",
+      "kind": "transformer",
+      "category": "Minecraft",
+      "order": 900,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "MixinFieldRename",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Dictionary",
+          "label": "Dictionary",
+          "path": [
+            "MixinFieldRename",
+            "Dictionary"
+          ],
+          "type": "string",
+          "description": "Dictionary used for mixin field renaming.",
+          "options": [
+            {
+              "value": "Alphabet",
+              "label": "Alphabet"
+            },
+            {
+              "value": "Numbers",
+              "label": "Numbers"
+            },
+            {
+              "value": "ConfuseIL",
+              "label": "ConfuseIL"
+            },
+            {
+              "value": "Confuse0O",
+              "label": "Confuse0O"
+            },
+            {
+              "value": "ConfuseS5",
+              "label": "ConfuseS5"
+            },
+            {
+              "value": "Arabic",
+              "label": "Arabic"
+            },
+            {
+              "value": "Custom",
+              "label": "Custom"
+            }
+          ]
+        },
+        {
+          "key": "Prefix",
+          "label": "Prefix",
+          "path": [
+            "MixinFieldRename",
+            "Prefix"
+          ],
+          "type": "string",
+          "description": "Prefix applied to renamed mixin field names.",
+          "placeholder": ""
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "MixinFieldRename",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        },
+        {
+          "key": "ExcludedName",
+          "label": "ExcludedName",
+          "path": [
+            "MixinFieldRename",
+            "ExcludedName"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    },
+    {
+      "key": "MixinClassRename",
+      "title": "MixinClassRename",
+      "kind": "transformer",
+      "category": "Minecraft",
+      "order": 901,
+      "fields": [
+        {
+          "key": "Enabled",
+          "label": "Enabled",
+          "path": [
+            "MixinClassRename",
+            "Enabled"
+          ],
+          "type": "boolean",
+          "description": "Enable or disable this transformer."
+        },
+        {
+          "key": "Dictionary",
+          "label": "Dictionary",
+          "path": [
+            "MixinClassRename",
+            "Dictionary"
+          ],
+          "type": "string",
+          "description": "Dictionary used for mixin class renaming.",
+          "options": [
+            {
+              "value": "Alphabet",
+              "label": "Alphabet"
+            },
+            {
+              "value": "Numbers",
+              "label": "Numbers"
+            },
+            {
+              "value": "ConfuseIL",
+              "label": "ConfuseIL"
+            },
+            {
+              "value": "Confuse0O",
+              "label": "Confuse0O"
+            },
+            {
+              "value": "ConfuseS5",
+              "label": "ConfuseS5"
+            },
+            {
+              "value": "Arabic",
+              "label": "Arabic"
+            },
+            {
+              "value": "Custom",
+              "label": "Custom"
+            }
+          ]
+        },
+        {
+          "key": "TargetMixinPackage",
+          "label": "TargetMixinPackage",
+          "path": [
+            "MixinClassRename",
+            "TargetMixinPackage"
+          ],
+          "type": "string",
+          "description": "Target mixin package path.",
+          "placeholder": "net/spartanb312/obf/mixins/"
+        },
+        {
+          "key": "MixinFile",
+          "label": "MixinFile",
+          "path": [
+            "MixinClassRename",
+            "MixinFile"
+          ],
+          "type": "string",
+          "description": "Mixin configuration file name.",
+          "placeholder": "mixins.example.json"
+        },
+        {
+          "key": "RefmapFile",
+          "label": "RefmapFile",
+          "path": [
+            "MixinClassRename",
+            "RefmapFile"
+          ],
+          "type": "string",
+          "description": "Mixin refmap file name.",
+          "placeholder": "mixins.example.refmap.json"
+        },
+        {
+          "key": "Exclusion",
+          "label": "Exclusion",
+          "path": [
+            "MixinClassRename",
+            "Exclusion"
+          ],
+          "type": "list",
+          "description": "Names listed here are excluded from this operation."
+        }
+      ]
+    }
+  ]
+}

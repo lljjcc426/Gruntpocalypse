@@ -58,6 +58,10 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         val classFilter: ClassFilterConfig = ClassFilterConfig(),
         @SettingDesc(enText = "Dictionary for renamer")
         val dictionary: NameGenerator.DictionaryType = NameGenerator.DictionaryType.Alphabet,
+        @SettingDesc(enText = "Prefix for new name")
+        val prefix: String = "",
+        @SettingDesc(enText = "Append reverse marker suffix")
+        val reversed: Boolean = false,
         @SettingDesc(enText = "Obfuscate methods in enum classes")
         val enums: Boolean = true,
         @SettingDesc(enText = "Obfuscate methods in interfaces")
@@ -66,8 +70,13 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         val heavyOverloads: Boolean = true,
         @SettingDesc(enText = "Shadow method names as much as possible")
         val aggressiveShadowNames: Boolean = true,
+        @SettingDesc(enText = "Skip these method names")
+        val excludedNames: List<String> = listOf("main"),
         val solveBridge: Boolean = true
-    ) : TransformerConfig
+    ) : TransformerConfig {
+        val malPrefix = prefix
+        val suffix get() = if (reversed) "\u200E" else ""
+    }
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
@@ -138,7 +147,8 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             if (methodNode.isMainMethod) continue
                             if (isEnum && methodNode.name == "values") continue
                             if (methodNode.name in HARD_EXCLUDE) continue
-                            // if (methodNode.reflectionExcluded) continue
+                            if (methodNode.name in config.excludedNames) continue
+                            if (ReflectionSupport.isMethodNameExcluded(methodNode.name)) continue
                             // TODO: method exclusion
                             // val combined = combine(classNode.name, methodNode.name, methodNode.desc)
                             // Check bridge method
@@ -304,7 +314,9 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                 val dictionary = NameGenerator.getDictionary(config.dictionary)
                 val sourceAndOverridesMapping = sourceAndOverridesMapping.global
                 // share a same name in a group
-                val nameGenerators = Array(classHierarchy.classCount) { NameGenerator(dictionary) }
+                val nameGenerators = Array(classHierarchy.classCount) {
+                    NameGenerator(dictionary, instance.obfConfig.dictionaryStartIndex)
+                }
                 // Two-level map (name → descriptor set) replaces a flat Set<name+desc>.
                 // The inner set is only allocated/consulted when a name collision is possible,
                 // and – critically – no string concatenation is needed in the hot check loop.
@@ -339,12 +351,11 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                     // Pre-convert to array once per group: avoids set-iterator overhead and per-iteration
                     // List allocation from group.second.map { newName + it } inside the name-search loop.
                     val groupDescs = group.second.toTypedArray()
-                    val dic = nameGenerators[first.owner.index]
-                    var newName: String
-                    // TODO: add prefix/suffix support here when needed
-                    loop@ while (true) {
-                        newName = dic.nextName(config.heavyOverloads, first.descCode)
-                        var keepThisName = true
+                val dic = nameGenerators[first.owner.index]
+                var newName: String
+                loop@ while (true) {
+                    newName = config.malPrefix + dic.nextName(config.heavyOverloads, first.descCode) + config.suffix
+                    var keepThisName = true
                         run check@{
                             checkList.forEach { owner ->
                                 // One name-level probe; only scan descs when the name is already taken.

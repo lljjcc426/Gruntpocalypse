@@ -19,12 +19,18 @@ val projectLib: Configuration by configurations.creating {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(25))
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
 
 tasks {
     compileJava {
         options.encoding = "UTF-8"
+        options.release.set(21)
+        options.compilerArgs.add("--enable-preview")
     }
+}
+
+tasks.withType<Test>().configureEach {
+    jvmArgs("--enable-preview")
 }

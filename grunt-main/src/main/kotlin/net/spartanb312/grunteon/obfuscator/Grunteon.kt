@@ -4,6 +4,7 @@ import net.spartanb312.grunteon.obfuscator.process.PipelineBuilder
 import net.spartanb312.grunteon.obfuscator.process.Transformer
 import net.spartanb312.grunteon.obfuscator.process.TransformerConfig
 import net.spartanb312.grunteon.obfuscator.process.WorkerContext
+import net.spartanb312.grunteon.obfuscator.process.Instruction
 import net.spartanb312.grunteon.obfuscator.process.resource.JarDumper
 import net.spartanb312.grunteon.obfuscator.process.resource.WorkResources
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MappingApplier
@@ -33,12 +34,19 @@ class Grunteon(
     }
 
     fun execute() {
-        // TODO: Profiler
         context(workRes) {
             Logger.info("Obfuscating...")
             val pipelineBuilder = PipelineBuilder()
             transformers.forEach { (transformer, config) ->
+                if (obfConfig.profiler) {
+                    pipelineBuilder.instructions += Instruction.Barrier
+                    pipelineBuilder.instructions += Instruction.ProfileStart(transformer.engName)
+                }
                 transformer.buildStageImpl(pipelineBuilder, config)
+                if (obfConfig.profiler) {
+                    pipelineBuilder.instructions += Instruction.Barrier
+                    pipelineBuilder.instructions += Instruction.ProfileEnd(transformer.engName)
+                }
             }
             val workerContext = WorkerContext()
             workerContext.execute(this, pipelineBuilder)

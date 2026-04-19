@@ -63,6 +63,8 @@ sealed interface Instruction {
     object Barrier : Instruction
     class InitGlobal(val index: Int) : Instruction
     class InitReducible(val index: Int) : Instruction
+    class ProfileStart(val name: String) : Instruction
+    class ProfileEnd(val name: String) : Instruction
     class Seq(val block: context(Grunteon, ScopeValueAccess) CoroutineScope.() -> Unit) : Instruction
     class Pre(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
     class Post(val block: context(Grunteon, ScopeValueAccess) () -> Unit) : Instruction
@@ -210,6 +212,7 @@ private val lwwsp = LWWSP(Runtime.getRuntime().availableProcessors()) {
 internal class WorkerContext {
     val globalKeys = Reference2ObjectOpenHashMap<GlobalScopeValueKeyImpl<*>, Any>()
     val reducibleKeys = Reference2ObjectOpenHashMap<ReducibleScopeValueKeyImpl<*>, Mergeable<*>>()
+    private val profileStarts = hashMapOf<String, Long>()
 
     fun execute(instance: Grunteon, pipelineBuilder: PipelineBuilder) {
         runBlocking {
@@ -226,26 +229,38 @@ internal class WorkerContext {
                     val tasks = pendingParallelTasks.toTypedArray()
                     pendingParallelTasks.clear()
                     val classArray = instance.workRes.inputClassCollection.toTypedArray()
-                    val access = LWWSP.iterativeTask(
-                        size = classArray.size,
-                        batchSize = 128,
-                        newScope = { ScopeValueAccess(scopeValueGlobal) },
-                        action = { start, end ->
-                            for (i in start..<end) {
+                    val access = if (instance.obfConfig.multithreading) {
+                        LWWSP.iterativeTask(
+                            size = classArray.size,
+                            batchSize = 128,
+                            newScope = { ScopeValueAccess(scopeValueGlobal) },
+                            action = { start, end ->
+                                for (i in start..<end) {
+                                    val node = classArray[i]
+                                    @Suppress("ReplaceManualRangeWithIndicesCalls")
+                                    for (j in 0..<tasks.size) {
+                                        tasks[j].block.invoke(
+                                            instance,
+                                            this,
+                                            node
+                                        )
+                                    }
+                                }
+                            }
+                        ).submit(lwwsp).await().getOrThrow().reduce { a, b ->
+                            a.mergeToLocal(b)
+                            a
+                        }
+                    } else {
+                        ScopeValueAccess(scopeValueGlobal).also { access ->
+                            for (i in classArray.indices) {
                                 val node = classArray[i]
                                 @Suppress("ReplaceManualRangeWithIndicesCalls")
                                 for (j in 0..<tasks.size) {
-                                    tasks[j].block.invoke(
-                                        instance,
-                                        this,
-                                        node
-                                    )
+                                    tasks[j].block.invoke(instance, access, node)
                                 }
                             }
                         }
-                    ).submit(lwwsp).await().getOrThrow().reduce { a, b ->
-                        a.mergeToLocal(b)
-                        a
                     }
                     scopeValueGlobal.mergeToGlobal(access)
                 }
@@ -302,6 +317,20 @@ internal class WorkerContext {
                     }
                     is Instruction.Barrier -> {
                         flushParallelTasks()
+                    }
+                    is Instruction.ProfileStart -> {
+                        if (instance.obfConfig.profiler) {
+                            profileStarts[inst.name] = System.nanoTime()
+                        }
+                    }
+                    is Instruction.ProfileEnd -> {
+                        if (instance.obfConfig.profiler) {
+                            val start = profileStarts.remove(inst.name)
+                            if (start != null) {
+                                val elapsedMs = (System.nanoTime() - start) / 1_000_000.0
+                                Logger.info("[Profiler] ${inst.name}: ${"%.2f".format(elapsedMs)} ms")
+                            }
+                        }
                     }
                 }
             }

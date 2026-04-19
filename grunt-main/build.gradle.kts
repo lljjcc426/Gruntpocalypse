@@ -5,6 +5,10 @@ plugins {
     //alias(libs.plugins.compose.hotReload)
 }
 
+import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.SourceSetContainer
+
 repositories {
     mavenCentral()
     google()
@@ -28,23 +32,52 @@ dependencies {
     library(libs.bundles.asm)
     library(libs.bundles.utils)
     library(libs.bundles.apache.common)
+    library(libs.bundles.ktor.server)
+    library(libs.cfr)
+    library("org.javassist:javassist:3.30.2-GA")
 
     testImplementation(kotlin("test"))
+    testImplementation(libs.ktor.server.test.host)
     testImplementation(project(":grunt-testcase"))
 }
 
 tasks {
     jar {
-//        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-////        from(configurations["projectLib"].map { if (it.isDirectory) it else zipTree(it) })
-////        from(configurations["library"].map { if (it.isDirectory) it else zipTree(it) })
-//        exclude("META-INF/versions/**", "module-info.class", "**/**.RSA")
-//        manifest {
-//            attributes(
-//                "Main-Class" to "net.spartanb312.everett.bootstrap.Main"
-//            )
-//        }
-//        dependsOn(":grunt-bootstrap:jar")
+        val sourceSets = project.extensions.getByType<SourceSetContainer>()
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        dependsOn(configurations.runtimeClasspath)
+        from(sourceSets.getByName("main").output)
+        from({
+            configurations.runtimeClasspath.get()
+                .filter { it.name.endsWith(".jar") }
+                .map { zipTree(it) }
+        })
+        exclude(
+            "META-INF/versions/**",
+            "META-INF/*.RSA",
+            "META-INF/*.SF",
+            "META-INF/*.DSA",
+            "META-INF/INDEX.LIST",
+            "module-info.class"
+        )
+        manifest {
+            attributes(
+                "Main-Class" to "net.spartanb312.grunteon.obfuscator.MainKt"
+            )
+        }
+    }
+
+    register<JavaExec>("runWeb") {
+        group = "application"
+        description = "Run Grunteon Web UI"
+        val sourceSets = project.extensions.getByType<SourceSetContainer>()
+        val webPort = providers.gradleProperty("webPort").orElse("8080")
+        classpath = sourceSets.getByName("main").runtimeClasspath
+        mainClass.set("net.spartanb312.grunteon.obfuscator.MainKt")
+        jvmArgs("--enable-preview")
+        args("--web")
+        args(webPort.map { "--port=$it" })
+        dependsOn("classes")
     }
 }
 

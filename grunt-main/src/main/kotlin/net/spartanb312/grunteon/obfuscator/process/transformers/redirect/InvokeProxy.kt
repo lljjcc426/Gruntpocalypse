@@ -8,6 +8,7 @@ import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.NativeCandidate
 import net.spartanb312.grunteon.obfuscator.util.*
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
@@ -19,6 +20,7 @@ import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
+import kotlin.random.Random
 
 class InvokeProxy : Transformer<InvokeProxy.Config>(
     name = enText("process.redirect.invoke_proxy", "InvokeProxy"),
@@ -37,6 +39,10 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
         val chance: Double = 0.3,
         @SettingDesc(enText = "Generate an outer class to store proxies")
         val outer: Boolean = true,
+        @SettingDesc(enText = "Duplicate proxies into both local and outer owners for random dispatch")
+        val randomCall: Boolean = true,
+        @SettingDesc(enText = "Mark generated proxy methods as native candidates")
+        val nativeAnnotation: Boolean = false,
         @SettingDesc(enText = "Specify method exclusions.")
         val exclusion: List<String> = listOf(
             "net/dummy/**",
@@ -86,6 +92,7 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
                             extractToOuterClass
                         )
                         if (newMethod != null) {
+                            if (config.nativeAnnotation) NativeCandidate.registerGeneratedMethod(newMethod)
                             instruction.name = newName
                             if (instruction.opcode == Opcodes.INVOKEVIRTUAL) {
                                 instruction.desc = "(L${instruction.owner};${instruction.desc.removePrefix("(")}"
@@ -108,7 +115,12 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
                                     }
                                 }
                                 newOwner.methods.add(newMethod)
-                                instruction.owner = newOwner.name
+                                if (config.randomCall) {
+                                    classNode.methods.add(newMethod.copyMethod())
+                                    instruction.owner = if (Random.nextBoolean()) newOwner.name else classNode.name
+                                } else {
+                                    instruction.owner = newOwner.name
+                                }
                             } else {
                                 classNode.methods.add(newMethod)
                                 instruction.owner = classNode.name
@@ -178,6 +190,19 @@ class InvokeProxy : Transformer<InvokeProxy.Config>(
             Opcodes.INVOKESPECIAL -> null
             else -> throw Exception("Unsupported")
         }
+    }
+
+    private fun MethodNode.copyMethod(): MethodNode {
+        val copy = MethodNode(
+            Opcodes.ASM9,
+            access,
+            name,
+            desc,
+            signature,
+            exceptions?.toTypedArray()
+        )
+        accept(copy)
+        return copy
     }
 
 }

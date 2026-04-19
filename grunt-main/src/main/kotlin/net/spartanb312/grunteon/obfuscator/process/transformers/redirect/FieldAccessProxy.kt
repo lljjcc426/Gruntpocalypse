@@ -8,6 +8,7 @@ import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.NativeCandidate
 import net.spartanb312.grunteon.obfuscator.util.*
 import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
@@ -36,6 +37,8 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
         @SettingDesc(enText = "The chance that attempt to replace put/set to getter/setter")
         @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
         val chance: Double = 1.0,
+        @SettingDesc(enText = "Repeat field scrambling passes")
+        val intensity: Int = 1,
         @SettingDesc(enText = "Replace GETSTATIC to static getter")
         val getStatic: Boolean = true,
         @SettingDesc(enText = "Replace PUTSTATIC to static setter")
@@ -44,8 +47,12 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
         val getField: Boolean = true,
         @SettingDesc(enText = "Replace PUTFIELD to setter")
         val putField: Boolean = true,
+        @SettingDesc(enText = "Use random proxy method names")
+        val randomName: Boolean = false,
         @SettingDesc(enText = "Generate an outer class to store proxies")
         val outer: Boolean = true,
+        @SettingDesc(enText = "Mark generated proxy methods as native candidates")
+        val nativeAnnotation: Boolean = false,
         @SettingDesc(enText = "Specify method exclusions.")
         val exclusion: List<String> = listOf(
             "net/dummy/**",
@@ -76,81 +83,86 @@ class FieldAccessProxy : Transformer<FieldAccessProxy.Config>(
             val counter = counter.local
             val genMethods = genMethods.local
             if (classNode.isExcluded(DISABLE_FIELD_PROXY)) return@parForEachClassesFiltered
-            classNode.methods.toList().asSequence()
-                .filter { !it.isAbstract && !it.isNative && !it.isInitializer }
-                .forEach { method ->
-                    if (method.isExcluded(DISABLE_FIELD_PROXY)) return@forEach
-                    val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
-                    if (excluded) return@forEach
-                    val randomGen = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc))
-                    method.instructions.toList().forEach { instruction ->
-                        if (instruction !is FieldInsnNode) return@forEach
-                        if (randomGen.nextFloat() > config.chance) return@forEach
-                        val callingOwner = instance.workRes.getClassNode(instruction.owner) ?: return@forEach
-                        if (callingOwner.isExcluded(IGNORE_FIELD_PROXY)) return@forEach
-                        val callingField = callingOwner.fields?.toList()?.find {
-                            it.name == instruction.name && it.desc == instruction.desc
-                        } ?: return@forEach
-                        if (callingField.isExcluded(IGNORE_FIELD_PROXY)) return@forEach
-                        // Generate proxy
-                        val extractToOuterClass = config.outer && callingOwner.isPublic && callingField.isPublic
-                        val genMethod = when {
-                            instruction.opcode == Opcodes.GETSTATIC && config.getStatic ->
-                                genMethod(
-                                    instruction,
-                                    "get_${instruction.name}_${randomGen.getRandomString(5)}",
-                                    callingField.signature
-                                ).appendAnnotation(GENERATED_METHOD)
+            repeat(config.intensity.coerceAtLeast(1)) {
+                classNode.methods.toList().asSequence()
+                    .filter { !it.isAbstract && !it.isNative && !it.isInitializer }
+                    .forEach { method ->
+                        if (method.isExcluded(DISABLE_FIELD_PROXY)) return@forEach
+                        val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
+                        if (excluded) return@forEach
+                        val randomGen = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc, it.toString()))
+                        method.instructions.toList().forEach { instruction ->
+                            if (instruction !is FieldInsnNode) return@forEach
+                            if (randomGen.nextFloat() > config.chance) return@forEach
+                            val callingOwner = instance.workRes.getClassNode(instruction.owner) ?: return@forEach
+                            if (callingOwner.isExcluded(IGNORE_FIELD_PROXY)) return@forEach
+                            val callingField = callingOwner.fields?.toList()?.find {
+                                it.name == instruction.name && it.desc == instruction.desc
+                            } ?: return@forEach
+                            if (callingField.isExcluded(IGNORE_FIELD_PROXY)) return@forEach
+                            val extractToOuterClass = config.outer && callingOwner.isPublic && callingField.isPublic
+                            val genMethod = when {
+                                instruction.opcode == Opcodes.GETSTATIC && config.getStatic ->
+                                    genMethod(
+                                        instruction,
+                                        if (config.randomName) randomGen.getRandomString(10)
+                                        else "get_${instruction.name}_${randomGen.getRandomString(5)}",
+                                        callingField.signature
+                                    ).appendAnnotation(GENERATED_METHOD)
 
-                            instruction.opcode == Opcodes.PUTSTATIC && config.putStatic ->
-                                genMethod(
-                                    instruction,
-                                    "set_${instruction.name}_${randomGen.getRandomString(5)}",
-                                    callingField.signature
-                                ).appendAnnotation(GENERATED_METHOD)
+                                instruction.opcode == Opcodes.PUTSTATIC && config.putStatic ->
+                                    genMethod(
+                                        instruction,
+                                        if (config.randomName) randomGen.getRandomString(10)
+                                        else "set_${instruction.name}_${randomGen.getRandomString(5)}",
+                                        callingField.signature
+                                    ).appendAnnotation(GENERATED_METHOD)
 
-                            instruction.opcode == Opcodes.GETFIELD && config.getField ->
-                                genMethod(
-                                    instruction,
-                                    "get_${instruction.name}_${randomGen.getRandomString(5)}",
-                                    callingField.signature
-                                ).appendAnnotation(GENERATED_METHOD)
+                                instruction.opcode == Opcodes.GETFIELD && config.getField ->
+                                    genMethod(
+                                        instruction,
+                                        if (config.randomName) randomGen.getRandomString(10)
+                                        else "get_${instruction.name}_${randomGen.getRandomString(5)}",
+                                        callingField.signature
+                                    ).appendAnnotation(GENERATED_METHOD)
 
-                            instruction.opcode == Opcodes.PUTFIELD && config.putField ->
-                                genMethod(
-                                    instruction,
-                                    "set_${instruction.name}_${randomGen.getRandomString(5)}",
-                                    callingField.signature
-                                ).appendAnnotation(GENERATED_METHOD)
+                                instruction.opcode == Opcodes.PUTFIELD && config.putField ->
+                                    genMethod(
+                                        instruction,
+                                        if (config.randomName) randomGen.getRandomString(10)
+                                        else "set_${instruction.name}_${randomGen.getRandomString(5)}",
+                                        callingField.signature
+                                    ).appendAnnotation(GENERATED_METHOD)
 
-                            else -> null
-                        }
+                                else -> null
+                            }
 
-                        if (genMethod == null) return@forEach
+                            if (genMethod == null) return@forEach
+                            if (config.nativeAnnotation) NativeCandidate.registerGeneratedMethod(genMethod)
 
-                        val genMethodOwnerName: String
-                        if (extractToOuterClass) {
-                            genMethod.access = Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC
-                            genMethodOwnerName = "${classNode.name}${GENERATED_CLASS_SUFFIX}"
-                        } else {
-                            genMethodOwnerName = classNode.name
-                        }
+                            val genMethodOwnerName: String
+                            if (extractToOuterClass) {
+                                genMethod.access = Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC
+                                genMethodOwnerName = "${classNode.name}${GENERATED_CLASS_SUFFIX}"
+                            } else {
+                                genMethodOwnerName = classNode.name
+                            }
 
-                        method.instructions.set(
-                            instruction,
-                            MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                genMethodOwnerName,
-                                genMethod.name,
-                                genMethod.desc
+                            method.instructions.set(
+                                instruction,
+                                MethodInsnNode(
+                                    Opcodes.INVOKESTATIC,
+                                    genMethodOwnerName,
+                                    genMethod.name,
+                                    genMethod.desc
+                                )
                             )
-                        )
 
-                        genMethods.add(ProxyMethod(classNode, genMethodOwnerName, genMethod))
-
-                        counter.add()
+                            genMethods.add(ProxyMethod(classNode, genMethodOwnerName, genMethod))
+                            counter.add()
+                        }
                     }
-                }
+            }
         }
         val outerClassCounter = globalScopeValue { MergeableCounter() }
         seq {

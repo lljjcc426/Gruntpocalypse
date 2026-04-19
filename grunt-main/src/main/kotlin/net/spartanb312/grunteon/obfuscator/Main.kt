@@ -2,6 +2,8 @@ package net.spartanb312.grunteon.obfuscator
 
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.logging.SimpleLogger
+import net.spartanb312.grunteon.obfuscator.web.WebServer
+import java.net.ServerSocket
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.io.path.Path
@@ -40,12 +42,50 @@ fun main(args: Array<String>) {
 
     Logger.info("Initializing obfuscator...")
 
-    val config = ObfConfig.read(Path("config.json"))
+    val useWeb = args.isEmpty() || args.any { it == "--web" || it == "-server" }
+    if (useWeb) {
+        val requestedPort = args.firstOrNull { it.startsWith("--port=") }
+            ?.substringAfter("=")
+            ?.toIntOrNull()
+            ?: 8080
+        val port = findAvailablePort(requestedPort)
+        if (port != requestedPort) {
+            Logger.warn("Port $requestedPort is already in use, switched to port $port")
+            println("Port $requestedPort is already in use, switched to port $port")
+        }
+        Logger.info("Starting Grunteon Web UI on port $port")
+        WebServer.start(port)
+        return
+    }
+
+    val configPath = args.firstOrNull { it.endsWith(".json", ignoreCase = true) } ?: "config.json"
+    val config = ObfConfig.read(Path(configPath))
     val instance = Grunteon.create(config)
 
     measureTime {
         instance.execute()
     }.toDouble(DurationUnit.MILLISECONDS).also { time ->
-        println("Execution time: ${"%.2f".format(time)} ms")
+        if (config.printTimeUsage) {
+            println("Execution time: ${"%.2f".format(time)} ms")
+        }
     }
+}
+
+private fun findAvailablePort(preferredPort: Int, attempts: Int = 20): Int {
+    repeat(attempts) { offset ->
+        val candidate = preferredPort + offset
+        if (candidate in 1..65535 && isPortAvailable(candidate)) {
+            return candidate
+        }
+    }
+    return preferredPort
+}
+
+private fun isPortAvailable(port: Int): Boolean {
+    return runCatching {
+        ServerSocket(port).use {
+            it.reuseAddress = true
+        }
+        true
+    }.getOrDefault(false)
 }

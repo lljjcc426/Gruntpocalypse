@@ -7,14 +7,19 @@ import net.spartanb312.genesis.kotlin.instructions
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.util.GENERATED_FIELD
 import net.spartanb312.grunteon.obfuscator.util.DISABLE_NUMBER_ENCRYPT
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
+import net.spartanb312.grunteon.obfuscator.util.getRandomString
 import net.spartanb312.grunteon.obfuscator.util.collection.FastObjectArrayList
 import net.spartanb312.grunteon.obfuscator.util.collection.shuffle
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
+import net.spartanb312.grunteon.obfuscator.util.extensions.appendAnnotation
+import net.spartanb312.grunteon.obfuscator.util.extensions.getOrCreateClinit
 import net.spartanb312.grunteon.obfuscator.util.extensions.isAbstract
+import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
 import net.spartanb312.grunteon.obfuscator.util.extensions.isNative
 import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
@@ -26,7 +31,9 @@ import net.spartanb312.grunteon.obfuscator.util.numerical.asLong
 import org.apache.commons.rng.UniformRandomProvider
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.AbstractInsnNode
+import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.InsnList
+import org.objectweb.asm.tree.InsnNode
 import org.objectweb.asm.tree.IntInsnNode
 import org.objectweb.asm.tree.LdcInsnNode
 
@@ -67,6 +74,8 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         @SettingDesc(enText = "Double encrypt rate. Range: 0.0..1.0")
         @DecimalRangeVal(min = 0.0, max = 1.0, step = 0.01)
         val doubleChance: Double = 1.0,
+        @SettingDesc(enText = "Load encrypted numbers from generated int array")
+        val arrayed: Boolean = false,
         @SettingDesc(enText = "The upper limit of instruction count for a Method. Typically, each instruction occupies 2-3 bytes, and the upper limit for each Method is 65536 bytes")
         val maxInstructions: Int = 16384,
         @SettingDesc(enText = "When enabled, a modifier will be applied to all chances. Modifier = (MaxInsn - CurrentInsn) / MaxInsn")
@@ -93,6 +102,17 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             val counter = counter.local
             if (classNode.isExcluded(DISABLE_NUMBER_ENCRYPT)) return@parForEachClassesFiltered
+            val arrayedMode = config.arrayed && !classNode.isInterface
+            val poolField = if (arrayedMode) {
+                FieldNode(
+                    Opcodes.ACC_PRIVATE or Opcodes.ACC_STATIC,
+                    Xoshiro256PPRandom(getSeed(classNode.name, "number_array_field")).getRandomString(16),
+                    "[I",
+                    null,
+                    null
+                ).appendAnnotation(GENERATED_FIELD)
+            } else null
+            val pooledValues = if (arrayedMode) mutableListOf<Int>() else null
             classNode.methods.asSequence()
                 .filter { !it.isAbstract && !it.isNative }
                 .forEach { method ->
@@ -115,20 +135,32 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                         if (config.integer && randomGen.nextFloat() < chanceModifier * config.integerChance) {
                             if (instruction.opcode in Opcodes.ICONST_M1..Opcodes.ICONST_5) {
                                 val value = instruction.opcode - Opcodes.ICONST_0
-                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
+                                method.instructions.insertBefore(
+                                    instruction,
+                                    if (arrayedMode && poolField != null && pooledValues != null) {
+                                        encryptArrayed(value, classNode.name, poolField.name, pooledValues)
+                                    } else randomGen.encrypt(value)
+                                )
                                 method.instructions.remove(instruction)
                                 counter.add()
                             } else if (instruction is IntInsnNode) {
                                 method.instructions.insertBefore(
                                     instruction,
-                                    randomGen.encrypt(instruction.operand)
+                                    if (arrayedMode && poolField != null && pooledValues != null) {
+                                        encryptArrayed(instruction.operand, classNode.name, poolField.name, pooledValues)
+                                    } else randomGen.encrypt(instruction.operand)
                                 )
                                 method.instructions.remove(instruction)
                                 counter.add()
                             } else if (instruction is LdcInsnNode && instruction.cst is Int) {
                                 val value = instruction.cst as Int
                                 if (value < Int.MAX_VALUE - Short.MAX_VALUE * 8) {
-                                    method.instructions.insertBefore(instruction, randomGen.encrypt(value))
+                                    method.instructions.insertBefore(
+                                        instruction,
+                                        if (arrayedMode && poolField != null && pooledValues != null) {
+                                            encryptArrayed(value, classNode.name, poolField.name, pooledValues)
+                                        } else randomGen.encrypt(value)
+                                    )
                                     method.instructions.remove(instruction)
                                     counter.add()
                                 }
@@ -138,12 +170,22 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                         if (config.long && randomGen.nextFloat() < chanceModifier * config.longChance) {
                             if (instruction.opcode in Opcodes.LCONST_0..Opcodes.LCONST_1) {
                                 val value = (instruction.opcode - Opcodes.LCONST_0).toLong()
-                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
+                                method.instructions.insertBefore(
+                                    instruction,
+                                    if (arrayedMode && poolField != null && pooledValues != null) {
+                                        encryptArrayed(value, classNode.name, poolField.name, pooledValues)
+                                    } else randomGen.encrypt(value)
+                                )
                                 method.instructions.remove(instruction)
                                 counter.add()
                             } else if (instruction is LdcInsnNode && instruction.cst is Long) {
                                 val value = instruction.cst as Long
-                                method.instructions.insertBefore(instruction, randomGen.encrypt(value))
+                                method.instructions.insertBefore(
+                                    instruction,
+                                    if (arrayedMode && poolField != null && pooledValues != null) {
+                                        encryptArrayed(value, classNode.name, poolField.name, pooledValues)
+                                    } else randomGen.encrypt(value)
+                                )
                                 method.instructions.remove(instruction)
                                 counter.add()
                             }
@@ -151,7 +193,12 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                         // Encrypt float
                         if (config.float && randomGen.nextFloat() < chanceModifier * config.floatChance) {
                             fun encryptFloat(float: Float) {
-                                method.instructions.insertBefore(instruction, randomGen.encrypt(float))
+                                method.instructions.insertBefore(
+                                    instruction,
+                                    if (arrayedMode && poolField != null && pooledValues != null) {
+                                        encryptArrayed(float, classNode.name, poolField.name, pooledValues)
+                                    } else randomGen.encrypt(float)
+                                )
                                 method.instructions.remove(instruction)
                                 counter.add()
                             }
@@ -165,7 +212,12 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                         // Encrypt double
                         if (config.double && randomGen.nextFloat() < chanceModifier * config.doubleChance) {
                             fun encryptDouble(double: Double) {
-                                method.instructions.insertBefore(instruction, randomGen.encrypt(double))
+                                method.instructions.insertBefore(
+                                    instruction,
+                                    if (arrayedMode && poolField != null && pooledValues != null) {
+                                        encryptArrayed(double, classNode.name, poolField.name, pooledValues)
+                                    } else randomGen.encrypt(double)
+                                )
                                 method.instructions.remove(instruction)
                                 counter.add()
                             }
@@ -177,6 +229,14 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                         }
                     }
                 }
+            if (arrayedMode && poolField != null && pooledValues != null && pooledValues.isNotEmpty()) {
+                classNode.fields.add(poolField)
+                val clinit = classNode.methods.firstOrNull { it.name == "<clinit>" } ?: classNode.getOrCreateClinit().also {
+                    it.instructions.insert(InsnNode(Opcodes.RETURN))
+                    classNode.methods.add(it)
+                }
+                clinit.instructions.insert(buildArrayInit(classNode.name, poolField.name, pooledValues))
+            }
         }
         post {
             Logger.info(" - NumberBasicEncrypt:")
@@ -228,6 +288,71 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
         val obfuscated = key xor value
         +obfuscated.toInsnNode()
         LXOR
+    }
+
+    private fun encryptArrayed(value: Int, owner: String, fieldName: String, list: MutableList<Int>): InsnList {
+        val index = list.size
+        list.add(value)
+        return instructions {
+            GETSTATIC(owner, fieldName, "[I")
+            +index.toInsnNode()
+            IALOAD
+        }
+    }
+
+    private fun encryptArrayed(value: Long, owner: String, fieldName: String, list: MutableList<Int>): InsnList {
+        val head = (value shr 32).toInt()
+        val tail = (value and 0x00000000FFFFFFFFL).toInt()
+        return instructions {
+            GETSTATIC(owner, fieldName, "[I")
+            +list.size.toInsnNode()
+            IALOAD
+            list.add(head)
+            I2L
+            LDC(0x00000000FFFFFFFFL)
+            LAND
+            INT(32)
+            LSHL
+
+            GETSTATIC(owner, fieldName, "[I")
+            +list.size.toInsnNode()
+            IALOAD
+            list.add(tail)
+            I2L
+            LDC(0x00000000FFFFFFFFL)
+            LAND
+            LOR
+        }
+    }
+
+    private fun encryptArrayed(value: Float, owner: String, fieldName: String, list: MutableList<Int>): InsnList {
+        return instructions {
+            +encryptArrayed(value.asInt(), owner, fieldName, list)
+            INVOKESTATIC("java/lang/Float", "intBitsToFloat", "(I)F")
+        }
+    }
+
+    private fun encryptArrayed(value: Double, owner: String, fieldName: String, list: MutableList<Int>): InsnList {
+        return instructions {
+            +encryptArrayed(value.asLong(), owner, fieldName, list)
+            INVOKESTATIC("java/lang/Double", "longBitsToDouble", "(J)D")
+        }
+    }
+
+    context(instance: Grunteon)
+    private fun buildArrayInit(owner: String, fieldName: String, values: List<Int>): InsnList {
+        return instructions {
+            +values.size.toInsnNode()
+            NEWARRAY(Opcodes.T_INT)
+            PUTSTATIC(owner, fieldName, "[I")
+            values.forEachIndexed { index, value ->
+                val random = Xoshiro256PPRandom(getSeed(owner, fieldName, index.toString()))
+                GETSTATIC(owner, fieldName, "[I")
+                +index.toInsnNode()
+                +random.encrypt(value)
+                IASTORE
+            }
+        }
     }
 
 }

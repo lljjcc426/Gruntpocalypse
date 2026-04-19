@@ -16,6 +16,7 @@ val DISABLE_ARITHMETIC_SUBSTITUTE = "Lnet/spartanb312/grunteon/annotation/disabl
 val DISABLE_FIELD_PROXY = "Lnet/spartanb312/grunteon/annotation/disable/DisableFieldProxy;"
 val DISABLE_INVOKE_PROXY = "Lnet/spartanb312/grunteon/annotation/disable/DisableInvokeProxy;"
 val DISABLE_INVOKE_DISPATCHER = "Lnet/spartanb312/grunteon/annotation/disable/DisableInvokeDispatcher;"
+val DISABLE_INVOKE_DYNAMIC = "Lnet/spartanb312/grunteon/annotation/disable/DisableInvokeDynamic;"
 
 // Controlflow
 val DISABLE_CONST_FLOW = "Lnet/spartanb312/grunteon/annotation/disable/DisableConstFlow;"
@@ -29,6 +30,7 @@ val DISABLER = arrayOf(
     DISABLE_ARITHMETIC_SUBSTITUTE,
     DISABLE_FIELD_PROXY,
     DISABLE_INVOKE_PROXY,
+    DISABLE_INVOKE_DYNAMIC,
     DISABLE_CONST_FLOW,
     DISABLE_CONTROL_FLOW,
     DISABLE_FLATTENING

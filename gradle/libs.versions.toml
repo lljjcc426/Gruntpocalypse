@@ -3,6 +3,7 @@ kotlin = "2.3.20"
 kotlinxSerialization = "1.8.1"
 kotlinDSL = "6.5.6"
 coroutine = "1.10.2"
+ktor = "2.3.12"
 
 compose = "1.9.1"
 compose-fluent = "v0.1.0"
@@ -15,6 +16,7 @@ fastutil = "8.5.18"
 apache-math3 = "3.6.1"
 apache-lang3 = "3.20.0"
 apache-commons-rng-simple = "1.6"
+cfr = "0.152"
 
 [plugins]
 kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
@@ -41,6 +43,16 @@ asm-analysis = { group = "org.ow2.asm", name = "asm-analysis", version.ref = "as
 # Utils
 fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+cfr = { module = "org.benf:cfr", version.ref = "cfr" }
+
+# Ktor
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = "ktor" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 
 # Apache
 apache-math = { module = "org.apache.commons:commons-math3", version.ref = "apache-math3" }
@@ -51,3 +63,11 @@ apache-rng-simple = { module = "org.apache.commons:commons-rng-simple", version.
 asm = ["asm", "asm-tree", "asm-util", "asm-commons", "asm-analysis"]
 apache-common = ["apache-math", "apache-lang", "apache-rng-simple"]
 utils = ["fastutil", "gson"]
+ktor-server = [
+    "ktor-server-core",
+    "ktor-server-netty",
+    "ktor-server-content-negotiation",
+    "ktor-serialization-gson",
+    "ktor-server-cors",
+    "ktor-server-websockets"
+]

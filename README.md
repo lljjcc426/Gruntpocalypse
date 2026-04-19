@@ -13,12 +13,13 @@ the near future
 
 ### Framework
 
-* [ ] Config system (migrating)
+* [X] Config system (typed backend + web schema adapter)
 * [X] Resource management
 * [X] Filter system
 * [X] Parallel execution pipeline
 * [ ] Module system 
 * [ ] Plugin system
+* [X] Web UI/session backend
 * [ ] UI with I18N (Jetpack Compose)
 
 ### Encrypt
@@ -26,16 +27,16 @@ the near future
 * [X] Number encryption
 * [X] String encryption
 * [X] Arithmetic substitution
-* [ ] ConstPool extractor
+* [X] ConstPool extractor
 
 ### Miscellaneous
 
 * [X] Declared fields extractor
 * [X] Parameter obfuscation
-* [ ] Trash class generator
-* [ ] HardwareID authenticator
-* [ ] Native candidate
-* [ ] Anti debug
+* [X] Trash class generator
+* [X] HardwareID authenticator
+* [X] Native candidate
+* [X] Anti debug
 
 ### Optimize
 
@@ -53,27 +54,28 @@ the near future
 * [X] Field renamer
 * [X] Method renamer
 * [X] Localvar renamer
-* [ ] Mixin renamer
+* [X] Mixin renamer
 
 ### Controlflow
 
-* [ ] Bogus conditional jump
-* [ ] Mangled conditional jump
-* [ ] Reversed conditional jump
-* [ ] Table switch multi jump
-* [ ] Trapped switch case
-* [ ] Switch extractor
-* [ ] Mutate conditional jump
+* [X] Bogus conditional jump
+* [X] Mangled conditional jump
+* [X] Reversed conditional jump
+* [X] Table switch multi jump
+* [X] Trapped switch case
+* [X] Switch extractor
+* [X] Mutate conditional jump
 * [ ] Chaos switch multi jump
 * [ ] Controlflow flattening
 * [ ] Anti simulation
-* [ ] Junk code
+* [X] Junk code
 
 ### Redirect
 
 * [X] Field access proxy
 * [X] Invoke proxy
 * [X] Invoke dispatcher
+* [X] Invoke dynamic
 
 ### Other
 
@@ -83,6 +85,16 @@ the near future
 * [X] Watermarks
 * [ ] Reference obfuscation
 * [X] Post process
+
+## Web Backend
+
+Current repository state is an integrated 2.x + 3.x web workflow:
+
+* Keeps the 2.x style web UI resources and config layout
+* Preserves `/api/session/**` for the legacy session-based workflow
+* Adds `/api/v1/storage/**` and `/api/v1/tasks/**` as the service-style backend
+* Platform tasks run the real Grunteon obfuscation pipeline instead of a placeholder copy flow
+* Task APIs support logs, stages, SSE events, project meta/tree/source inspection and artifact download
 
 ## License
 

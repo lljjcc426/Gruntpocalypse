@@ -100,13 +100,14 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                     val classEntry = ClassHierarchy.Entry(classIndex)
                     if (!classEntry.hasMissingDependency) {
                         val dic = nameGenerators.getOrPut(classEntry) {
-                            NameGenerator(dictionary)
+                            NameGenerator(dictionary, instance.obfConfig.dictionaryStartIndex)
                         }
                         for (fieldIndex in classEntry.fields.array) {
                             val fieldEntry = FieldHierarchy.Entry(fieldIndex)
                             // Source check
                             if (!fieldEntry.isSourceField) continue
                             if (fieldEntry.name in config.excludedNames) continue
+                            if (ReflectionSupport.isFieldNameExcluded(fieldEntry.name)) continue
                             // Check descendants
                             var checkPass = true
                             descendantsCheck@ for (descendant in classEntry.descendants.array) {

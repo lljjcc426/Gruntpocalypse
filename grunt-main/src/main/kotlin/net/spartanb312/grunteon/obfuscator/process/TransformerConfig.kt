@@ -6,23 +6,35 @@ import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
 import net.spartanb312.grunteon.obfuscator.lang.I18NDescriptorPath
 import net.spartanb312.grunteon.obfuscator.process.transformers.PostProcess
+import net.spartanb312.grunteon.obfuscator.process.transformers.antidebug.AntiDebug
+import net.spartanb312.grunteon.obfuscator.process.transformers.controlflow.ConstBuilder
+import net.spartanb312.grunteon.obfuscator.process.transformers.controlflow.Controlflow
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.ArithmeticSubstitute
+import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.ConstPoolEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.number.NumberBasicEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.string.StringArrayedEncrypt
+import net.spartanb312.grunteon.obfuscator.process.transformers.minecraft.MixinClassRenamer
+import net.spartanb312.grunteon.obfuscator.process.transformers.minecraft.MixinFieldRenamer
+import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.ClonedClass
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.DeclaredFieldsExtract
+import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.HWIDAuthentication
+import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.NativeCandidate
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.ParameterObfuscate
+import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.TrashClass
 import net.spartanb312.grunteon.obfuscator.process.transformers.optimize.*
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.DecompilerCrasher
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.FakeSyntheticBridge
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.ShuffleMembers
 import net.spartanb312.grunteon.obfuscator.process.transformers.other.Watermark
 import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.FieldAccessProxy
+import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.InvokeDynamic
 import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.InvokeDispatcher
 import net.spartanb312.grunteon.obfuscator.process.transformers.redirect.InvokeProxy
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ClassRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.FieldRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.LocalVarRenamer
 import net.spartanb312.grunteon.obfuscator.process.transformers.rename.MethodRenamer
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ReflectionSupport
 import net.spartanb312.grunteon.obfuscator.util.filters.FilterStrategy
 import net.spartanb312.grunteon.obfuscator.util.filters.buildClassNamePredicates
 
@@ -53,18 +65,30 @@ interface TransformerConfig {
                 subclass(ClassShrink.Config::class)
                 subclass(SourceDebugInfoHide.Config::class)
                 subclass(StringEqualsOptimize.Config::class)
+                subclass(AntiDebug.Config::class)
                 subclass(ArithmeticSubstitute.Config::class)
                 subclass(NumberBasicEncrypt.Config::class)
                 subclass(StringArrayedEncrypt.Config::class)
+                subclass(Controlflow.Config::class)
+                subclass(ConstBuilder.Config::class)
+                subclass(ConstPoolEncrypt.Config::class)
+                subclass(ClonedClass.Config::class)
                 subclass(DeclaredFieldsExtract.Config::class)
+                subclass(HWIDAuthentication.Config::class)
+                subclass(NativeCandidate.Config::class)
                 subclass(ParameterObfuscate.Config::class)
+                subclass(TrashClass.Config::class)
                 subclass(InvokeDispatcher.Config::class)
                 subclass(InvokeProxy.Config::class)
+                subclass(InvokeDynamic.Config::class)
                 subclass(FieldAccessProxy.Config::class)
                 subclass(LocalVarRenamer.Config::class)
+                subclass(ReflectionSupport.Config::class)
                 subclass(ClassRenamer.Config::class)
                 subclass(FieldRenamer.Config::class)
                 subclass(MethodRenamer.Config::class)
+                subclass(MixinFieldRenamer.Config::class)
+                subclass(MixinClassRenamer.Config::class)
                 subclass(FakeSyntheticBridge.Config::class)
                 subclass(DecompilerCrasher.Config::class)
                 subclass(ShuffleMembers.Config::class)

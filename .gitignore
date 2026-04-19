@@ -12,3 +12,14 @@ build/
 /libs
 input.jar
 output.jar
+.state/
+.playwright-cli/
+.vscode/
+config.json
+*.pid
+*.out.log
+*.err.log
+*.mappings.json
+*/bin/
+*/logs/
+*/.state/

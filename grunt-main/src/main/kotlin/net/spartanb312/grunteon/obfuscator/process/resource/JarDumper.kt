@@ -175,7 +175,11 @@ object JarDumper {
                         offset += bytes.size.toLong()
                     }
                     varWritten.set(zipOut, offset)
-                    // TODO: dump mappings
+                }
+                if (config.dumpMappings) {
+                    val mappingPath = outputFile.resolveSibling("${outputFile.nameWithoutExtension}.mappings.json")
+                    Logger.info("Writing mappings to $mappingPath")
+                    instance.nameMapping.dump(mappingPath)
                 }
             }
         }

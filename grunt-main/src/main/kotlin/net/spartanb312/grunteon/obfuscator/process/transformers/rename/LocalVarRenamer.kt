@@ -86,7 +86,7 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
                         counter.add(locals + params)
                         return@forEach
                     }
-                    val nameGenerator = NameGenerator(dictionary)
+                    val nameGenerator = NameGenerator(dictionary, instance.obfConfig.dictionaryStartIndex)
                     method.localVariables?.forEach { it.name = "${config.prefix}${nameGenerator.nextName()}" }
                     counter.add(method.localVariables?.size ?: 0)
                 }

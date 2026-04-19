@@ -10,6 +10,7 @@ import net.spartanb312.genesis.kotlin.method
 import net.spartanb312.grunteon.obfuscator.Grunteon
 import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
+import net.spartanb312.grunteon.obfuscator.process.transformers.rename.ReflectionSupport
 import net.spartanb312.grunteon.obfuscator.util.*
 import net.spartanb312.grunteon.obfuscator.util.cryptography.Xoshiro256PPRandom
 import net.spartanb312.grunteon.obfuscator.util.cryptography.getSeed
@@ -83,8 +84,10 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
                     .forEach { instruction ->
                         val originalString = (instruction as LdcInsnNode).cst as String
                         // Skip duplicate strings
-                        val existingIndex = stringsToEncrypt[originalString]
-                        stringsToEncrypt.putIfAbsent(originalString, existingIndex ?: stringsToEncrypt.size)
+                        if (!ReflectionSupport.isClassStringExcluded(originalString)) {
+                            val existingIndex = stringsToEncrypt[originalString]
+                            stringsToEncrypt.putIfAbsent(originalString, existingIndex ?: stringsToEncrypt.size)
+                        }
                     }
             }
             if (stringsToEncrypt.isNotEmpty()) {
@@ -150,7 +153,7 @@ class StringArrayedEncrypt : Transformer<StringArrayedEncrypt.Config>(
                         .shuffled()
                         .forEach { instruction ->
                             val originalString = (instruction as LdcInsnNode).cst as String
-                            val index = stringsToEncrypt[originalString]!!
+                            val index = stringsToEncrypt[originalString] ?: return@forEach
                             methodNode.instructions.insert(instruction, instructions {
                                 GETSTATIC(classNode.name, poolField.name, poolField.desc)
                                 INT(index)

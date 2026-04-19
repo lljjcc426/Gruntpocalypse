@@ -84,7 +84,7 @@ public class ImplLookupGetter {
         );
 
         MethodHandle chain = MethodHandles.filterReturnValue(findClass, newGlobalRef.bindTo(env));
-        return (MemorySegment) chain.invokeExact(env, arena.allocateFrom(clazz.getName().replace('.', '/')));
+        return (MemorySegment) chain.invokeExact(env, arena.allocateUtf8String(clazz.getName().replace('.', '/')));
     }
 
     private static MemorySegment getStaticFieldId(
@@ -99,7 +99,7 @@ public class ImplLookupGetter {
                 ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS
             )
         );
-        return (MemorySegment) getStaticFieldId.invokeExact(env, clazz, arena.allocateFrom(name), arena.allocateFrom(sig));
+        return (MemorySegment) getStaticFieldId.invokeExact(env, clazz, arena.allocateUtf8String(name), arena.allocateUtf8String(sig));
     }
 
     private static MemorySegment getStaticObjectField(
@@ -150,7 +150,7 @@ public class ImplLookupGetter {
                 ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS
             )
         );
-        return (MemorySegment) getStaticMethodId.invokeExact(env, clazz, arena.allocateFrom(name), arena.allocateFrom(sig));
+        return (MemorySegment) getStaticMethodId.invokeExact(env, clazz, arena.allocateUtf8String(name), arena.allocateUtf8String(sig));
     }
 
     private static MemorySegment callStaticObjectMethod(
@@ -189,7 +189,7 @@ public class ImplLookupGetter {
                 ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS
             )
         );
-        return (MemorySegment) getMethodId.invokeExact(env, clazz, arena.allocateFrom(name), arena.allocateFrom(sig));
+        return (MemorySegment) getMethodId.invokeExact(env, clazz, arena.allocateUtf8String(name), arena.allocateUtf8String(sig));
     }
 
     private static MemorySegment callObjectMethod(
@@ -238,7 +238,7 @@ public class ImplLookupGetter {
         );
 
         MethodHandle chain = MethodHandles.filterReturnValue(newStringUTF, newGlobalRef.bindTo(env));
-        return (MemorySegment) chain.invoke(env, arena.allocateFrom(s));
+        return (MemorySegment) chain.invoke(env, arena.allocateUtf8String(s));
     }
 
     private static MemorySegment getFunction(MemorySegment obj, int function) {
