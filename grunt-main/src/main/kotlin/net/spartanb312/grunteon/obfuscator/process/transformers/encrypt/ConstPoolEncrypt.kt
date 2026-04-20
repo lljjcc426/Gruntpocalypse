@@ -251,6 +251,9 @@ class ConstPoolEncrypt : Transformer<ConstPoolEncrypt.Config>(
                 }
             }
             poolClass.methods.add(clinit)
+            if (config.dontScramble) {
+                applyDontScramble(poolClass)
+            }
             return GeneratedPool(poolClass)
         }
 
@@ -479,5 +482,19 @@ class ConstPoolEncrypt : Transformer<ConstPoolEncrypt.Config>(
             }
             MAXS(4, 7)
         }.appendAnnotation(GENERATED_METHOD)
+
+        private fun applyDontScramble(classNode: ClassNode) {
+            classNode.appendAnnotation(DISABLE_FIELD_PROXY)
+                .appendAnnotation(DISABLE_INVOKE_PROXY)
+                .appendAnnotation(DISABLE_INVOKE_DISPATCHER)
+                .appendAnnotation(DISABLE_INVOKE_DYNAMIC)
+            classNode.fields.forEach {
+                it.appendAnnotation(IGNORE_FIELD_PROXY)
+            }
+            classNode.methods.forEach {
+                it.appendAnnotation(IGNORE_INVOKE_PROXY)
+                it.appendAnnotation(IGNORE_INVOKE_DISPATCHER)
+            }
+        }
     }
 }

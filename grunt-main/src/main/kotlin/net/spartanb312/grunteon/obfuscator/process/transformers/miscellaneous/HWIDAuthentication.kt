@@ -20,6 +20,7 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.getOrCreateClinit
 import net.spartanb312.grunteon.obfuscator.util.extensions.isInterface
 import org.apache.commons.rng.UniformRandomProvider
 import org.objectweb.asm.Opcodes
+import org.objectweb.asm.tree.LdcInsnNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InsnNode
 import org.objectweb.asm.tree.MethodInsnNode
@@ -34,6 +35,11 @@ class HWIDAuthentication : Transformer<HWIDAuthentication.Config>(
         "Inject online/offline HWID verification into classes"
     )
 ) {
+    private data class RuntimeSupport(
+        val classNode: ClassNode,
+        val literalDecoderName: String?
+    )
+
     @Serializable
     data class Config(
         @SettingDesc(enText = "Specify class include/exclude rules")
@@ -73,13 +79,13 @@ class HWIDAuthentication : Transformer<HWIDAuthentication.Config>(
             if (eligible.isEmpty()) return@pre
 
             val random = Xoshiro256PPRandom(getSeed("HWIDAuthentication"))
-            val utilClass = buildRuntimeSupport(random, config)
-            instance.workRes.addGeneratedClass(utilClass)
+            val runtimeSupport = buildRuntimeSupport(random, config)
+            instance.workRes.addGeneratedClass(runtimeSupport.classNode)
 
             val poolAmount = config.cachePools.coerceAtLeast(1).coerceAtMost(eligible.size)
             val pools = ArrayList<CachePool>(poolAmount)
             repeat(poolAmount) { index ->
-                val poolClass = buildPoolClass(random, config, index)
+                val poolClass = buildPoolClass(random, config, index, runtimeSupport)
                 instance.workRes.addGeneratedClass(poolClass.classNode)
                 pools += poolClass
                 generatedPools++
@@ -88,7 +94,7 @@ class HWIDAuthentication : Transformer<HWIDAuthentication.Config>(
             eligible.forEachIndexed { index, classNode ->
                 val verifyMethod = buildVerifyMethod(
                     owner = classNode,
-                    runtimeOwner = utilClass.name,
+                    runtimeOwner = runtimeSupport.classNode.name,
                     pool = pools[index % pools.size],
                     random = random
                 )
@@ -112,10 +118,11 @@ class HWIDAuthentication : Transformer<HWIDAuthentication.Config>(
     private fun buildRuntimeSupport(
         random: UniformRandomProvider,
         config: Config
-    ): ClassNode {
+    ): RuntimeSupport {
         val className = "net/spartanb312/grunteon/hwid/HWIDRuntime_${randomString(random, 6)}"
         val processedKey = config.encryptKey.processKey()
-        return clazz(
+        val literalDecoderName = if (config.encryptConst) "decode_literal_${randomString(random, 8)}" else null
+        val classNode = clazz(
             PUBLIC + FINAL + SUPER,
             className,
             "java/lang/Object"
@@ -127,13 +134,21 @@ class HWIDAuthentication : Transformer<HWIDAuthentication.Config>(
             methods.add(buildEncodeMethod(processedKey).appendAnnotation(GENERATED_METHOD))
             methods.add(buildCurrentMethod(className).appendAnnotation(GENERATED_METHOD))
             methods.add(buildFailMethod(config.showHWIDWhenFailed).appendAnnotation(GENERATED_METHOD))
+            if (literalDecoderName != null) {
+                methods.add(buildLiteralDecodeMethod(literalDecoderName).appendAnnotation(GENERATED_METHOD))
+            }
         }
+        if (literalDecoderName != null) {
+            protectStringConstants(classNode, className, literalDecoderName, random)
+        }
+        return RuntimeSupport(classNode, literalDecoderName)
     }
 
     private fun buildPoolClass(
         random: UniformRandomProvider,
         config: Config,
-        index: Int
+        index: Int,
+        runtimeSupport: RuntimeSupport
     ): CachePool {
         val className = "net/spartanb312/grunteon/hwid/HWIDPool_${index}_${randomString(random, 5)}"
         val fieldName = "cache_${randomString(random, 8)}"
@@ -154,6 +169,9 @@ class HWIDAuthentication : Transformer<HWIDAuthentication.Config>(
             )
             methods.add(buildCtor())
             methods.add(buildPoolClinit(className, fieldName, config).appendAnnotation(GENERATED_METHOD))
+        }
+        if (config.encryptConst && runtimeSupport.literalDecoderName != null) {
+            protectStringConstants(classNode, runtimeSupport.classNode.name, runtimeSupport.literalDecoderName, random)
         }
         return CachePool(classNode, fieldName)
     }
@@ -363,6 +381,42 @@ class HWIDAuthentication : Transformer<HWIDAuthentication.Config>(
         MAXS(4, 1)
     }
 
+    private fun buildLiteralDecodeMethod(methodName: String): MethodNode = method(
+        PRIVATE + STATIC,
+        methodName,
+        "(Ljava/lang/String;I)Ljava/lang/String;"
+    ) {
+        INSTRUCTIONS {
+            NEW("java/lang/StringBuilder")
+            DUP
+            INVOKESPECIAL("java/lang/StringBuilder", "<init>", "()V")
+            ASTORE(2)
+            ICONST_0
+            ISTORE(3)
+            GOTO(L["CHECK"])
+            LABEL(L["LOOP"])
+            ALOAD(2)
+            ALOAD(0)
+            ILOAD(3)
+            INVOKEVIRTUAL("java/lang/String", "charAt", "(I)C")
+            ILOAD(1)
+            IXOR
+            I2C
+            INVOKEVIRTUAL("java/lang/StringBuilder", "append", "(C)Ljava/lang/StringBuilder;")
+            POP
+            IINC(3, 1)
+            LABEL(L["CHECK"])
+            ILOAD(3)
+            ALOAD(0)
+            INVOKEVIRTUAL("java/lang/String", "length", "()I")
+            IF_ICMPLT(L["LOOP"])
+            ALOAD(2)
+            INVOKEVIRTUAL("java/lang/StringBuilder", "toString", "()Ljava/lang/String;")
+            ARETURN
+        }
+        MAXS(3, 4)
+    }
+
     private fun buildPoolClinit(
         owner: String,
         fieldName: String,
@@ -431,6 +485,35 @@ class HWIDAuthentication : Transformer<HWIDAuthentication.Config>(
                 append(alphabet[random.nextInt(alphabet.length)])
             }
         }
+    }
+
+    private fun protectStringConstants(classNode: ClassNode, decoderOwner: String, decoderName: String, random: UniformRandomProvider) {
+        classNode.methods
+            .filterNot { it.name == decoderName }
+            .forEach { method ->
+                method.instructions?.toArray()
+                    ?.filterIsInstance<LdcInsnNode>()
+                    ?.filter { it.cst is String }
+                    ?.forEach { insn ->
+                        val literal = insn.cst as String
+                        if (literal.isEmpty()) return@forEach
+                        val key = random.nextInt(1, 0x100)
+                        val encrypted = literal.map { (it.code xor key).toChar() }.joinToString("")
+                        method.instructions.insertBefore(insn, LdcInsnNode(encrypted))
+                        method.instructions.insertBefore(insn, LdcInsnNode(key))
+                        method.instructions.insertBefore(
+                            insn,
+                            MethodInsnNode(
+                                Opcodes.INVOKESTATIC,
+                                decoderOwner,
+                                decoderName,
+                                "(Ljava/lang/String;I)Ljava/lang/String;",
+                                false
+                            )
+                        )
+                        method.instructions.remove(insn)
+                    }
+            }
     }
 
     private fun String.processKey(): String = when {

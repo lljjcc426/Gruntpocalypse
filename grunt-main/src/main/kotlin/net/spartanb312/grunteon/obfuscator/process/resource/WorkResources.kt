@@ -1,7 +1,6 @@
 package net.spartanb312.grunteon.obfuscator.process.resource
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
-import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
@@ -12,8 +11,10 @@ import java.net.URI
 import java.nio.file.FileSystemNotFoundException
 import java.nio.file.FileSystems
 import java.nio.file.Path
+import java.nio.file.FileSystem
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
+import kotlin.collections.AbstractCollection
 import kotlin.io.path.*
 
 class WorkResources private constructor(
@@ -33,15 +34,7 @@ class WorkResources private constructor(
 ) {
     val inputClassCollection: Collection<ClassNode> get() = inputClassMap.values
     val librariesClassCollection: Collection<ClassNode> get() = libraryClassMap.values
-
-    // TODO: optimize this
-    inline val allClassCollection
-        get() = ObjectArrayList<ClassNode>(
-            inputClassCollection.size + librariesClassCollection.size
-        ).apply {
-            addAll(inputClassCollection)
-            addAll(librariesClassCollection)
-        }
+    val allClassCollection: Collection<ClassNode> = CombinedClassCollection(inputClassMap, libraryClassMap)
 
     fun addGeneratedClass(classNode: ClassNode) {
         inputClassMap[classNode.name] = classNode
@@ -66,16 +59,17 @@ class WorkResources private constructor(
 
     companion object {
         private val DUMMY_CLASSNODE = ClassNode()
+        private val ZIP_FILE_SYSTEMS = ConcurrentHashMap<String, FileSystem>()
 
         private fun toZipRootPath(zipPath: Path): Path {
             val jarURI = URI.create("jar:" + zipPath.toUri())
-            // TODO: lifecycle of zipFileSystem
-            val zipFileSystem = try {
-                FileSystems.getFileSystem(jarURI)
-            } catch (_: FileSystemNotFoundException) {
-                FileSystems.newFileSystem(jarURI, mapOf<String, String>())
+            val zipFileSystem = ZIP_FILE_SYSTEMS.computeIfAbsent(jarURI.toString()) {
+                try {
+                    FileSystems.getFileSystem(jarURI)
+                } catch (_: FileSystemNotFoundException) {
+                    FileSystems.newFileSystem(jarURI, mapOf<String, String>())
+                }
             }
-
             return zipFileSystem.getPath("/")
         }
 
@@ -140,6 +134,26 @@ class WorkResources private constructor(
                 libraryClassMap = libraryClassMap,
                 inputClassMap = inputClassMap
             )
+        }
+
+        private class CombinedClassCollection(
+            private val input: MutableMap<String, ClassNode>,
+            private val libraries: Map<String, ClassNode>
+        ) : AbstractCollection<ClassNode>() {
+            override val size: Int
+                get() = input.size + libraries.size
+
+            override fun iterator(): Iterator<ClassNode> {
+                val inputIterator = input.values.iterator()
+                val libraryIterator = libraries.values.iterator()
+                return object : Iterator<ClassNode> {
+                    override fun hasNext(): Boolean = inputIterator.hasNext() || libraryIterator.hasNext()
+
+                    override fun next(): ClassNode {
+                        return if (inputIterator.hasNext()) inputIterator.next() else libraryIterator.next()
+                    }
+                }
+            }
         }
 
         private fun CoroutineScope.readSourceSetClassNodes(

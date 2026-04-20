@@ -6,6 +6,7 @@ import net.spartanb312.grunteon.obfuscator.lang.enText
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.NativeCandidate
 import net.spartanb312.grunteon.obfuscator.util.DISABLE_CONTROL_FLOW
+import net.spartanb312.grunteon.obfuscator.util.GENERATED_CLASS
 import net.spartanb312.grunteon.obfuscator.util.GENERATED_METHOD
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.MergeableCounter
@@ -21,6 +22,7 @@ import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicate
 import net.spartanb312.grunteon.obfuscator.util.filters.isExcluded
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import net.spartanb312.grunteon.obfuscator.util.getRandomString
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import org.apache.commons.rng.UniformRandomProvider
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
@@ -126,17 +128,61 @@ class Controlflow : Transformer<Controlflow.Config>(
             junkCallPool = buildJunkCallPool(config)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
+        val generatedClasses = reducibleScopeValue {
+            MergeableObjectList(ObjectArrayList<ClassNode>())
+        }
+        val builderDummyTypes = globalScopeValue {
+            instance.workRes.inputClassCollection
+                .asSequence()
+                .filter { (it.access and Opcodes.ACC_PUBLIC) != 0 && (it.access and Opcodes.ACC_ANNOTATION) == 0 }
+                .map { it.name }
+                .toList()
+        }
         parForEachClassesFiltered(config.classFilter.buildFilterStrategy()) { classNode ->
             if (classNode.isExcluded(DISABLE_CONTROL_FLOW)) return@parForEachClassesFiltered
             val counter = counter.local
-            classNode.methods.toList().asSequence()
+            val generatedClasses = generatedClasses.local
+            val dummyTypes = builderDummyTypes.global
+            var builderOwner: ClassNode? = null
+            fun resolveBuilderOwner(random: UniformRandomProvider): ClassNode {
+                builderOwner?.let { return it }
+                val owner = ClassNode().apply {
+                    version = classNode.version
+                    access = Opcodes.ACC_PUBLIC or Opcodes.ACC_FINAL or Opcodes.ACC_SUPER
+                    name = "${classNode.name}\$processor_${random.getRandomString(8)}"
+                    superName = "java/lang/Object"
+                    methods = mutableListOf(MethodNode(
+                        Opcodes.ACC_PUBLIC,
+                        "<init>",
+                        "()V",
+                        null,
+                        null
+                    ).apply {
+                        instructions.add(VarInsnNode(Opcodes.ALOAD, 0))
+                        instructions.add(MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false))
+                        instructions.add(InsnNode(Opcodes.RETURN))
+                        maxLocals = 1
+                        maxStack = 1
+                    })
+                    appendAnnotation(GENERATED_CLASS)
+                }
+                generatedClasses.add(owner)
+                builderOwner = owner
+                return owner
+            }
+            classNode.methods.asSequence()
                 .filter { !it.isAbstract && !it.isNative && it.instructions != null && it.instructions.size() > 0 }
                 .forEach { method ->
                     if (method.isExcluded(DISABLE_CONTROL_FLOW)) return@forEach
                     if (methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))) return@forEach
                     val random = Xoshiro256PPRandom(getSeed(classNode.name, method.name, method.desc, "Controlflow"))
-                    counter.add(transformMethod(classNode, method, config, random))
+                    counter.add(transformMethod(classNode, method, config, random, dummyTypes, ::resolveBuilderOwner))
                 }
+        }
+        seq {
+            generatedClasses.global
+                .distinctBy { it.name }
+                .forEach(instance.workRes::addGeneratedClass)
         }
         post {
             Logger.info(" - Controlflow:")
@@ -151,120 +197,121 @@ class Controlflow : Transformer<Controlflow.Config>(
         } else {
             instance.workRes.inputClassCollection
         }
-        return source.asSequence()
-            .filter { (it.access and Opcodes.ACC_PUBLIC) != 0 }
-            .flatMap { owner ->
-                owner.methods.asSequence()
-                    .filter {
-                        (it.access and Opcodes.ACC_PUBLIC) != 0
-                                && (it.access and Opcodes.ACC_STATIC) != 0
-                                && !it.isAbstract
-                                && !it.isNative
-                                && !it.isInitializer
-                    }
-                    .mapNotNull { method ->
-                        val argTypes = Type.getArgumentTypes(method.desc)
-                        if (!argTypes.all(::isJunkFriendlyType)) return@mapNotNull null
-                        val returnType = Type.getReturnType(method.desc)
-                        if (!isJunkFriendlyType(returnType) && returnType.sort != Type.VOID) return@mapNotNull null
-                        JunkCallMethod(owner.name, method.name, method.desc, argTypes, returnType)
-                    }
+        return ObjectArrayList<JunkCallMethod>().apply {
+            source.forEach { owner ->
+                if ((owner.access and Opcodes.ACC_PUBLIC) == 0) return@forEach
+                owner.methods.forEach { method ->
+                    if ((method.access and Opcodes.ACC_PUBLIC) == 0 ||
+                        (method.access and Opcodes.ACC_STATIC) == 0 ||
+                        method.isAbstract ||
+                        method.isNative ||
+                        method.isInitializer
+                    ) return@forEach
+                    val argTypes = Type.getArgumentTypes(method.desc)
+                    if (!argTypes.all(::isJunkFriendlyType)) return@forEach
+                    val returnType = Type.getReturnType(method.desc)
+                    if (!isJunkFriendlyType(returnType) && returnType.sort != Type.VOID) return@forEach
+                    add(JunkCallMethod(owner.name, method.name, method.desc, argTypes, returnType))
+                }
             }
-            .toList()
+        }
     }
 
     private fun transformMethod(
         classNode: ClassNode,
         method: MethodNode,
         config: Config,
-        random: UniformRandomProvider
+        random: UniformRandomProvider,
+        builderDummyTypes: List<String>,
+        builderOwnerProvider: (UniformRandomProvider) -> ClassNode
     ): Int {
         var replaced = 0
+        val returnType = Type.getReturnType(method.desc)
         val intensity = config.intensity.coerceIn(1, 3)
-        val extractRate = amplifyRate(config.extractRate, intensity)
-        val ifRate = amplifyRate(config.ifReplaceRate, intensity)
-        val ifCompareRate = amplifyRate(config.ifICompareReplaceRate, intensity)
-        val mutateRate = amplifyRate(config.mutateRate, intensity)
-        val gotoRate = amplifyRate(config.gotoReplaceRate, intensity)
-        val switchRate = amplifyRate(config.switchReplaceRate, intensity)
-        val protectRate = amplifyRate(config.protectRate, intensity)
+        val rounds = intensity.coerceAtMost(2)
+        repeat(rounds) {
+            if (config.switchProtect) {
+                for (instruction in method.instructions.toArray()) {
+                    val replacement = when (instruction) {
+                        is TableSwitchInsnNode -> {
+                            if (random.nextInt(100) >= config.protectRate.coerceIn(0, 100)) null else createProtectedSwitch(instruction, random)
+                        }
 
-        if (config.switchProtect) {
-            for (instruction in method.instructions.toArray()) {
-                val replacement = when (instruction) {
-                    is TableSwitchInsnNode -> {
-                        if (random.nextInt(100) >= protectRate) null else createProtectedSwitch(instruction, random)
-                    }
+                        is LookupSwitchInsnNode -> {
+                            if (random.nextInt(100) >= config.protectRate.coerceIn(0, 100)) null else createProtectedSwitch(instruction, random)
+                        }
 
-                    is LookupSwitchInsnNode -> {
-                        if (random.nextInt(100) >= protectRate) null else createProtectedSwitch(instruction, random)
-                    }
-
-                    else -> null
-                } ?: continue
-                method.instructions.insertBefore(instruction, replacement)
-                method.instructions.remove(instruction)
-                replaced++
+                        else -> null
+                    } ?: continue
+                    method.instructions.insertBefore(instruction, replacement)
+                    method.instructions.remove(instruction)
+                    replaced++
+                }
             }
-        }
 
-        if (config.switchExtractor) {
-            for (instruction in method.instructions.toArray()) {
-                val replacement = when (instruction) {
-                    is TableSwitchInsnNode -> {
-                        if (random.nextInt(100) >= extractRate) null else createExtractedSwitch(instruction, method)
-                    }
-
-                    is LookupSwitchInsnNode -> {
-                        if (random.nextInt(100) >= extractRate) null else createExtractedSwitch(instruction, method)
-                    }
-
-                    else -> null
-                } ?: continue
-                method.instructions.insertBefore(instruction, replacement)
-                method.instructions.remove(instruction)
-                replaced++
+            if (config.mutateJumps) {
+                for (instruction in method.instructions.toArray()) {
+                    val jump = instruction as? JumpInsnNode ?: continue
+                    if (!isConditionalJump(jump.opcode) || jump.opcode == Opcodes.GOTO) continue
+                    if (random.nextInt(100) >= config.mutateRate.coerceIn(0, 100)) continue
+                    method.instructions.insertBefore(jump, createMutatedJump(jump, random))
+                    method.instructions.remove(jump)
+                    replaced++
+                }
             }
-        }
 
-        if (config.mangledCompareJump) {
-            for (instruction in method.instructions.toArray()) {
-                val jump = instruction as? JumpInsnNode ?: continue
-                if (!isConditionalJump(jump.opcode)) continue
-                val rate = if (isIfCompareJump(jump.opcode)) ifCompareRate else ifRate
-                if (random.nextInt(100) >= rate) continue
-                method.instructions.insertBefore(jump, createWrappedJump(classNode, method, jump, random, config))
-                method.instructions.remove(jump)
-                replaced++
+            if (config.switchExtractor) {
+                for (instruction in method.instructions.toArray()) {
+                    val replacement = when (instruction) {
+                        is TableSwitchInsnNode -> {
+                            if (random.nextInt(100) >= config.extractRate.coerceIn(0, 100)) null else createExtractedSwitch(instruction, method)
+                        }
+
+                        is LookupSwitchInsnNode -> {
+                            if (random.nextInt(100) >= config.extractRate.coerceIn(0, 100)) null else createExtractedSwitch(instruction, method)
+                        }
+
+                        else -> null
+                    } ?: continue
+                    method.instructions.insertBefore(instruction, replacement)
+                    method.instructions.remove(instruction)
+                    replaced++
+                }
             }
-        }
 
-        if (config.mutateJumps) {
-            for (instruction in method.instructions.toArray()) {
-                val jump = instruction as? JumpInsnNode ?: continue
-                if (!isConditionalJump(jump.opcode)) continue
-                if (random.nextInt(100) >= mutateRate) continue
-                method.instructions.insertBefore(jump, createMutatedJump(jump, random))
-                method.instructions.remove(jump)
-                replaced++
+            if (config.bogusConditionJump) {
+                for (instruction in method.instructions.toArray()) {
+                    val jump = instruction as? JumpInsnNode ?: continue
+                    if (jump.opcode != Opcodes.GOTO) continue
+                    if (random.nextInt(100) >= config.gotoReplaceRate.coerceIn(0, 100)) continue
+                    method.instructions.insertBefore(jump, createOpaqueGoto(classNode, method, jump.label, random, config, builderDummyTypes, builderOwnerProvider, returnType))
+                    method.instructions.remove(jump)
+                    replaced++
+                }
             }
-        }
 
-        for (instruction in method.instructions.toArray()) {
-            val jump = instruction as? JumpInsnNode ?: continue
-            if (jump.opcode != Opcodes.GOTO) continue
-            val replacement = when {
-                config.tableSwitchJump && random.nextInt(100) < switchRate ->
-                    createSwitchGoto(classNode, method, jump.label, random, config)
+            if (config.mangledCompareJump) {
+                for (instruction in method.instructions.toArray()) {
+                    val jump = instruction as? JumpInsnNode ?: continue
+                    if (!isConditionalJump(jump.opcode)) continue
+                    val rate = if (isIfCompareJump(jump.opcode)) config.ifICompareReplaceRate else config.ifReplaceRate
+                    if (random.nextInt(100) >= rate.coerceIn(0, 100)) continue
+                    method.instructions.insertBefore(jump, createWrappedJump(classNode, method, jump, random, config, builderDummyTypes, builderOwnerProvider))
+                    method.instructions.remove(jump)
+                    replaced++
+                }
+            }
 
-                config.bogusConditionJump && random.nextInt(100) < gotoRate ->
-                    createOpaqueGoto(classNode, method, jump.label, random, config)
-
-                else -> null
-            } ?: continue
-            method.instructions.insertBefore(jump, replacement)
-            method.instructions.remove(jump)
-            replaced++
+            if (config.tableSwitchJump) {
+                for (instruction in method.instructions.toArray()) {
+                    val jump = instruction as? JumpInsnNode ?: continue
+                    if (jump.opcode != Opcodes.GOTO) continue
+                    if (random.nextInt(100) >= config.switchReplaceRate.coerceIn(0, 100)) continue
+                    method.instructions.insertBefore(jump, createSwitchGoto(classNode, method, jump.label, random, config, builderDummyTypes, builderOwnerProvider, returnType))
+                    method.instructions.remove(jump)
+                    replaced++
+                }
+            }
         }
 
         return replaced
@@ -339,20 +386,142 @@ class Controlflow : Transformer<Controlflow.Config>(
         method: MethodNode,
         jump: JumpInsnNode,
         random: UniformRandomProvider,
-        config: Config
+        config: Config,
+        builderDummyTypes: List<String>,
+        builderOwnerProvider: (UniformRandomProvider) -> ClassNode
     ): InsnList {
+        val returnType = Type.getReturnType(method.desc)
+        if (config.tableSwitchJump && random.nextInt(100) < config.switchReplaceRate.coerceIn(0, 100)) {
+            return if (usesObjectOrNullCompare(jump.opcode)) {
+                createCompareLookupBridge(
+                    classNode,
+                    method,
+                    jump,
+                    random,
+                    config,
+                    builderDummyTypes,
+                    builderOwnerProvider,
+                    returnType
+                )
+            } else {
+                createCompareSwitchBridge(
+                    classNode,
+                    method,
+                    jump,
+                    random,
+                    config,
+                    builderDummyTypes,
+                    builderOwnerProvider,
+                    returnType
+                )
+            }
+        }
         val delegateLabel = LabelNode()
         val continueLabel = LabelNode()
+        val reversedOpcode = reversedIfOpcode(jump.opcode)
         return InsnList().apply {
-            add(JumpInsnNode(jump.opcode, delegateLabel))
-            add(JumpInsnNode(Opcodes.GOTO, continueLabel))
-            add(delegateLabel)
-            add(createOpaqueGoto(classNode, method, jump.label, random, config))
-            add(continueLabel)
-            if (config.reverseExistedIf && random.nextInt(100) < config.reverseChance) {
-                // Keep a small extra hop so the wrapped branch is less linear.
-                add(InsnNode(Opcodes.NOP))
+            if (config.reverseExistedIf && reversedOpcode != null && random.nextInt(100) < config.reverseChance) {
+                add(JumpInsnNode(reversedOpcode, continueLabel))
+                add(createOpaqueGoto(classNode, method, jump.label, random, config, builderDummyTypes, builderOwnerProvider, returnType))
+                add(continueLabel)
+            } else {
+                add(JumpInsnNode(jump.opcode, delegateLabel))
+                add(JumpInsnNode(Opcodes.GOTO, continueLabel))
+                add(delegateLabel)
+                add(createOpaqueGoto(classNode, method, jump.label, random, config, builderDummyTypes, builderOwnerProvider, returnType))
+                add(continueLabel)
             }
+        }
+    }
+
+    private fun createCompareSwitchBridge(
+        classNode: ClassNode,
+        method: MethodNode,
+        jump: JumpInsnNode,
+        random: UniformRandomProvider,
+        config: Config,
+        builderDummyTypes: List<String>,
+        builderOwnerProvider: (UniformRandomProvider) -> ClassNode,
+        returnType: Type
+    ): InsnList {
+        val caseCount = rangedInt(random, 2, config.maxSwitchCase.coerceAtLeast(2) + 1)
+        val labels = Array(caseCount) { LabelNode() }
+        val defaultLabel = LabelNode()
+        val continueLabel = LabelNode()
+        val trueLabel = LabelNode()
+        val dispatchLabel = LabelNode()
+        val startCase = rangedInt(random, 0, 512)
+        val trueIndex = random.nextInt(caseCount)
+        val falseIndex = (trueIndex + rangedInt(random, 1, caseCount)) % caseCount
+        val key = rangedInt(random, 16, 0x4000)
+        return InsnList().apply {
+            add(JumpInsnNode(jump.opcode, trueLabel))
+            add(buildArithmeticInt(classNode, method, (startCase + falseIndex) xor key, random, config, builderDummyTypes, builderOwnerProvider))
+            add(JumpInsnNode(Opcodes.GOTO, dispatchLabel))
+            add(trueLabel)
+            add(buildArithmeticInt(classNode, method, (startCase + trueIndex) xor key, random, config, builderDummyTypes, builderOwnerProvider))
+            add(dispatchLabel)
+            add(buildArithmeticInt(classNode, method, key, random, config, builderDummyTypes, builderOwnerProvider))
+            add(InsnNode(Opcodes.IXOR))
+            add(TableSwitchInsnNode(startCase, startCase + caseCount - 1, defaultLabel, *labels))
+            labels.forEachIndexed { index, label ->
+                add(label)
+                when (index) {
+                    trueIndex -> add(createOpaqueGoto(classNode, method, jump.label, random, config, builderDummyTypes, builderOwnerProvider, returnType))
+                    falseIndex -> add(JumpInsnNode(Opcodes.GOTO, continueLabel))
+                    else -> {
+                        if (config.trappedSwitchCase && config.junkCode && random.nextInt(100) < config.trapChance) {
+                            add(createDeadJunkBranch(method, returnType, random, config))
+                        }
+                        add(JumpInsnNode(Opcodes.GOTO, continueLabel))
+                    }
+                }
+            }
+            add(defaultLabel)
+            if (config.trappedSwitchCase && config.junkCode && random.nextInt(100) < config.trapChance) {
+                add(createDeadJunkBranch(method, returnType, random, config))
+            }
+            add(JumpInsnNode(Opcodes.GOTO, continueLabel))
+            add(continueLabel)
+        }
+    }
+
+    private fun createCompareLookupBridge(
+        classNode: ClassNode,
+        method: MethodNode,
+        jump: JumpInsnNode,
+        random: UniformRandomProvider,
+        config: Config,
+        builderDummyTypes: List<String>,
+        builderOwnerProvider: (UniformRandomProvider) -> ClassNode,
+        returnType: Type
+    ): InsnList {
+        val continueLabel = LabelNode()
+        val trueLabel = LabelNode()
+        val dispatchLabel = LabelNode()
+        val defaultLabel = LabelNode()
+        val trueDispatch = LabelNode()
+        val falseDispatch = LabelNode()
+        val trueKey = rangedInt(random, 256, 0x4000)
+        val falseKey = rangedInt(random, 256, 0x4000).let { if (it == trueKey) it xor 0x55 else it }
+        return InsnList().apply {
+            add(JumpInsnNode(jump.opcode, trueLabel))
+            add(buildArithmeticInt(classNode, method, falseKey, random, config, builderDummyTypes, builderOwnerProvider))
+            add(JumpInsnNode(Opcodes.GOTO, dispatchLabel))
+            add(trueLabel)
+            add(buildArithmeticInt(classNode, method, trueKey, random, config, builderDummyTypes, builderOwnerProvider))
+            add(dispatchLabel)
+            add(LookupSwitchInsnNode(defaultLabel, intArrayOf(falseKey, trueKey), arrayOf(falseDispatch, trueDispatch)))
+            add(falseDispatch)
+            add(JumpInsnNode(Opcodes.GOTO, continueLabel))
+            add(trueDispatch)
+            add(createOpaqueGoto(classNode, method, jump.label, random, config, builderDummyTypes, builderOwnerProvider, returnType))
+            add(defaultLabel)
+            if (config.trappedSwitchCase && config.junkCode && random.nextInt(100) < config.trapChance) {
+                add(createDeadJunkBranch(method, returnType, random, config))
+            }
+            add(JumpInsnNode(Opcodes.GOTO, continueLabel))
+            add(continueLabel)
         }
     }
 
@@ -383,17 +552,33 @@ class Controlflow : Transformer<Controlflow.Config>(
         method: MethodNode,
         target: LabelNode,
         random: UniformRandomProvider,
-        config: Config
+        config: Config,
+        builderDummyTypes: List<String>,
+        builderOwnerProvider: (UniformRandomProvider) -> ClassNode,
+        returnType: Type
     ): InsnList {
-        val key = rangedInt(random, 16, 0x4000)
+        val action = OpaqueAction.entries[random.nextInt(OpaqueAction.entries.size)]
+        val mode = OpaqueCompare.entries[random.nextInt(OpaqueCompare.entries.size)]
+        val left = rangedInt(random, 16, Int.MAX_VALUE / 4)
+        val right = rangedInt(random, 16, Int.MAX_VALUE / 4)
+        val computed = action.apply(left, right)
+        val compareTarget = when (mode) {
+            OpaqueCompare.EQ -> computed
+            OpaqueCompare.NE -> computed xor 1
+            OpaqueCompare.LT -> computed + rangedInt(random, 1, 1 shl 10)
+            OpaqueCompare.GE -> computed - rangedInt(random, 0, 1 shl 10)
+            OpaqueCompare.GT -> computed - rangedInt(random, 1, 1 shl 10)
+            OpaqueCompare.LE -> computed + rangedInt(random, 0, 1 shl 10)
+        }
         val continueLabel = LabelNode()
         return InsnList().apply {
-            add(buildArithmeticInt(classNode, method, key xor 1, random, config))
-            add(buildArithmeticInt(classNode, method, key, random, config))
-            add(InsnNode(Opcodes.IXOR))
-            add(JumpInsnNode(Opcodes.IFNE, target))
+            add(buildArithmeticInt(classNode, method, left, random, config, builderDummyTypes, builderOwnerProvider))
+            add(buildArithmeticInt(classNode, method, right, random, config, builderDummyTypes, builderOwnerProvider))
+            add(InsnNode(action.opcode))
+            add(buildArithmeticInt(classNode, method, compareTarget, random, config, builderDummyTypes, builderOwnerProvider))
+            add(JumpInsnNode(mode.opcode, target))
             if (config.junkCode) {
-                add(createDeadJunkBranch(random, config))
+                add(createDeadJunkBranch(method, returnType, random, config))
             }
             add(JumpInsnNode(Opcodes.GOTO, continueLabel))
             add(continueLabel)
@@ -406,7 +591,10 @@ class Controlflow : Transformer<Controlflow.Config>(
         method: MethodNode,
         target: LabelNode,
         random: UniformRandomProvider,
-        config: Config
+        config: Config,
+        builderDummyTypes: List<String>,
+        builderOwnerProvider: (UniformRandomProvider) -> ClassNode,
+        returnType: Type
     ): InsnList {
         val caseCount = rangedInt(random, 2, config.maxSwitchCase.coerceAtLeast(2) + 1)
         val labels = Array(caseCount) { LabelNode() }
@@ -415,8 +603,8 @@ class Controlflow : Transformer<Controlflow.Config>(
         val trueIndex = random.nextInt(caseCount)
         val key = rangedInt(random, 16, 0x4000)
         return InsnList().apply {
-            add(buildArithmeticInt(classNode, method, (startCase + trueIndex) xor key, random, config))
-            add(buildArithmeticInt(classNode, method, key, random, config))
+            add(buildArithmeticInt(classNode, method, (startCase + trueIndex) xor key, random, config, builderDummyTypes, builderOwnerProvider))
+            add(buildArithmeticInt(classNode, method, key, random, config, builderDummyTypes, builderOwnerProvider))
             add(InsnNode(Opcodes.IXOR))
             add(TableSwitchInsnNode(startCase, startCase + caseCount - 1, defaultLabel, *labels))
             labels.forEachIndexed { index, label ->
@@ -425,12 +613,15 @@ class Controlflow : Transformer<Controlflow.Config>(
                     add(JumpInsnNode(Opcodes.GOTO, target))
                 } else {
                     if (config.trappedSwitchCase && config.junkCode && random.nextInt(100) < config.trapChance) {
-                        add(createDeadJunkBranch(random, config))
+                        add(createDeadJunkBranch(method, returnType, random, config))
                     }
                     add(JumpInsnNode(Opcodes.GOTO, defaultLabel))
                 }
             }
             add(defaultLabel)
+            if (config.trappedSwitchCase && config.junkCode && random.nextInt(100) < config.trapChance) {
+                add(createDeadJunkBranch(method, returnType, random, config))
+            }
             add(JumpInsnNode(Opcodes.GOTO, target))
         }
     }
@@ -444,12 +635,14 @@ class Controlflow : Transformer<Controlflow.Config>(
         method: MethodNode,
         value: Int,
         random: UniformRandomProvider,
-        config: Config
+        config: Config,
+        builderDummyTypes: List<String>,
+        builderOwnerProvider: (UniformRandomProvider) -> ClassNode
     ): InsnList {
         if (!config.arithmeticExprBuilder) {
             return buildPlainInt(classNode, method, value, config)
         }
-        return buildBuilderCall(classNode, value, random, config)
+        return buildBuilderCall(classNode, value, random, config, builderDummyTypes, builderOwnerProvider(random))
     }
 
     private fun buildPlainInt(classNode: ClassNode, method: MethodNode, value: Int, config: Config): InsnList {
@@ -470,12 +663,22 @@ class Controlflow : Transformer<Controlflow.Config>(
         classNode: ClassNode,
         value: Int,
         random: UniformRandomProvider,
-        config: Config
+        config: Config,
+        builderDummyTypes: List<String>,
+        builderOwner: ClassNode
     ): InsnList {
         val builderName = "cf_builder_${random.getRandomString(10)}"
-        val desc = if (config.junkBuilderParameter) "(Ljava/lang/Object;Ljava/lang/Object;)I" else "()I"
+        val dummyDescriptors = if (config.junkBuilderParameter) {
+            listOf(
+                builderDummyDescriptor(builderDummyTypes, random),
+                builderDummyDescriptor(builderDummyTypes, random)
+            )
+        } else {
+            emptyList()
+        }
+        val desc = if (dummyDescriptors.isEmpty()) "()I" else "(${dummyDescriptors.joinToString("")})I"
         val methodNode = MethodNode(
-            Opcodes.ACC_PRIVATE or Opcodes.ACC_STATIC,
+            Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC,
             builderName,
             desc,
             null,
@@ -484,12 +687,12 @@ class Controlflow : Transformer<Controlflow.Config>(
             val body = buildArithmeticIntRecursive(value, random, config.builderIntensity.coerceIn(1, 3))
             instructions.add(body)
             if (config.useLocalVar) {
-                val slot = if (config.junkBuilderParameter) 2 else 0
+                val slot = dummyDescriptors.size
                 instructions.add(VarInsnNode(Opcodes.ISTORE, slot))
                 instructions.add(VarInsnNode(Opcodes.ILOAD, slot))
                 maxLocals = slot + 1
             } else {
-                maxLocals = if (config.junkBuilderParameter) 2 else 0
+                maxLocals = dummyDescriptors.size
             }
             instructions.add(InsnNode(Opcodes.IRETURN))
             maxStack = 6
@@ -497,14 +700,18 @@ class Controlflow : Transformer<Controlflow.Config>(
         if (config.builderNativeAnnotation) {
             NativeCandidate.registerGeneratedMethod(methodNode)
         }
-        classNode.methods.add(methodNode)
+        builderOwner.methods.add(methodNode)
         return InsnList().apply {
-            if (config.junkBuilderParameter) {
-                add(InsnNode(Opcodes.ACONST_NULL))
+            repeat(dummyDescriptors.size) {
                 add(InsnNode(Opcodes.ACONST_NULL))
             }
-            add(MethodInsnNode(Opcodes.INVOKESTATIC, classNode.name, builderName, desc, false))
+            add(MethodInsnNode(Opcodes.INVOKESTATIC, builderOwner.name, builderName, desc, false))
         }
+    }
+
+    private fun builderDummyDescriptor(pool: List<String>, random: UniformRandomProvider): String {
+        if (pool.isEmpty()) return "Ljava/lang/Object;"
+        return "L${pool[random.nextInt(pool.size)]};"
     }
 
     private fun buildArithmeticIntRecursive(value: Int, random: UniformRandomProvider, depth: Int): InsnList {
@@ -581,16 +788,10 @@ class Controlflow : Transformer<Controlflow.Config>(
         }
     }
 
-    private fun createDeadJunkBranch(random: UniformRandomProvider, config: Config): InsnList {
-        val branchExit = LabelNode()
+    private fun createDeadJunkBranch(method: MethodNode, returnType: Type, random: UniformRandomProvider, config: Config): InsnList {
         val block = InsnList()
         val upper = config.maxJunkCode.coerceAtLeast(0)
-        if (upper == 0) {
-            block.add(JumpInsnNode(Opcodes.GOTO, branchExit))
-            block.add(branchExit)
-            return block
-        }
-        val junkCount = rangedInt(random, 1, upper + 1)
+        val junkCount = if (upper == 0) 0 else rangedInt(random, 1, upper + 1)
         repeat(junkCount) {
             when (random.nextInt(6)) {
                 0 -> {
@@ -638,9 +839,76 @@ class Controlflow : Transformer<Controlflow.Config>(
                 }
             }
         }
-        block.add(JumpInsnNode(Opcodes.GOTO, branchExit))
-        block.add(branchExit)
+        appendDeadBranchTerminal(block, method, returnType, random)
         return block
+    }
+
+    private fun appendDeadBranchTerminal(block: InsnList, method: MethodNode, returnType: Type, random: UniformRandomProvider) {
+        if (method.isInitializer) {
+            block.add(InsnNode(Opcodes.ACONST_NULL))
+            block.add(InsnNode(Opcodes.ATHROW))
+            return
+        }
+        when (returnType.sort) {
+            Type.VOID -> {
+                appendOptionalJunkReturnValue(block, Type.VOID_TYPE, random)
+                block.add(InsnNode(Opcodes.RETURN))
+            }
+            Type.BOOLEAN, Type.BYTE, Type.CHAR, Type.SHORT, Type.INT -> {
+                if (!appendOptionalJunkReturnValue(block, returnType, random)) {
+                    block.add(pushRandomValue(returnType, random))
+                }
+                block.add(InsnNode(Opcodes.IRETURN))
+            }
+            Type.FLOAT -> {
+                if (!appendOptionalJunkReturnValue(block, returnType, random)) {
+                    block.add(pushRandomValue(returnType, random))
+                }
+                block.add(InsnNode(Opcodes.FRETURN))
+            }
+            Type.LONG -> {
+                if (!appendOptionalJunkReturnValue(block, returnType, random)) {
+                    block.add(pushRandomValue(returnType, random))
+                }
+                block.add(InsnNode(Opcodes.LRETURN))
+            }
+            Type.DOUBLE -> {
+                if (!appendOptionalJunkReturnValue(block, returnType, random)) {
+                    block.add(pushRandomValue(returnType, random))
+                }
+                block.add(InsnNode(Opcodes.DRETURN))
+            }
+            Type.OBJECT, Type.ARRAY -> {
+                appendOptionalJunkReturnValue(block, Type.VOID_TYPE, random)
+                block.add(InsnNode(Opcodes.ACONST_NULL))
+                block.add(InsnNode(Opcodes.ARETURN))
+            }
+            else -> {
+                block.add(InsnNode(Opcodes.ACONST_NULL))
+                block.add(InsnNode(Opcodes.ATHROW))
+            }
+        }
+    }
+
+    private fun appendOptionalJunkReturnValue(block: InsnList, returnType: Type, random: UniformRandomProvider): Boolean {
+        if (!this::methodExPredicate.isInitialized) return false
+        if (junkCallPool.isEmpty()) return false
+        val target = junkCallPool
+            .filter { it.returnType.sort == returnType.sort }
+            .let { if (it.isEmpty()) emptyList() else it }
+            .let { if (it.isEmpty()) null else it[random.nextInt(it.size)] }
+            ?: return false
+        target.argumentTypes.forEach { type ->
+            block.add(pushRandomValue(type, random))
+        }
+        block.add(MethodInsnNode(
+            Opcodes.INVOKESTATIC,
+            target.owner,
+            target.name,
+            target.desc,
+            false
+        ))
+        return true
     }
 
     private fun appendJunkMethodCall(block: InsnList, random: UniformRandomProvider): Boolean {
@@ -710,8 +978,37 @@ class Controlflow : Transformer<Controlflow.Config>(
         return opcode in Opcodes.IFEQ..Opcodes.IF_ACMPNE || opcode == Opcodes.IFNULL || opcode == Opcodes.IFNONNULL
     }
 
+    private fun reversedIfOpcode(opcode: Int): Int? {
+        return when (opcode) {
+            Opcodes.IFEQ -> Opcodes.IFNE
+            Opcodes.IFNE -> Opcodes.IFEQ
+            Opcodes.IFLT -> Opcodes.IFGE
+            Opcodes.IFGE -> Opcodes.IFLT
+            Opcodes.IFGT -> Opcodes.IFLE
+            Opcodes.IFLE -> Opcodes.IFGT
+            Opcodes.IF_ICMPEQ -> Opcodes.IF_ICMPNE
+            Opcodes.IF_ICMPNE -> Opcodes.IF_ICMPEQ
+            Opcodes.IF_ICMPLT -> Opcodes.IF_ICMPGE
+            Opcodes.IF_ICMPGE -> Opcodes.IF_ICMPLT
+            Opcodes.IF_ICMPGT -> Opcodes.IF_ICMPLE
+            Opcodes.IF_ICMPLE -> Opcodes.IF_ICMPGT
+            Opcodes.IF_ACMPEQ -> Opcodes.IF_ACMPNE
+            Opcodes.IF_ACMPNE -> Opcodes.IF_ACMPEQ
+            Opcodes.IFNULL -> Opcodes.IFNONNULL
+            Opcodes.IFNONNULL -> Opcodes.IFNULL
+            else -> null
+        }
+    }
+
     private fun isIfCompareJump(opcode: Int): Boolean {
         return opcode in Opcodes.IF_ICMPEQ..Opcodes.IF_ICMPLE
+    }
+
+    private fun usesObjectOrNullCompare(opcode: Int): Boolean {
+        return opcode == Opcodes.IFNULL
+                || opcode == Opcodes.IFNONNULL
+                || opcode == Opcodes.IF_ACMPEQ
+                || opcode == Opcodes.IF_ACMPNE
     }
 
     private data class JunkCallMethod(
@@ -721,4 +1018,19 @@ class Controlflow : Transformer<Controlflow.Config>(
         val argumentTypes: Array<Type>,
         val returnType: Type
     )
+
+    private enum class OpaqueAction(val opcode: Int, val apply: (Int, Int) -> Int) {
+        AND(Opcodes.IAND, Int::and),
+        OR(Opcodes.IOR, Int::or),
+        XOR(Opcodes.IXOR, Int::xor)
+    }
+
+    private enum class OpaqueCompare(val opcode: Int) {
+        EQ(Opcodes.IF_ICMPEQ),
+        NE(Opcodes.IF_ICMPNE),
+        LT(Opcodes.IF_ICMPLT),
+        GE(Opcodes.IF_ICMPGE),
+        GT(Opcodes.IF_ICMPGT),
+        LE(Opcodes.IF_ICMPLE)
+    }
 }

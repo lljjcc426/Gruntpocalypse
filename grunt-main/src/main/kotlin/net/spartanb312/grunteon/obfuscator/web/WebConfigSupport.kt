@@ -295,8 +295,11 @@ object WebConfigAdapter {
                 LocalVarRenamer.Config(
                     classFilter = classFilter(list("Exclusion")),
                     dictionary = dictionary(string("Dictionary", "Alphabet")),
-                    prefix = if (bool("ThisReference", false)) "this_" else LocalVarRenamer.Config().prefix,
-                    deleteASMInfo = bool("DeleteLocalVars", false) || bool("DeleteParameters", false),
+                    renameThisReference = bool("ThisReference", false),
+                    prefix = LocalVarRenamer.Config().prefix,
+                    deleteASMInfo = false,
+                    deleteLocalVars = bool("DeleteLocalVars", false),
+                    deleteParameters = bool("DeleteParameters", false),
                     exclusion = list("Exclusion")
                 )
             }
@@ -321,7 +324,8 @@ object WebConfigAdapter {
                     shuffled = false,
                     heavyOverloads = false,
                     aggressiveShadowNames = bool("RandomKeywordPrefix", false),
-                    excludedNames = list("ExcludedName")
+                    excludedNames = list("ExcludedName"),
+                    memberExclusion = list("Exclusion")
                 )
             }
             addIfEnabled(document, "MethodRename") {
@@ -335,6 +339,7 @@ object WebConfigAdapter {
                     heavyOverloads = bool("HeavyOverloads", false),
                     aggressiveShadowNames = bool("RandomKeywordPrefix", false),
                     excludedNames = list("ExcludedName"),
+                    memberExclusion = list("Exclusion"),
                     solveBridge = true
                 )
             }

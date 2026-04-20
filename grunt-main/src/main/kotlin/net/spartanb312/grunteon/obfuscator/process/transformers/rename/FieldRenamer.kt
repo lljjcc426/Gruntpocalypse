@@ -14,10 +14,12 @@ import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.isPrivate
 import net.spartanb312.grunteon.obfuscator.util.extensions.isProtected
 import net.spartanb312.grunteon.obfuscator.util.extensions.isStatic
+import net.spartanb312.grunteon.obfuscator.util.filters.buildFieldNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 
 /**
  * Last update on 2026/03/31 by FluixCarvin
- * TODO: Reflection remap
+ * Common reflection literal remap is applied later by MappingApplier.
  */
 class FieldRenamer : Transformer<FieldRenamer.Config>(
     name = enText("process.rename.field_renamer", "FieldRenamer"),
@@ -49,7 +51,9 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
         val shuffled: Boolean = true,
         val heavyOverloads: Boolean = true,
         val aggressiveShadowNames: Boolean = true,
-        val excludedNames: List<String> = listOf("INSTANCE", "Companion")
+        val excludedNames: List<String> = listOf("INSTANCE", "Companion"),
+        @SettingDesc(enText = "Skip fields matched by exclusion rules")
+        val memberExclusion: List<String> = listOf()
     ) : TransformerConfig {
 
         // getter
@@ -68,6 +72,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     private fun buildFull(config: Config) {
+        val fieldExPredicate = buildFieldNamePredicates(config.memberExclusion)
         val fieldHierarchy = globalScopeValue {
             Logger.info("    Building field hierarchies...")
             val classHierarchy = ClassHierarchy.build(
@@ -106,6 +111,7 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                             val fieldEntry = FieldHierarchy.Entry(fieldIndex)
                             // Source check
                             if (!fieldEntry.isSourceField) continue
+                            if (fieldExPredicate.matchedAnyBy("${fieldEntry.owner.name}.${fieldEntry.name}")) continue
                             if (fieldEntry.name in config.excludedNames) continue
                             if (ReflectionSupport.isFieldNameExcluded(fieldEntry.name)) continue
                             // Check descendants
@@ -121,7 +127,8 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                             // Avoid shadow names
                             val checkSet = IntLinkedOpenHashSet()
                             checkSet.add(classEntry.index)
-                            // Disable up check for static and private fields TODO: check this
+                            // Static/private source fields don't need to reserve ancestor scopes unless
+                            // aggressive shadowing is disabled, because they don't participate in virtual dispatch.
                             if ((!fieldEntry.node.isStatic && !fieldEntry.node.isPrivate) || !config.aggressiveShadowNames) {
                                 //println("Disable up check for ${classEntry.name}.${fieldEntry.name}${fieldEntry.desc}")
                                 classEntry.descendants.forEach {
@@ -158,8 +165,11 @@ class FieldRenamer : Transformer<FieldRenamer.Config>(
                                 || fieldEntry.node.isProtected
                             // Apply to children
                             if (upApply) {
-                                val affected = mutableSetOf(classEntry.index)
-                                affected.addAll(classEntry.descendants.array.toList()) // fixme: optimize this
+                                val affected = IntLinkedOpenHashSet(classEntry.descendants.array.size + 1)
+                                affected.add(classEntry.index)
+                                classEntry.descendants.forEach { descendant ->
+                                    affected.add(descendant.index)
+                                }
                                 affected.forEach { apply ->
                                     instance.nameMapping.putFieldMapping(
                                         ClassHierarchy.Entry(apply).name,

@@ -15,6 +15,8 @@ import net.spartanb312.grunteon.obfuscator.util.extensions.methodFullDesc
 import net.spartanb312.grunteon.obfuscator.util.filters.NamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
 import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.Type
 
 /**
  * Last update on 2026/03/31 by FluixCarvin
@@ -45,10 +47,16 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
         val classFilter: ClassFilterConfig = ClassFilterConfig(),
         @SettingDesc(enText = "Dictionary for renamer")
         val dictionary: NameGenerator.DictionaryType = NameGenerator.DictionaryType.Alphabet,
+        @SettingDesc(enText = "Rename this reference")
+        val renameThisReference: Boolean = false,
         @SettingDesc(enText = "Prefix for new name")
         val prefix: String = "\u202E",
-        @SettingDesc(enText = "Delete local vars and parameters info")
+        @SettingDesc(enText = "Delete local vars and parameters info (legacy compatibility)")
         val deleteASMInfo: Boolean = false,
+        @SettingDesc(enText = "Delete local variable debug entries")
+        val deleteLocalVars: Boolean = false,
+        @SettingDesc(enText = "Delete parameter metadata")
+        val deleteParameters: Boolean = false,
         @SettingDesc(enText = "Specify method exclusions.")
         val exclusion: List<String> = listOf(
             "net/dummy/**",
@@ -58,14 +66,11 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
         )
     ) : TransformerConfig
 
-    private lateinit var methodExPredicate: NamePredicates
-
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
+        val methodExPredicate = buildMethodNamePredicates(config.exclusion)
         pre {
             //Logger.info(" > LocalVarRenamer: Transforming local variables...")
-            // TODO: there is a better way to do this instead of lateinit var
-            methodExPredicate = buildMethodNamePredicates(config.exclusion)
         }
         val counter = reducibleScopeValue { MergeableCounter() }
         val dictionary = globalScopeValue { NameGenerator.getDictionary(config.dictionary) }
@@ -76,24 +81,70 @@ class LocalVarRenamer : Transformer<LocalVarRenamer.Config>(
                 .filter { !it.isAbstract && !it.isNative }
                 .forEach { method ->
                     val excluded = methodExPredicate.matchedAnyBy(methodFullDesc(classNode, method))
-                    // if (excluded) println("Excluded method: ${methodFullDesc(classNode, method)}")
                     if (excluded) return@forEach
-                    if (config.deleteASMInfo) {
-                        val locals = method.localVariables?.size ?: 0
-                        val params = method.parameters?.size ?: 0
-                        method.parameters?.clear()
-                        method.localVariables?.clear()
-                        counter.add(locals + params)
+                    val deleteLocalVars = config.deleteASMInfo || config.deleteLocalVars
+                    val deleteParameters = config.deleteASMInfo || config.deleteParameters
+                    if (deleteLocalVars || deleteParameters) {
+                        val removed = removeDebugInfo(method, deleteLocalVars, deleteParameters)
+                        counter.add(removed)
                         return@forEach
                     }
                     val nameGenerator = NameGenerator(dictionary, instance.obfConfig.dictionaryStartIndex)
-                    method.localVariables?.forEach { it.name = "${config.prefix}${nameGenerator.nextName()}" }
-                    counter.add(method.localVariables?.size ?: 0)
+                    method.localVariables?.forEach { local ->
+                        if (!config.renameThisReference && isThisReference(method, local.index, local.name)) return@forEach
+                        local.name = "${config.prefix}${nameGenerator.nextName()}"
+                        counter.add()
+                    }
                 }
         }
         post {
             Logger.info(" - LocalVarRenamer:")
             Logger.info("    Transformed ${counter.global.get()} local variables")
         }
+    }
+
+    private fun removeDebugInfo(method: org.objectweb.asm.tree.MethodNode, deleteLocalVars: Boolean, deleteParameters: Boolean): Int {
+        var removed = 0
+        if (deleteParameters) {
+            removed += method.parameters?.size ?: 0
+            method.parameters?.clear()
+        }
+        if (deleteLocalVars) {
+            val localVars = method.localVariables
+            if (localVars != null) {
+                val parameterSlots = parameterStartSlots(method)
+                val before = localVars.size
+                localVars.removeIf { local -> local.index !in parameterSlots }
+                removed += before - localVars.size
+            }
+        }
+        if (deleteParameters) {
+            val localVars = method.localVariables
+            if (localVars != null) {
+                val parameterSlots = parameterStartSlots(method)
+                val before = localVars.size
+                localVars.removeIf { local -> local.index in parameterSlots }
+                removed += before - localVars.size
+            }
+        }
+        return removed
+    }
+
+    private fun parameterStartSlots(method: org.objectweb.asm.tree.MethodNode): Set<Int> {
+        val slots = linkedSetOf<Int>()
+        var index = if ((method.access and Opcodes.ACC_STATIC) == 0) 0 else 0
+        if ((method.access and Opcodes.ACC_STATIC) == 0) {
+            slots += 0
+            index = 1
+        }
+        Type.getArgumentTypes(method.desc).forEach { type ->
+            slots += index
+            index += type.size
+        }
+        return slots
+    }
+
+    private fun isThisReference(method: org.objectweb.asm.tree.MethodNode, index: Int, name: String?): Boolean {
+        return (method.access and Opcodes.ACC_STATIC) == 0 && index == 0 && name == "this"
     }
 }

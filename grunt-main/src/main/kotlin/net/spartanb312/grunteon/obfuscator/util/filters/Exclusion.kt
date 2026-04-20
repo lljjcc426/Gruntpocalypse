@@ -36,6 +36,20 @@ fun buildMethodNamePredicates(rules: List<String>): NamePredicates {
     return rules.map { buildMethodNamePredicate(it) }
 }
 
+// field
+fun buildFieldNamePredicate(rule: String): NamePredicate {
+    if (rule.endsWith("**")) return {
+        val packageName = rule.removeSuffix("**")
+        it.startsWith(packageName)
+    }
+    else if (rule.contains(".")) return { it == rule }
+    else return { it.substringBefore(".") == rule }
+}
+
+fun buildFieldNamePredicates(rules: List<String>): NamePredicates {
+    return rules.map { buildFieldNamePredicate(it) }
+}
+
 fun NamePredicate.matchedBy(name: String): Boolean = invoke(name)
 
 fun NamePredicates.matchedAllBy(name: String): Boolean = all { it.invoke(name) }

@@ -16,8 +16,7 @@ import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 
 /**
  * Last update on 2026/03/31 by FluixCarvin
- * TODO: Reflection remap
- * TODO: Resource remap
+ * Common reflection/resource remap is applied later by MappingApplier.
  */
 class ClassRenamer : Transformer<ClassRenamer.Config>(
     name = enText("process.rename.class_renamer", "ClassRenamer"),

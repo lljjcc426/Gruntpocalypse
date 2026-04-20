@@ -21,6 +21,8 @@ import net.spartanb312.grunteon.obfuscator.process.transformers.other.FakeSynthe
 import net.spartanb312.grunteon.obfuscator.util.IndyChecker
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import net.spartanb312.grunteon.obfuscator.util.extensions.*
+import net.spartanb312.grunteon.obfuscator.util.filters.buildMethodNamePredicates
+import net.spartanb312.grunteon.obfuscator.util.filters.matchedAnyBy
 import org.objectweb.asm.Type
 
 /**
@@ -28,7 +30,7 @@ import org.objectweb.asm.Type
  * Interface methods overlap √
  * Bridge methods link √
  * Invokedynamic remap √
- * TODO: Reflection remap
+ * Common reflection literal remap is applied later by MappingApplier.
  */
 class MethodRenamer : Transformer<MethodRenamer.Config>(
     name = enText("process.rename.method_renamer", "MethodRenamer"),
@@ -72,6 +74,8 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
         val aggressiveShadowNames: Boolean = true,
         @SettingDesc(enText = "Skip these method names")
         val excludedNames: List<String> = listOf("main"),
+        @SettingDesc(enText = "Skip methods matched by exclusion rules")
+        val memberExclusion: List<String> = listOf(),
         val solveBridge: Boolean = true
     ) : TransformerConfig {
         val malPrefix = prefix
@@ -89,6 +93,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     private fun buildFull(config: Config) {
+        val methodExPredicate = buildMethodNamePredicates(config.memberExclusion)
         val methodHierarchy = globalScopeValue {
             Logger.info("    Building method hierarchies...")
             val classHierarchy = ClassHierarchy.build(
@@ -149,8 +154,7 @@ class MethodRenamer : Transformer<MethodRenamer.Config>(
                             if (methodNode.name in HARD_EXCLUDE) continue
                             if (methodNode.name in config.excludedNames) continue
                             if (ReflectionSupport.isMethodNameExcluded(methodNode.name)) continue
-                            // TODO: method exclusion
-                            // val combined = combine(classNode.name, methodNode.name, methodNode.desc)
+                            if (methodExPredicate.matchedAnyBy(methodFullDesc(classNode, methodNode))) continue
                             // Check bridge method
                             if (config.solveBridge) {
                                 if (methodNode.isSynthetic || methodNode.isBridge) {

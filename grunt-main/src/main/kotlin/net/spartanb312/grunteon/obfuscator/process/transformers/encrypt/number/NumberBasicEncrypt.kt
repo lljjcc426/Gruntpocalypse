@@ -49,7 +49,6 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
     )
 ) {
 
-    // TODO: hide chances when disabled
     @Serializable
     data class Config(
         @SettingDesc(enText = "Specify class include/exclude rules")
@@ -93,6 +92,10 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
+        val integerChance = if (config.integer) config.integerChance else 0.0
+        val longChance = if (config.long) config.longChance else 0.0
+        val floatChance = if (config.float) config.floatChance else 0.0
+        val doubleChance = if (config.double) config.doubleChance else 0.0
         pre {
             //Logger.info(" > NumberBasicEncrypt: Encrypting numbers...")
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
@@ -132,7 +135,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                     shuffledList.shuffle(randomGen)
                     shuffledList.forEach { instruction ->
                         // Encrypt integer
-                        if (config.integer && randomGen.nextFloat() < chanceModifier * config.integerChance) {
+                        if (config.integer && randomGen.nextFloat() < chanceModifier * integerChance) {
                             if (instruction.opcode in Opcodes.ICONST_M1..Opcodes.ICONST_5) {
                                 val value = instruction.opcode - Opcodes.ICONST_0
                                 method.instructions.insertBefore(
@@ -167,7 +170,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                             }
                         }
                         // Encrypt long
-                        if (config.long && randomGen.nextFloat() < chanceModifier * config.longChance) {
+                        if (config.long && randomGen.nextFloat() < chanceModifier * longChance) {
                             if (instruction.opcode in Opcodes.LCONST_0..Opcodes.LCONST_1) {
                                 val value = (instruction.opcode - Opcodes.LCONST_0).toLong()
                                 method.instructions.insertBefore(
@@ -191,7 +194,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                             }
                         }
                         // Encrypt float
-                        if (config.float && randomGen.nextFloat() < chanceModifier * config.floatChance) {
+                        if (config.float && randomGen.nextFloat() < chanceModifier * floatChance) {
                             fun encryptFloat(float: Float) {
                                 method.instructions.insertBefore(
                                     instruction,
@@ -210,7 +213,7 @@ class NumberBasicEncrypt : Transformer<NumberBasicEncrypt.Config>(
                             }
                         }
                         // Encrypt double
-                        if (config.double && randomGen.nextFloat() < chanceModifier * config.doubleChance) {
+                        if (config.double && randomGen.nextFloat() < chanceModifier * doubleChance) {
                             fun encryptDouble(double: Double) {
                                 method.instructions.insertBefore(
                                     instruction,

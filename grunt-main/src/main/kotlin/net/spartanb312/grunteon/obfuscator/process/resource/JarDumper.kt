@@ -18,6 +18,7 @@ import org.objectweb.asm.Opcodes
 import java.io.ByteArrayOutputStream
 import java.lang.invoke.MethodType
 import java.nio.file.Path
+import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -26,7 +27,7 @@ import kotlin.io.path.*
 object JarDumper {
     @OptIn(ExperimentalCoroutinesApi::class)
     context(instance: Grunteon)
-    fun dumpJar(outputFile: Path) {
+        fun dumpJar(outputFile: Path) {
         val config = instance.obfConfig
 
         fun checkFileNameRemove(name: String): Boolean {
@@ -51,18 +52,54 @@ object JarDumper {
             corruptJarHeader(random, directOut)
         }
         runBlocking {
+            fun remapServiceResource(entryName: String, byteArray: ByteArray): Pair<String, ByteArray> {
+                if (!entryName.startsWith("META-INF/services/")) return entryName to byteArray
+                val serviceBinaryName = entryName.removePrefix("META-INF/services/")
+                val mappedService = instance.nameMapping.getMapping(serviceBinaryName.replace('.', '/'))
+                    ?.replace('/', '.')
+                    ?: serviceBinaryName
+                val remappedContent = buildString {
+                    val text = byteArray.toString(StandardCharsets.UTF_8)
+                    val lines = text.split("\n")
+                    lines.forEachIndexed { index, rawLine ->
+                        val line = rawLine.removeSuffix("\r")
+                        val hasComment = '#' in line
+                        val prefix = if (hasComment) line.substringBefore('#') else line
+                        val comment = if (hasComment) line.substringAfter('#') else ""
+                        val trimmed = prefix.trim()
+                        val mappedLine = if (trimmed.isNotEmpty()) {
+                            instance.nameMapping.getMapping(trimmed.replace('.', '/'))
+                                ?.replace('/', '.')
+                                ?: trimmed
+                        } else ""
+                        val leading = prefix.takeWhile { it.isWhitespace() }
+                        val trailing = prefix.takeLastWhile { it.isWhitespace() }
+                        append(leading)
+                        append(mappedLine)
+                        append(trailing)
+                        if ('#' in line) {
+                            append('#')
+                            append(comment)
+                        }
+                        if (index != lines.lastIndex) append('\n')
+                    }
+                }.toByteArray(StandardCharsets.UTF_8)
+                return "META-INF/services/$mappedService" to remappedContent
+            }
+
             fun processZipEntry(
                 entryName: String,
                 byteArray: ByteArray?
             ): Pair<ZipEntry, ByteArray> {
+                val (resolvedEntryName, resolvedBytes) = remapServiceResource(entryName, byteArray ?: ByteArray(0))
                 val out = ByteArrayOutputStream()
-                val zipEntry = ZipEntry(entryName)
+                val zipEntry = ZipEntry(resolvedEntryName)
                 if (config.removeTimeStamps) zipEntry.time = 0
                 SingleEntryZipOutputStream(out).use { zip ->
                     // Compression level
                     zip.setLevel(config.compressionLevel)
                     zip.putNextEntry(zipEntry)
-                    zip.write(byteArray)
+                    zip.write(resolvedBytes)
                     zip.closeEntry()
                 }
                 return zipEntry to out.toByteArray()

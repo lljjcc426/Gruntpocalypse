@@ -52,7 +52,6 @@ class Grunteon(
             workerContext.execute(this, pipelineBuilder)
         }
 
-        // TODO: make this optional
         val outputPath = obfConfig.output?.let { Path(it) }
         if (outputPath != null) {
             JarDumper.dumpJar(outputPath)

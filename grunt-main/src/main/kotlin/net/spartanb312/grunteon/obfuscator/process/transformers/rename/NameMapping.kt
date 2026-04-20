@@ -15,6 +15,7 @@ import kotlin.io.path.bufferedWriter
 class NameMapping : Remapper(Opcodes.ASM9) {
 
     private val classMappings = Object2ObjectOpenHashMap<String, ClassEntry>()
+    private val reverseClassMappings = ConcurrentHashMap<String, String>()
     private val indyMapping = ConcurrentHashMap<String, String>()
 
     fun getMapping(old: String): String? {
@@ -50,6 +51,11 @@ class NameMapping : Remapper(Opcodes.ASM9) {
 
     fun putClassMapping(prev: String, new: String) {
         classMappings.computeIfAbsent(prev) { ClassEntry(prev) }.new = new
+        reverseClassMappings[new] = prev
+    }
+
+    fun getOriginalClassName(current: String): String? {
+        return reverseClassMappings[current]
     }
 
     fun putMethodMapping(owner: String, name: String, descriptor: String, newName: String) {
@@ -58,6 +64,38 @@ class NameMapping : Remapper(Opcodes.ASM9) {
 
     fun putFieldMapping(owner: String, name: String, descriptor: String, newName: String) {
         classMappings.computeIfAbsent(owner) { ClassEntry(owner) }.fieldMapping["$name$descriptor"] = newName
+    }
+
+    fun mapReflectiveMethodName(owner: String, oldName: String): String? {
+        return mapReflectiveMethodName(sequenceOf(owner), oldName)
+    }
+
+    fun mapReflectiveMethodName(owners: Sequence<String>, oldName: String): String? {
+        val resolved = linkedSetOf<String>()
+        owners.forEach { owner ->
+            val entry = classMappings[owner] ?: return@forEach
+            entry.methodMapping.entries
+                .asSequence()
+                .filter { it.key.startsWith(oldName) }
+                .mapTo(resolved) { it.value }
+        }
+        return resolved.singleOrNull()
+    }
+
+    fun mapReflectiveFieldName(owner: String, oldName: String): String? {
+        return mapReflectiveFieldName(sequenceOf(owner), oldName)
+    }
+
+    fun mapReflectiveFieldName(owners: Sequence<String>, oldName: String): String? {
+        val resolved = linkedSetOf<String>()
+        owners.forEach { owner ->
+            val entry = classMappings[owner] ?: return@forEach
+            entry.fieldMapping.entries
+                .asSequence()
+                .filter { it.key.startsWith(oldName) }
+                .mapTo(resolved) { it.value }
+        }
+        return resolved.singleOrNull()
     }
 
     class ClassEntry(val prev: String) {

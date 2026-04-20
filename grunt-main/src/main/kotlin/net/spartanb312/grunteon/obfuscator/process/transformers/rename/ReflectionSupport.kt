@@ -7,6 +7,7 @@ import net.spartanb312.grunteon.obfuscator.pipeline.before
 import net.spartanb312.grunteon.obfuscator.process.*
 import net.spartanb312.grunteon.obfuscator.util.Logger
 import org.objectweb.asm.Opcodes
+import org.objectweb.asm.Type
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.LdcInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
@@ -77,6 +78,27 @@ class ReflectionSupport : Transformer<ReflectionSupport.Config>(
                                     }
                                 }
                             }
+                            if (insnNode.owner == "java/lang/invoke/MethodHandles\$Lookup") {
+                                val name = insnNode.name
+                                if (config.method && (name == "findVirtual" || name == "findStatic" || name == "findSpecial")) {
+                                    val methodName = findReflectionStringArgument(insnNode)
+                                    if (methodName != null) {
+                                        methodBlacklist += methodName
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve lookup call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.$name")
+                                    }
+                                }
+                                if (config.field && (name == "findGetter" || name == "findSetter" || name == "findStaticGetter" || name == "findStaticSetter")) {
+                                    val fieldName = findReflectionStringArgument(insnNode)
+                                    if (fieldName != null) {
+                                        fieldBlacklist += fieldName
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve lookup call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.$name")
+                                    }
+                                }
+                            }
                         }
 
                         if (config.clazz) {
@@ -100,6 +122,24 @@ class ReflectionSupport : Transformer<ReflectionSupport.Config>(
                                     }
                                 }
 
+                                insnNode.owner == "java/lang/ClassLoader" && insnNode.name == "loadClass" -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "java/lang/ClassLoader" && insnNode.name == "findClass" -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
                                 insnNode.name == "getResource" && insnNode.desc == "(Ljava/lang/String;)Ljava/net/URL;" -> {
                                     if (pre is LdcInsnNode && pre.cst is String) {
                                         stringBlacklist += pre.cst as String
@@ -115,6 +155,102 @@ class ReflectionSupport : Transformer<ReflectionSupport.Config>(
                                         count++
                                     } else if (config.printLog) {
                                         Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.name == "getResources" && insnNode.desc == "(Ljava/lang/String;)Ljava/util/Enumeration;" -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "java/lang/ClassLoader" && insnNode.name == "getSystemResource" -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "java/lang/ClassLoader" && insnNode.name == "getSystemResourceAsStream" -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "java/lang/ClassLoader" && insnNode.name == "getSystemResources" -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "java/lang/invoke/MethodType" &&
+                                        insnNode.name == "fromMethodDescriptorString" &&
+                                        insnNode.desc == "(Ljava/lang/String;Ljava/lang/ClassLoader;)Ljava/lang/invoke/MethodType;" -> {
+                                    val descriptorLiteral = findMethodDescriptorStringArgument(insnNode)
+                                    if (descriptorLiteral != null) {
+                                        stringBlacklist += descriptorLiteral
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "org/objectweb/asm/Type" &&
+                                        insnNode.desc == "(Ljava/lang/String;)Lorg/objectweb/asm/Type;" &&
+                                        (insnNode.name == "getType" || insnNode.name == "getMethodType" || insnNode.name == "getObjectType") -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "java/lang/constant/ClassDesc" &&
+                                        insnNode.name == "ofDescriptor" &&
+                                        insnNode.desc == "(Ljava/lang/String;)Ljava/lang/constant/ClassDesc;" -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "java/lang/constant/MethodTypeDesc" &&
+                                        insnNode.name == "ofDescriptor" &&
+                                        insnNode.desc == "(Ljava/lang/String;)Ljava/lang/constant/MethodTypeDesc;" -> {
+                                    if (pre is LdcInsnNode && pre.cst is String) {
+                                        stringBlacklist += pre.cst as String
+                                        count++
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
+                                    }
+                                }
+
+                                insnNode.owner == "org/objectweb/asm/Handle" &&
+                                        (insnNode.name == "<init>") &&
+                                        (insnNode.desc == "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Z)V"
+                                                || insnNode.desc == "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V") -> {
+                                    val handleArgs = findAsmHandleArguments(insnNode)
+                                    if (handleArgs != null) {
+                                        stringBlacklist += handleArgs.owner
+                                        stringBlacklist += handleArgs.name
+                                        stringBlacklist += handleArgs.desc
+                                        count += 3
+                                    } else if (config.printLog) {
+                                        Logger.warn("Can't solve reflection call in ${classNode.name}.${methodNode.name}${methodNode.desc}. Operation: ${insnNode.owner}.${insnNode.name}")
                                     }
                                 }
                             }
@@ -163,5 +299,86 @@ class ReflectionSupport : Transformer<ReflectionSupport.Config>(
             }
             return null
         }
+
+        private fun findMethodDescriptorStringArgument(insnNode: MethodInsnNode): String? {
+            var cursor = insnNode.previous
+            var budget = 16
+            while (cursor != null && budget-- > 0) {
+                when (cursor) {
+                    is LdcInsnNode -> {
+                        val cst = cursor.cst
+                        if (cst is String) return cst
+                    }
+
+                    is MethodInsnNode -> {
+                        // fromMethodDescriptorString commonly appears as:
+                        // LDC "(...)"; LDC Type; INVOKEVIRTUAL Class.getClassLoader; INVOKESTATIC MethodType.fromMethodDescriptorString
+                        if (cursor.owner == "java/lang/Class" &&
+                            cursor.name == "getClassLoader" &&
+                            cursor.desc == "()Ljava/lang/ClassLoader;"
+                        ) {
+                            cursor = cursor.previous
+                            continue
+                        }
+                        return null
+                    }
+                }
+                cursor = cursor.previous
+            }
+            return null
+        }
+
+        private fun findAsmHandleArguments(insnNode: MethodInsnNode): AsmHandleArguments? {
+            val literals = ArrayList<String>(3)
+            var cursor = insnNode.previous
+            var budget = 20
+            while (cursor != null && budget-- > 0) {
+                when (cursor) {
+                    is LdcInsnNode -> {
+                        val cst = cursor.cst
+                        if (cst is String) {
+                            literals += cst
+                            if (literals.size == 3) {
+                                return AsmHandleArguments(
+                                    owner = literals[2],
+                                    name = literals[1],
+                                    desc = literals[0]
+                                )
+                            }
+                        }
+                    }
+
+                    is MethodInsnNode -> return null
+                }
+                cursor = cursor.previous
+            }
+            return null
+        }
+
+        fun findOwnerClassLiteral(insnNode: MethodInsnNode): String? {
+            var cursor: AbstractInsnNode? = insnNode.previous
+            var budget = 20
+            while (cursor != null && budget-- > 0) {
+                when (cursor) {
+                    is LdcInsnNode -> {
+                        val cst = cursor.cst
+                        if (cst is Type && cst.sort == Type.OBJECT) {
+                            return cst.internalName
+                        }
+                        if (cst is String && (cst.contains('/') || cst.contains('.'))) {
+                            return cst.replace('.', '/')
+                        }
+                    }
+                }
+                cursor = cursor.previous
+            }
+            return null
+        }
+
+        private data class AsmHandleArguments(
+            val owner: String,
+            val name: String,
+            val desc: String
+        )
     }
 }
