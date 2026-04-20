@@ -89,6 +89,7 @@ class PostProcess : Transformer<PostProcess.Config>(
                     val obfName = instance.nameMapping.getMapping(remaining)?.dot
                     if (obfName != null) {
                         final = "$prefix $obfName"
+                        instance.nameMapping.putManifestMapping(prefix.removeSuffix(":"), remaining.dot, obfName)
                         Logger.info("    Replaced manifest $final")
                     }
                 }

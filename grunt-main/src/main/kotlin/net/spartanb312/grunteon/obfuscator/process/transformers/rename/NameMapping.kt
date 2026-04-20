@@ -9,6 +9,7 @@ import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.commons.Remapper
 import java.nio.file.Path
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.bufferedWriter
 
@@ -17,36 +18,119 @@ class NameMapping : Remapper(Opcodes.ASM9) {
     private val classMappings = Object2ObjectOpenHashMap<String, ClassEntry>()
     private val reverseClassMappings = ConcurrentHashMap<String, String>()
     private val indyMapping = ConcurrentHashMap<String, String>()
+    private val serviceFileMappings = ConcurrentHashMap<String, String>()
+    private val serviceImplementationMappings = ConcurrentHashMap<String, String>()
+    private val manifestMappings = ConcurrentHashMap<String, ConcurrentHashMap<String, String>>()
 
     fun getMapping(old: String): String? {
         return classMappings.getOrDefault(old, null)?.new
     }
 
-    fun dump(path: Path) {
+    fun dump(path: Path, context: DumpContext? = null) {
         path.bufferedWriter().use {
             val jsonObj = JsonObject().apply {
-                classMappings.entries.sortedBy { it.key }.forEach { (prev, entry) ->
-                    add(prev, JsonObject().apply {
-                        addProperty("new", entry.new)
-                        add("methods", JsonObject().apply {
-                            entry.methodMapping.entries.sortedBy { it.key }.forEach { (k, v) ->
+                add("meta", JsonObject().apply {
+                    addProperty("schema", "grunteon/mappings@1")
+                    addProperty("generatedAt", Instant.now().toString())
+                    context?.let {
+                        addProperty("input", it.input)
+                        addProperty("output", it.output)
+                    }
+                })
+                add("pipeline", JsonObject().apply {
+                    addProperty("kind", "transformer-pipeline")
+                    addProperty("multithreading", context?.multithreading ?: false)
+                    addProperty("profiler", context?.profiler ?: false)
+                    add("steps", com.google.gson.JsonArray().apply {
+                        context?.steps?.forEach(::add)
+                    })
+                })
+                add("summary", JsonObject().apply {
+                    addProperty("classCount", classMappings.size)
+                    addProperty("methodCount", classMappings.values.sumOf { it.methodMapping.size })
+                    addProperty("fieldCount", classMappings.values.sumOf { it.fieldMapping.size })
+                    addProperty("indyCount", indyMapping.size)
+                })
+                add("classes", JsonObject().apply {
+                    classMappings.entries.sortedBy { it.key }.forEach { (prev, entry) ->
+                        add(prev, JsonObject().apply {
+                            addProperty("new", entry.new)
+                            add("methods", JsonObject().apply {
+                                entry.methodMapping.entries.sortedBy { it.key }.forEach { (k, v) ->
+                                    addProperty(k, v)
+                                }
+                            })
+                            add("fields", JsonObject().apply {
+                                entry.fieldMapping.entries.sortedBy { it.key }.forEach { (k, v) ->
+                                    addProperty(k, v)
+                                }
+                            })
+                        })
+                    }
+                })
+                add("invokedynamic", JsonObject().apply {
+                    indyMapping.entries.sortedBy { it.key }.forEach { (k, v) ->
+                        addProperty(k, v)
+                    }
+                })
+                add("resources", JsonObject().apply {
+                    add("services", JsonObject().apply {
+                        add("files", JsonObject().apply {
+                            serviceFileMappings.entries.sortedBy { it.key }.forEach { (k, v) ->
                                 addProperty(k, v)
                             }
                         })
-                        add("fields", JsonObject().apply {
-                            entry.fieldMapping.entries.sortedBy { it.key }.forEach { (k, v) ->
+                        add("implementations", JsonObject().apply {
+                            serviceImplementationMappings.entries.sortedBy { it.key }.forEach { (k, v) ->
                                 addProperty(k, v)
                             }
                         })
                     })
-                }
+                    add("manifest", JsonObject().apply {
+                        manifestMappings.entries.sortedBy { it.key }.forEach { (attribute, values) ->
+                            add(attribute, JsonObject().apply {
+                                values.entries.sortedBy { it.key }.forEach { (k, v) ->
+                                    addProperty(k, v)
+                                }
+                            })
+                        }
+                    })
+                    add("classResources", JsonObject().apply {
+                        classMappings.entries.sortedBy { it.key }.forEach { (prev, entry) ->
+                            if (prev != entry.new) {
+                                addProperty("$prev.class", "${entry.new}.class")
+                            }
+                        }
+                    })
+                })
             }
             GsonBuilder().setPrettyPrinting().create().toJson(jsonObj, it)
         }
     }
 
+    data class DumpContext(
+        val input: String,
+        val output: String,
+        val profiler: Boolean,
+        val multithreading: Boolean,
+        val steps: List<String>
+    )
+
     fun putIndyMapping(name: String, descriptor: String, newName: String) {
         indyMapping["$name$descriptor"] = newName
+    }
+
+    fun putServiceFileMapping(oldPath: String, newPath: String) {
+        if (oldPath != newPath) serviceFileMappings[oldPath] = newPath
+    }
+
+    fun putServiceImplementationMapping(oldName: String, newName: String) {
+        if (oldName != newName) serviceImplementationMappings[oldName] = newName
+    }
+
+    fun putManifestMapping(attribute: String, oldValue: String, newValue: String) {
+        if (oldValue == newValue) return
+        manifestMappings.computeIfAbsent(attribute) { ConcurrentHashMap() }[oldValue] = newValue
     }
 
     fun putClassMapping(prev: String, new: String) {

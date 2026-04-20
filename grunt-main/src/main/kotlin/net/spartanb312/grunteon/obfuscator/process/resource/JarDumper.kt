@@ -58,6 +58,8 @@ object JarDumper {
                 val mappedService = instance.nameMapping.getMapping(serviceBinaryName.replace('.', '/'))
                     ?.replace('/', '.')
                     ?: serviceBinaryName
+                val remappedEntryName = "META-INF/services/$mappedService"
+                instance.nameMapping.putServiceFileMapping(entryName, remappedEntryName)
                 val remappedContent = buildString {
                     val text = byteArray.toString(StandardCharsets.UTF_8)
                     val lines = text.split("\n")
@@ -72,6 +74,9 @@ object JarDumper {
                                 ?.replace('/', '.')
                                 ?: trimmed
                         } else ""
+                        if (trimmed.isNotEmpty() && mappedLine.isNotEmpty()) {
+                            instance.nameMapping.putServiceImplementationMapping(trimmed, mappedLine)
+                        }
                         val leading = prefix.takeWhile { it.isWhitespace() }
                         val trailing = prefix.takeLastWhile { it.isWhitespace() }
                         append(leading)
@@ -84,7 +89,7 @@ object JarDumper {
                         if (index != lines.lastIndex) append('\n')
                     }
                 }.toByteArray(StandardCharsets.UTF_8)
-                return "META-INF/services/$mappedService" to remappedContent
+                return remappedEntryName to remappedContent
             }
 
             fun processZipEntry(
@@ -216,7 +221,16 @@ object JarDumper {
                 if (config.dumpMappings) {
                     val mappingPath = outputFile.resolveSibling("${outputFile.nameWithoutExtension}.mappings.json")
                     Logger.info("Writing mappings to $mappingPath")
-                    instance.nameMapping.dump(mappingPath)
+                    instance.nameMapping.dump(
+                        mappingPath,
+                        net.spartanb312.grunteon.obfuscator.process.transformers.rename.NameMapping.DumpContext(
+                            input = config.input,
+                            output = outputFile.pathString,
+                            profiler = config.profiler,
+                            multithreading = config.multithreading,
+                            steps = instance.transformers.map { it.first.engName }
+                        )
+                    )
                 }
             }
         }

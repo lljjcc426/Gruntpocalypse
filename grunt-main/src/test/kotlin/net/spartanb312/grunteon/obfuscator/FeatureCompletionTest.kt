@@ -1,5 +1,6 @@
 ﻿package net.spartanb312.grunteon.obfuscator
 
+import com.google.gson.JsonParser
 import net.spartanb312.grunteon.obfuscator.process.transformers.controlflow.Controlflow
 import net.spartanb312.grunteon.obfuscator.process.transformers.encrypt.ConstPoolEncrypt
 import net.spartanb312.grunteon.obfuscator.process.transformers.miscellaneous.HWIDAuthentication
@@ -748,6 +749,154 @@ class FeatureCompletionTest {
         assertTrue(mappedField in stringLiterals)
         assertTrue("(I)Ljava/lang/String;" in stringLiterals, "JDK method descriptor 不应被改动")
         assertTrue("Ljava/lang/String;" in stringLiterals, "JDK field descriptor 不应被改动")
+    }
+
+    @Test
+    fun dumpMappingsIncludesMetaPipelineSummaryAndInvokeDynamicSections() {
+        val inputJar = compileJar(
+            "sample/MappingTarget.java" to """
+                package sample;
+                import java.util.function.Supplier;
+                public class MappingTarget {
+                    private String fieldValue = "F";
+                    public String work() { return "!" + fieldValue; }
+                    public static Supplier<String> supplier() { return new MappingTarget()::work; }
+                }
+            """.trimIndent()
+        )
+        val outputJar = Files.createTempFile("grunteon-feature-mapping", ".jar")
+        val instance = Grunteon.create(
+            ObfConfig(
+                input = inputJar.pathString,
+                output = outputJar.pathString,
+                dumpMappings = true,
+                transformerConfigs = listOf(
+                    ClassRenamer.Config(),
+                    FieldRenamer.Config(
+                        excludedNames = emptyList(),
+                        memberExclusion = emptyList()
+                    ),
+                    MethodRenamer.Config(
+                        excludedNames = listOf("main"),
+                        memberExclusion = emptyList()
+                    )
+                )
+            )
+        )
+
+        instance.execute()
+
+        val mappingFile = outputJar.resolveSibling("${outputJar.fileName.toString().removeSuffix(".jar")}.mappings.json")
+        assertTrue(Files.exists(mappingFile), "应输出 .mappings.json 文件")
+        instance.nameMapping.putIndyMapping("sampleDyn", "()Ljava/lang/String;", "a")
+        instance.nameMapping.dump(
+            mappingFile,
+            net.spartanb312.grunteon.obfuscator.process.transformers.rename.NameMapping.DumpContext(
+                input = inputJar.pathString,
+                output = outputJar.pathString,
+                profiler = false,
+                multithreading = false,
+                steps = instance.transformers.map { it.first.engName }
+            )
+        )
+
+        val root = JsonParser.parseString(Files.readString(mappingFile)).asJsonObject
+        val meta = root.getAsJsonObject("meta")
+        val pipeline = root.getAsJsonObject("pipeline")
+        val summary = root.getAsJsonObject("summary")
+        val classes = root.getAsJsonObject("classes")
+        val invokedynamic = root.getAsJsonObject("invokedynamic")
+
+        assertEquals("grunteon/mappings@1", meta.get("schema").asString)
+        assertEquals(inputJar.pathString, meta.get("input").asString)
+        assertEquals(outputJar.pathString, meta.get("output").asString)
+        assertTrue(meta.has("generatedAt"))
+
+        val steps = pipeline.getAsJsonArray("steps").map { it.asString }
+        assertTrue("ClassRenamer" in steps)
+        assertTrue("FieldRenamer" in steps)
+        assertTrue("MethodRenamer" in steps)
+        assertTrue("MappingApplier" in steps)
+        assertFalse(pipeline.get("multithreading").asBoolean)
+        assertFalse(pipeline.get("profiler").asBoolean)
+
+        assertTrue(summary.get("classCount").asInt > 0)
+        assertTrue(summary.get("methodCount").asInt > 0)
+        assertTrue(summary.get("fieldCount").asInt > 0)
+        assertEquals(invokedynamic.entrySet().size, summary.get("indyCount").asInt)
+        assertTrue(summary.get("indyCount").asInt > 0)
+
+        assertTrue(classes.has("sample/MappingTarget"))
+        val classEntry = classes.getAsJsonObject("sample/MappingTarget")
+        assertTrue(classEntry.has("new"))
+        assertTrue(classEntry.getAsJsonObject("methods").entrySet().isNotEmpty())
+        assertTrue(classEntry.getAsJsonObject("fields").entrySet().isNotEmpty())
+        assertTrue(invokedynamic.entrySet().isNotEmpty(), "InvokeDynamic 映射应导出到 invokedynamic 区块")
+    }
+
+    @Test
+    fun dumpMappingsIncludesResourceRemapSections() {
+        val inputJar = compileJar(
+            "sample/ManifestMain.java" to """
+                package sample;
+                public class ManifestMain {
+                    public static void main(String[] args) {
+                        System.out.println("ok");
+                    }
+                }
+            """.trimIndent(),
+            "sample/spi/MyService.java" to """
+                package sample.spi;
+                public interface MyService {
+                    String name();
+                }
+            """.trimIndent(),
+            "sample/spi/impl/MyServiceImpl.java" to """
+                package sample.spi.impl;
+                import sample.spi.MyService;
+                public class MyServiceImpl implements MyService {
+                    public String name() { return "service"; }
+                }
+            """.trimIndent(),
+            resources = mapOf(
+                "META-INF/MANIFEST.MF" to "Manifest-Version: 1.0\nMain-Class: sample.ManifestMain\n",
+                "META-INF/services/sample.spi.MyService" to "sample.spi.impl.MyServiceImpl\n"
+            )
+        )
+        val outputJar = Files.createTempFile("grunteon-feature-resource-mapping", ".jar")
+        val instance = Grunteon.create(
+            ObfConfig(
+                input = inputJar.pathString,
+                output = outputJar.pathString,
+                dumpMappings = true,
+                transformerConfigs = listOf(
+                    ClassRenamer.Config(),
+                    net.spartanb312.grunteon.obfuscator.process.transformers.PostProcess.Config()
+                )
+            )
+        )
+
+        instance.execute()
+
+        val mappingFile = outputJar.resolveSibling("${outputJar.fileName.toString().removeSuffix(".jar")}.mappings.json")
+        assertTrue(Files.exists(mappingFile), "应输出包含 resources 的 .mappings.json 文件")
+
+        val root = JsonParser.parseString(Files.readString(mappingFile)).asJsonObject
+        val resources = root.getAsJsonObject("resources")
+        val services = resources.getAsJsonObject("services")
+        val serviceFiles = services.getAsJsonObject("files")
+        val serviceImpls = services.getAsJsonObject("implementations")
+        val manifest = resources.getAsJsonObject("manifest")
+        val classResources = resources.getAsJsonObject("classResources")
+
+        val mappedMain = instance.nameMapping.getMapping("sample/ManifestMain")!!
+        val mappedService = instance.nameMapping.getMapping("sample/spi/MyService")!!.replace('/', '.')
+        val mappedImpl = instance.nameMapping.getMapping("sample/spi/impl/MyServiceImpl")!!.replace('/', '.')
+
+        assertEquals("META-INF/services/$mappedService", serviceFiles.get("META-INF/services/sample.spi.MyService").asString)
+        assertEquals(mappedImpl, serviceImpls.get("sample.spi.impl.MyServiceImpl").asString)
+        assertEquals(mappedMain.replace('/', '.'), manifest.getAsJsonObject("Main-Class").get("sample.ManifestMain").asString)
+        assertEquals("${mappedMain}.class", classResources.get("sample/ManifestMain.class").asString)
     }
 
     @Test
