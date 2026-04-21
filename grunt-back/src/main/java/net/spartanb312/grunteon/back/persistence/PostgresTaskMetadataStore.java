@@ -3,6 +3,7 @@ package net.spartanb312.grunteon.back.persistence;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import net.spartanb312.grunteon.obfuscator.web.PersistedTaskState;
@@ -54,6 +55,9 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                     message = :message,
                     logs_json = :logsJson,
                     stages_json = :stagesJson,
+                    recovery_previous_status = :recoveryPreviousStatus,
+                    recovery_reason = :recoveryReason,
+                    recovered_at = :recoveredAt,
                     updated_at = :updatedAt
                 WHERE task_id = :taskId
                 """
@@ -70,6 +74,9 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
             .bind("message", task.getMessage())
             .bind("logsJson", gson.toJson(task.getLogs()))
             .bind("stagesJson", gson.toJson(task.getStages()))
+            .bind("recoveryPreviousStatus", Parameter.fromOrEmpty(task.getRecoveryPreviousStatus(), String.class))
+            .bind("recoveryReason", Parameter.fromOrEmpty(task.getRecoveryReason(), String.class))
+            .bind("recoveredAt", Parameter.fromOrEmpty(task.getRecoveredAt(), String.class))
             .bind("updatedAt", task.getUpdatedAt())
             .bind("taskId", task.getId())
             .fetch()
@@ -93,6 +100,9 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                     message,
                     logs_json,
                     stages_json,
+                    recovery_previous_status,
+                    recovery_reason,
+                    recovered_at,
                     created_at,
                     updated_at
                 ) VALUES (
@@ -109,6 +119,9 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                     :message,
                     :logsJson,
                     :stagesJson,
+                    :recoveryPreviousStatus,
+                    :recoveryReason,
+                    :recoveredAt,
                     :createdAt,
                     :updatedAt
                 )
@@ -127,6 +140,9 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
             .bind("message", task.getMessage())
             .bind("logsJson", gson.toJson(task.getLogs()))
             .bind("stagesJson", gson.toJson(task.getStages()))
+            .bind("recoveryPreviousStatus", Parameter.fromOrEmpty(task.getRecoveryPreviousStatus(), String.class))
+            .bind("recoveryReason", Parameter.fromOrEmpty(task.getRecoveryReason(), String.class))
+            .bind("recoveredAt", Parameter.fromOrEmpty(task.getRecoveredAt(), String.class))
             .bind("createdAt", task.getCreatedAt())
             .bind("updatedAt", task.getUpdatedAt())
             .fetch()
@@ -134,38 +150,63 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
     }
 
     @Override
+    public boolean recoverInterruptedTask(String taskId, String previousStatus, String reason, String recoveredAt) {
+        try {
+            Long updated = databaseClient.sql(
+                    """
+                    UPDATE control_task_state
+                    SET status = 'INTERRUPTED',
+                        current_stage = 'Interrupted',
+                        message = :message,
+                        recovery_previous_status = :previousStatus,
+                        recovery_reason = :reason,
+                        recovered_at = :recoveredAt,
+                        updated_at = :recoveredAt
+                    WHERE task_id = :taskId
+                      AND status IN ('QUEUED', 'STARTING', 'RUNNING')
+                    """
+                )
+                .bind("message", "Task interrupted because control plane restarted before durable orchestration was available")
+                .bind("previousStatus", previousStatus)
+                .bind("reason", reason)
+                .bind("recoveredAt", recoveredAt)
+                .bind("taskId", taskId)
+                .fetch()
+                .rowsUpdated()
+                .blockOptional()
+                .orElse(0L);
+            return updated != null && updated > 0;
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    @Override
     public List<PersistedTaskState> loadTasks() {
         try {
-            return databaseClient.sql(
+            List<String> taskIds = databaseClient.sql(
                     """
-                    SELECT task_id, project_name, input_object_key, config_object_key, output_object_key,
-                           session_id, policy_mode, status, current_stage, progress, message,
-                           logs_json, stages_json, created_at, updated_at
+                    SELECT task_id
                     FROM control_task_state
                     ORDER BY updated_at DESC
                     """
                 )
-                .map((row, metadata) -> new PersistedTaskState(
-                    row.get("task_id", String.class),
-                    row.get("project_name", String.class),
-                    row.get("input_object_key", String.class),
-                    row.get("config_object_key", String.class),
-                    row.get("output_object_key", String.class),
-                    row.get("session_id", String.class),
-                    row.get("policy_mode", String.class),
-                    row.get("status", String.class),
-                    row.get("current_stage", String.class),
-                    row.get("progress", Integer.class),
-                    row.get("message", String.class),
-                    parseStringList(row.get("logs_json", String.class)),
-                    parseStages(row.get("stages_json", String.class)),
-                    row.get("created_at", String.class),
-                    row.get("updated_at", String.class)
-                ))
+                .map((row, metadata) -> row.get("task_id", String.class))
                 .all()
                 .collectList()
                 .blockOptional()
                 .orElseGet(Collections::emptyList);
+            List<PersistedTaskState> result = new ArrayList<>();
+            for (String taskId : taskIds) {
+                try {
+                    PersistedTaskState state = findTask(taskId);
+                    if (state != null) {
+                        result.add(state);
+                    }
+                } catch (RuntimeException ignored) {
+                }
+            }
+            return result;
         } catch (RuntimeException ignored) {
             return List.of();
         }
@@ -178,7 +219,8 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                     """
                     SELECT task_id, project_name, input_object_key, config_object_key, output_object_key,
                            session_id, policy_mode, status, current_stage, progress, message,
-                           logs_json, stages_json, created_at, updated_at
+                           logs_json, stages_json, recovery_previous_status, recovery_reason,
+                           recovered_at, created_at, updated_at
                     FROM control_task_state
                     WHERE task_id = :taskId
                     """
@@ -198,6 +240,9 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                     row.get("message", String.class),
                     parseStringList(row.get("logs_json", String.class)),
                     parseStages(row.get("stages_json", String.class)),
+                    row.get("recovery_previous_status", String.class),
+                    row.get("recovery_reason", String.class),
+                    row.get("recovered_at", String.class),
                     row.get("created_at", String.class),
                     row.get("updated_at", String.class)
                 ))
@@ -213,15 +258,23 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
         if (rawJson == null || rawJson.isBlank()) {
             return List.of();
         }
-        List<String> parsed = gson.fromJson(rawJson, stringListType);
-        return parsed == null ? List.of() : parsed;
+        try {
+            List<String> parsed = gson.fromJson(rawJson, stringListType);
+            return parsed == null ? List.of() : parsed;
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
     }
 
     private List<TaskStageRecord> parseStages(String rawJson) {
         if (rawJson == null || rawJson.isBlank()) {
             return List.of();
         }
-        List<TaskStageRecord> parsed = gson.fromJson(rawJson, stageListType);
-        return parsed == null ? List.of() : parsed;
+        try {
+            List<TaskStageRecord> parsed = gson.fromJson(rawJson, stageListType);
+            return parsed == null ? List.of() : parsed;
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
     }
 }

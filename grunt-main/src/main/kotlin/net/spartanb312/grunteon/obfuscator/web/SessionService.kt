@@ -30,6 +30,7 @@ class SessionService(
     }
 
     fun getSession(sessionId: String): ObfuscationSession? {
+        sessionMetadataQuery.findSession(sessionId)?.let(::restoreSession)
         return sessions[sessionId]
     }
 
@@ -91,6 +92,11 @@ class SessionService(
 
     fun preloadPersistedSessions() {
         sessionMetadataQuery.loadSessions().forEach(::restoreSession)
+    }
+
+    fun listSessions(): List<ObfuscationSession> {
+        preloadPersistedSessions()
+        return sessions.values.sortedByDescending { it.status.ordinal }
     }
 
     fun listSessionIds(): List<String> {

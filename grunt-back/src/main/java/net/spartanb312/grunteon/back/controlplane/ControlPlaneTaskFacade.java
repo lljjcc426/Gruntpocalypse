@@ -1,8 +1,10 @@
 package net.spartanb312.grunteon.back.controlplane;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import net.spartanb312.grunteon.obfuscator.web.ArtifactMetadataQuery;
 import net.spartanb312.grunteon.back.controlplane.artifact.ArtifactDownloadGrantService;
 import net.spartanb312.grunteon.back.controlplane.artifact.ArtifactStore;
 import net.spartanb312.grunteon.back.controlplane.events.TaskEventPublisher;
@@ -16,8 +18,12 @@ import net.spartanb312.grunteon.obfuscator.web.ProjectInspectionService;
 import net.spartanb312.grunteon.obfuscator.web.ProjectMeta;
 import net.spartanb312.grunteon.obfuscator.web.ProjectSource;
 import net.spartanb312.grunteon.obfuscator.web.ProjectTree;
+import net.spartanb312.grunteon.obfuscator.web.PersistedSessionState;
+import net.spartanb312.grunteon.obfuscator.web.PersistedTaskState;
 import net.spartanb312.grunteon.obfuscator.web.SessionAccessProfile;
+import net.spartanb312.grunteon.obfuscator.web.SessionMetadataQuery;
 import net.spartanb312.grunteon.obfuscator.web.SessionService;
+import net.spartanb312.grunteon.obfuscator.web.TaskMetadataQuery;
 import net.spartanb312.grunteon.obfuscator.web.WebBridgeSupport;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -39,6 +45,9 @@ public class ControlPlaneTaskFacade {
     private final ProjectInspectionService projectInspectionService;
     private final TaskEventPublisher taskEventPublisher;
     private final ControlPlaneTelemetry telemetry;
+    private final TaskMetadataQuery taskMetadataQuery;
+    private final SessionMetadataQuery sessionMetadataQuery;
+    private final ArtifactMetadataQuery artifactMetadataQuery;
 
     public ControlPlaneTaskFacade(
         PlatformTaskService platformTaskService,
@@ -48,7 +57,10 @@ public class ControlPlaneTaskFacade {
         ControlPlanePolicyService policyService,
         ProjectInspectionService projectInspectionService,
         TaskEventPublisher taskEventPublisher,
-        ControlPlaneTelemetry telemetry
+        ControlPlaneTelemetry telemetry,
+        TaskMetadataQuery taskMetadataQuery,
+        SessionMetadataQuery sessionMetadataQuery,
+        ArtifactMetadataQuery artifactMetadataQuery
     ) {
         this.platformTaskService = platformTaskService;
         this.sessionService = sessionService;
@@ -58,6 +70,9 @@ public class ControlPlaneTaskFacade {
         this.projectInspectionService = projectInspectionService;
         this.taskEventPublisher = taskEventPublisher;
         this.telemetry = telemetry;
+        this.taskMetadataQuery = taskMetadataQuery;
+        this.sessionMetadataQuery = sessionMetadataQuery;
+        this.artifactMetadataQuery = artifactMetadataQuery;
     }
 
     public Map<String, Object> createTask(Map<String, Object> request, boolean uiClient) {
@@ -78,15 +93,16 @@ public class ControlPlaneTaskFacade {
         Map<String, Object> result = ApiSupport.ok();
         result.put(
             "tasks",
-            platformTaskService.listTasks().stream()
-                .map(task -> ApiSupport.buildTaskJson(task, sessionService))
+            taskMetadataQuery.loadTasks().stream()
+                .map(this::buildTaskMap)
                 .toList()
         );
         return result;
     }
 
     public Map<String, Object> getTask(String taskId) {
-        return buildTaskResponse(platformTaskService.getTask(taskId));
+        PersistedTaskState task = requireTaskState(taskId);
+        return buildTaskResponse(task);
     }
 
     public Map<String, Object> startTask(String taskId) {
@@ -96,21 +112,26 @@ public class ControlPlaneTaskFacade {
     }
 
     public Map<String, Object> stages(String taskId) {
-        PlatformTaskRecord task = platformTaskService.getTask(taskId);
+        PersistedTaskState task = requireTaskState(taskId);
         Map<String, Object> result = ApiSupport.ok();
         result.put("stages", task.getStages().stream().map(ApiSupport::buildTaskStageJson).toList());
         return result;
     }
 
     public Map<String, Object> logs(String taskId) {
-        ObfuscationSession session = resolveTaskSession(taskId);
+        PersistedTaskState task = requireTaskState(taskId);
         Map<String, Object> result = ApiSupport.ok();
-        result.put("logs", policyService.filterLogs(session));
+        ObfuscationSession session = task.getSessionId() == null ? null : sessionService.getSession(task.getSessionId());
+        if (session != null) {
+            result.put("logs", policyService.filterLogs(session));
+        } else {
+            result.put("logs", task.getLogs());
+        }
         return result;
     }
 
     public Map<String, Object> downloadUrl(String taskId) {
-        PlatformTaskRecord task = platformTaskService.getTask(taskId);
+        PersistedTaskState task = requireTaskState(taskId);
         if (task.getOutputObjectKey() == null || task.getOutputObjectKey().isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No output object available");
         }
@@ -128,11 +149,15 @@ public class ControlPlaneTaskFacade {
     }
 
     public ResponseEntity<Resource> download(String taskId) {
-        PlatformTaskRecord task = platformTaskService.getTask(taskId);
+        PersistedTaskState task = requireTaskState(taskId);
         if (task.getOutputObjectKey() == null || task.getOutputObjectKey().isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No output object available");
         }
-        if (!task.getAccessProfile().getAllowDetailedLogs()) {
+        SessionAccessProfile profile = SessionAccessProfile.parseOrNull(task.getPolicyMode());
+        if (profile == null) {
+            profile = SessionAccessProfile.SECURE;
+        }
+        if (!profile.getAllowDetailedLogs()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Direct artifact download is disabled in secure mode");
         }
         File file = artifactStore.getObject(task.getOutputObjectKey());
@@ -140,6 +165,19 @@ public class ControlPlaneTaskFacade {
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + file.getName())
             .contentType(MediaType.APPLICATION_OCTET_STREAM)
             .body(new FileSystemResource(file));
+    }
+
+    public Map<String, Object> artifacts(String taskId) {
+        PersistedTaskState task = requireTaskState(taskId);
+        Map<String, Object> result = ApiSupport.ok();
+        result.put(
+            "artifacts",
+            artifactMetadataQuery.loadArtifactsForOwner("TASK", taskId).stream()
+                .map(WebBridgeSupport::buildArtifactMap)
+                .map(map -> policyService.filterArtifactMap(task.getPolicyMode(), map))
+                .toList()
+        );
+        return result;
     }
 
     public Map<String, Object> projectMeta(String taskId, String scopeValue) {
@@ -198,6 +236,59 @@ public class ControlPlaneTaskFacade {
         result.put("task", policyService.filterTaskMap(task, ApiSupport.buildTaskJson(task, sessionService)));
         result.put("logs", task.getSessionId() == null ? task.getLogs() : policyService.filterLogs(resolveTaskSession(task.getId())));
         return result;
+    }
+
+    private Map<String, Object> buildTaskResponse(PersistedTaskState task) {
+        Map<String, Object> result = ApiSupport.ok();
+        result.put("task", policyService.filterTaskMap(task.getPolicyMode(), buildTaskMap(task)));
+        ObfuscationSession session = task.getSessionId() == null ? null : sessionService.getSession(task.getSessionId());
+        if (session != null) {
+            result.put("logs", policyService.filterLogs(session));
+        } else {
+            result.put("logs", task.getLogs());
+        }
+        return result;
+    }
+
+    private Map<String, Object> buildTaskMap(PersistedTaskState task) {
+        PersistedSessionState sessionState = task.getSessionId() == null ? null : sessionMetadataQuery.findSession(task.getSessionId());
+        return ApiSupport.buildTaskJson(task, sessionState);
+    }
+
+    private PersistedTaskState requireTaskState(String taskId) {
+        PersistedTaskState task = findTaskState(taskId);
+        if (task == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found");
+        }
+        return task;
+    }
+
+    private PersistedTaskState findTaskState(String taskId) {
+        PersistedTaskState persisted = taskMetadataQuery.findTask(taskId);
+        if (persisted != null) {
+            return persisted;
+        }
+        PlatformTaskRecord live = platformTaskService.findLiveTask(taskId);
+        return live == null ? null : new PersistedTaskState(
+            live.getId(),
+            live.getProjectName(),
+            live.getInputObjectKey(),
+            live.getConfigObjectKey(),
+            live.getOutputObjectKey(),
+            live.getSessionId(),
+            live.getAccessProfile().name(),
+            live.getStatus().name(),
+            live.getCurrentStage(),
+            live.getProgress(),
+            live.getMessage(),
+            List.copyOf(live.getLogs()),
+            List.copyOf(live.getStages()),
+            live.getRecoveryPreviousStatus(),
+            live.getRecoveryReason(),
+            live.getRecoveredAt(),
+            live.getCreatedAt(),
+            live.getUpdatedAt()
+        );
     }
 
     private ObfuscationSession resolveTaskSession(String taskId) {

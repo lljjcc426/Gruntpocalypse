@@ -40,6 +40,7 @@ class PlatformTaskService(
     }
 
     fun getTask(taskId: String): PlatformTaskRecord {
+        taskMetadataQuery.findTask(taskId)?.let(::restoreTask)
         val task = tasks[taskId]
         requireNotNull(task) { "Task not found" }
         refreshFromSession(task)
@@ -47,13 +48,14 @@ class PlatformTaskService(
     }
 
     fun listTasks(): List<PlatformTaskRecord> {
+        preloadPersistedTasks()
         tasks.values.forEach(::refreshFromSession)
-        return tasks.values.sortedByDescending { it.createdAt }
+        return tasks.values.sortedByDescending { it.updatedAt }
     }
 
     fun startTask(taskId: String): PlatformTaskRecord {
         val task = getTask(taskId)
-        require(task.status == TaskStatus.CREATED || task.status == TaskStatus.FAILED) { "Task is not in a startable state" }
+        require(task.status in setOf(TaskStatus.CREATED, TaskStatus.FAILED, TaskStatus.INTERRUPTED)) { "Task is not in a startable state" }
 
         val inputFile = objectStorageService.getObject(task.inputObjectKey)
         val session = sessionService.createSession(
@@ -160,6 +162,10 @@ class PlatformTaskService(
         return tasks.keys().toList()
     }
 
+    fun findLiveTask(taskId: String): PlatformTaskRecord? {
+        return tasks[taskId]
+    }
+
     private fun extractJsonField(payload: String, key: String): String? {
         val marker = "\"$key\":\""
         val stringIndex = payload.indexOf(marker)
@@ -263,7 +269,10 @@ class PlatformTaskService(
                 progress = state.progress,
                 message = state.message,
                 logs = CopyOnWriteArrayList(state.logs),
-                stages = CopyOnWriteArrayList(state.stages)
+                stages = CopyOnWriteArrayList(state.stages),
+                recoveryPreviousStatus = state.recoveryPreviousStatus,
+                recoveryReason = state.recoveryReason,
+                recoveredAt = state.recoveredAt
             )
         }
     }
@@ -284,14 +293,21 @@ data class PlatformTaskRecord(
     var progress: Int = 0,
     var message: String = "",
     val logs: MutableList<String> = CopyOnWriteArrayList(),
-    val stages: MutableList<TaskStageRecord> = CopyOnWriteArrayList()
+    val stages: MutableList<TaskStageRecord> = CopyOnWriteArrayList(),
+    var recoveryPreviousStatus: String? = null,
+    var recoveryReason: String? = null,
+    var recoveredAt: String? = null
 )
 
 enum class TaskStatus {
     CREATED,
+    QUEUED,
+    STARTING,
     RUNNING,
+    INTERRUPTED,
     COMPLETED,
-    FAILED
+    FAILED,
+    CANCELLED
 }
 
 data class TaskStageRecord(

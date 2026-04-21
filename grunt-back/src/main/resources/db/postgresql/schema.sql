@@ -27,6 +27,16 @@ CREATE TABLE IF NOT EXISTS control_artifact_manifest (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS control_artifact_ref (
+    id BIGSERIAL PRIMARY KEY,
+    object_key VARCHAR(512) NOT NULL,
+    owner_type VARCHAR(32) NOT NULL,
+    owner_id VARCHAR(128) NOT NULL,
+    owner_role VARCHAR(32) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 ALTER TABLE control_artifact_manifest ADD COLUMN IF NOT EXISTS artifact_kind VARCHAR(32) NOT NULL DEFAULT 'asset';
 ALTER TABLE control_artifact_manifest ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) NOT NULL DEFAULT 'artifact.bin';
 ALTER TABLE control_artifact_manifest ADD COLUMN IF NOT EXISTS owner_type VARCHAR(32);
@@ -34,6 +44,18 @@ ALTER TABLE control_artifact_manifest ADD COLUMN IF NOT EXISTS owner_id VARCHAR(
 ALTER TABLE control_artifact_manifest ADD COLUMN IF NOT EXISTS owner_role VARCHAR(32);
 ALTER TABLE control_artifact_manifest ADD COLUMN IF NOT EXISTS size_bytes BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE control_artifact_manifest ADD COLUMN IF NOT EXISTS artifact_status VARCHAR(32) NOT NULL DEFAULT 'AVAILABLE';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_control_artifact_ref_unique
+    ON control_artifact_ref(object_key, owner_type, owner_id, owner_role);
+
+CREATE INDEX IF NOT EXISTS idx_control_artifact_ref_owner
+    ON control_artifact_ref(owner_type, owner_id, owner_role);
+
+INSERT INTO control_artifact_ref (object_key, owner_type, owner_id, owner_role)
+SELECT object_key, owner_type, owner_id, owner_role
+FROM control_artifact_manifest
+WHERE owner_type IS NOT NULL AND owner_id IS NOT NULL AND owner_role IS NOT NULL
+ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS control_task_state (
     task_id VARCHAR(128) PRIMARY KEY,
@@ -49,9 +71,16 @@ CREATE TABLE IF NOT EXISTS control_task_state (
     message TEXT NOT NULL DEFAULT '',
     logs_json TEXT NOT NULL DEFAULT '[]',
     stages_json TEXT NOT NULL DEFAULT '[]',
+    recovery_previous_status VARCHAR(32),
+    recovery_reason VARCHAR(128),
+    recovered_at VARCHAR(64),
     created_at VARCHAR(64) NOT NULL,
     updated_at VARCHAR(64) NOT NULL
 );
+
+ALTER TABLE control_task_state ADD COLUMN IF NOT EXISTS recovery_previous_status VARCHAR(32);
+ALTER TABLE control_task_state ADD COLUMN IF NOT EXISTS recovery_reason VARCHAR(128);
+ALTER TABLE control_task_state ADD COLUMN IF NOT EXISTS recovered_at VARCHAR(64);
 
 CREATE TABLE IF NOT EXISTS control_session_state (
     session_id VARCHAR(128) PRIMARY KEY,

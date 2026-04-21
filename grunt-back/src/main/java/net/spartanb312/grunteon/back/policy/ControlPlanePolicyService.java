@@ -75,7 +75,11 @@ public class ControlPlanePolicyService {
     }
 
     public Map<String, Object> filterSessionMap(ObfuscationSession session, Map<String, Object> full) {
-        if (session.getAccessProfile().getAllowDetailedLogs()) {
+        return filterSessionMap(session.getAccessProfile(), full);
+    }
+
+    public Map<String, Object> filterSessionMap(SessionAccessProfile profile, Map<String, Object> full) {
+        if (profile.getAllowDetailedLogs()) {
             return full;
         }
         Map<String, Object> result = new LinkedHashMap<>(full);
@@ -96,7 +100,11 @@ public class ControlPlanePolicyService {
     }
 
     public Map<String, Object> filterTaskMap(PlatformTaskRecord task, Map<String, Object> full) {
-        if (task.getAccessProfile().getAllowDetailedLogs()) {
+        return filterTaskMap(task.getAccessProfile(), full);
+    }
+
+    public Map<String, Object> filterTaskMap(SessionAccessProfile profile, Map<String, Object> full) {
+        if (profile.getAllowDetailedLogs()) {
             return full;
         }
         Map<String, Object> result = new LinkedHashMap<>(full);
@@ -110,12 +118,56 @@ public class ControlPlanePolicyService {
         String status = String.valueOf(result.getOrDefault("status", ""));
         if ("FAILED".equals(status)) {
             result.put("message", "Task failed");
+        } else if ("INTERRUPTED".equals(status)) {
+            result.put("message", "Task interrupted");
+        } else if ("CANCELLED".equals(status)) {
+            result.put("message", "Task cancelled");
         } else if ("COMPLETED".equals(status)) {
             result.put("message", "Task completed");
+        } else if ("CREATED".equals(status)) {
+            result.put("message", "Task created");
+        } else if ("QUEUED".equals(status) || "STARTING".equals(status)) {
+            result.put("message", "Task pending");
         } else {
             result.put("message", "Task running");
         }
         return result;
+    }
+
+    public Map<String, Object> filterArtifactMap(SessionAccessProfile profile, Map<String, Object> full) {
+        if (profile.getAllowDetailedLogs()) {
+            return full;
+        }
+        Map<String, Object> result = new LinkedHashMap<>(full);
+        result.remove("objectKey");
+        result.remove("bucketName");
+        result.remove("objectPath");
+        result.remove("bindings");
+        result.remove("fileName");
+        return result;
+    }
+
+    public Map<String, Object> filterArtifactMap(ObfuscationSession session, Map<String, Object> full) {
+        return filterArtifactMap(session.getAccessProfile(), full);
+    }
+
+    public Map<String, Object> filterArtifactMap(PlatformTaskRecord task, Map<String, Object> full) {
+        return filterArtifactMap(task.getAccessProfile(), full);
+    }
+
+    public Map<String, Object> filterArtifactMap(String policyMode, Map<String, Object> full) {
+        SessionAccessProfile profile = SessionAccessProfile.parseOrNull(policyMode);
+        return filterArtifactMap(profile == null ? SessionAccessProfile.SECURE : profile, full);
+    }
+
+    public Map<String, Object> filterSessionMap(String policyMode, Map<String, Object> full) {
+        SessionAccessProfile profile = SessionAccessProfile.parseOrNull(policyMode);
+        return filterSessionMap(profile == null ? SessionAccessProfile.SECURE : profile, full);
+    }
+
+    public Map<String, Object> filterTaskMap(String policyMode, Map<String, Object> full) {
+        SessionAccessProfile profile = SessionAccessProfile.parseOrNull(policyMode);
+        return filterTaskMap(profile == null ? SessionAccessProfile.SECURE : profile, full);
     }
 
     private String sanitizeLogLine(String line) {

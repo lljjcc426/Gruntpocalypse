@@ -3,6 +3,7 @@ package net.spartanb312.grunteon.back.persistence;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -166,41 +167,29 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
     @Override
     public List<PersistedSessionState> loadSessions() {
         try {
-            return databaseClient.sql(
+            List<String> sessionIds = databaseClient.sql(
                     """
-                    SELECT session_id, policy_mode, control_plane, worker_plane, status, current_step,
-                           progress, total_steps, error_message, config_file_name, input_file_name,
-                           output_file_name, config_object_key, input_object_key, output_object_key,
-                           library_files_json, asset_files_json, library_object_refs_json, asset_object_refs_json
+                    SELECT session_id
                     FROM control_session_state
                     ORDER BY updated_at DESC
                     """
                 )
-                .map((row, metadata) -> new PersistedSessionState(
-                    row.get("session_id", String.class),
-                    row.get("policy_mode", String.class),
-                    row.get("control_plane", String.class),
-                    row.get("worker_plane", String.class),
-                    row.get("status", String.class),
-                    row.get("current_step", String.class),
-                    row.get("progress", Integer.class),
-                    row.get("total_steps", Integer.class),
-                    row.get("error_message", String.class),
-                    row.get("config_file_name", String.class),
-                    row.get("input_file_name", String.class),
-                    row.get("output_file_name", String.class),
-                    row.get("config_object_key", String.class),
-                    row.get("input_object_key", String.class),
-                    row.get("output_object_key", String.class),
-                    parseStringList(row.get("library_files_json", String.class)),
-                    parseStringList(row.get("asset_files_json", String.class)),
-                    parseStringMap(row.get("library_object_refs_json", String.class)),
-                    parseStringMap(row.get("asset_object_refs_json", String.class))
-                ))
+                .map((row, metadata) -> row.get("session_id", String.class))
                 .all()
                 .collectList()
                 .blockOptional()
                 .orElseGet(Collections::emptyList);
+            List<PersistedSessionState> result = new ArrayList<>();
+            for (String sessionId : sessionIds) {
+                try {
+                    PersistedSessionState state = findSession(sessionId);
+                    if (state != null) {
+                        result.add(state);
+                    }
+                } catch (RuntimeException ignored) {
+                }
+            }
+            return result;
         } catch (RuntimeException ignored) {
             return List.of();
         }
@@ -261,15 +250,23 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
         if (rawJson == null || rawJson.isBlank()) {
             return List.of();
         }
-        List<String> parsed = gson.fromJson(rawJson, stringListType);
-        return parsed == null ? List.of() : parsed;
+        try {
+            List<String> parsed = gson.fromJson(rawJson, stringListType);
+            return parsed == null ? List.of() : parsed;
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
     }
 
     private Map<String, String> parseStringMap(String rawJson) {
         if (rawJson == null || rawJson.isBlank()) {
             return Map.of();
         }
-        Map<String, String> parsed = gson.fromJson(rawJson, stringMapType);
-        return parsed == null ? Map.of() : parsed;
+        try {
+            Map<String, String> parsed = gson.fromJson(rawJson, stringMapType);
+            return parsed == null ? Map.of() : parsed;
+        } catch (RuntimeException ignored) {
+            return Map.of();
+        }
     }
 }

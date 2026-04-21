@@ -6,6 +6,8 @@ import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.spartanb312.grunteon.obfuscator.web.ObfuscationSession;
+import net.spartanb312.grunteon.obfuscator.web.PersistedSessionState;
+import net.spartanb312.grunteon.obfuscator.web.PersistedTaskState;
 import net.spartanb312.grunteon.obfuscator.web.PlatformTaskRecord;
 import net.spartanb312.grunteon.obfuscator.web.SessionService;
 import net.spartanb312.grunteon.obfuscator.web.TaskStageRecord;
@@ -76,6 +78,10 @@ public final class ApiSupport {
 
     public static Map<String, Object> buildTaskJson(PlatformTaskRecord task, SessionService sessionService) {
         return new LinkedHashMap<>(WebBridgeSupport.buildTaskMap(task, sessionService));
+    }
+
+    public static Map<String, Object> buildTaskJson(PersistedTaskState task, PersistedSessionState sessionState) {
+        return new LinkedHashMap<>(WebBridgeSupport.buildTaskMap(task, sessionState));
     }
 
     public static Map<String, Object> buildTaskStageJson(TaskStageRecord stage) {

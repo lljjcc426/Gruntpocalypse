@@ -29,10 +29,10 @@ public class LocalArtifactDownloadGrantService implements ArtifactDownloadGrantS
     @Override
     public ArtifactDownloadGrant issueGrant(String objectKey, String downloadName) {
         cleanupExpired();
-        File file = artifactStore.getObject(objectKey);
         String grantId = UUID.randomUUID().toString().replace("-", "");
         Instant expiresAt = Instant.now().plusSeconds(integrationProperties.getDownloadGrantTtlSeconds());
-        String safeName = ApiSupport.sanitizeFileName(downloadName == null ? file.getName() : downloadName, file.getName());
+        String fallbackName = inferDownloadName(objectKey);
+        String safeName = ApiSupport.sanitizeFileName(downloadName == null ? fallbackName : downloadName, fallbackName);
         grants.put(grantId, new DownloadGrantRecord(objectKey, safeName, expiresAt));
         return new ArtifactDownloadGrant(
             grantId,
@@ -59,6 +59,15 @@ public class LocalArtifactDownloadGrantService implements ArtifactDownloadGrantS
     private void cleanupExpired() {
         Instant now = Instant.now();
         grants.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
+    }
+
+    private String inferDownloadName(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            return "artifact.bin";
+        }
+        int slashIndex = objectKey.lastIndexOf('/');
+        String fileName = slashIndex >= 0 ? objectKey.substring(slashIndex + 1) : objectKey;
+        return fileName.isBlank() ? "artifact.bin" : fileName;
     }
 
     private record DownloadGrantRecord(

@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import net.spartanb312.grunteon.obfuscator.web.ArtifactMetadataQuery;
 import net.spartanb312.grunteon.back.controlplane.artifact.ArtifactStore;
 import net.spartanb312.grunteon.back.controlplane.cache.SessionPolicyCache;
 import net.spartanb312.grunteon.back.controlplane.events.TaskEventPublisher;
@@ -19,7 +20,9 @@ import net.spartanb312.grunteon.obfuscator.web.ObfuscationSession;
 import net.spartanb312.grunteon.obfuscator.web.ProjectMeta;
 import net.spartanb312.grunteon.obfuscator.web.ProjectSource;
 import net.spartanb312.grunteon.obfuscator.web.ProjectTree;
+import net.spartanb312.grunteon.obfuscator.web.PersistedSessionState;
 import net.spartanb312.grunteon.obfuscator.web.SessionAccessProfile;
+import net.spartanb312.grunteon.obfuscator.web.SessionMetadataQuery;
 import net.spartanb312.grunteon.obfuscator.web.SessionService;
 import net.spartanb312.grunteon.obfuscator.web.StartResult;
 import net.spartanb312.grunteon.obfuscator.web.WebBridgeSupport;
@@ -45,6 +48,8 @@ public class ControlPlaneSessionFacade {
     private final TaskEventPublisher taskEventPublisher;
     private final ControlPlaneTelemetry telemetry;
     private final TaskWorkflowOrchestrator workflowOrchestrator;
+    private final SessionMetadataQuery sessionMetadataQuery;
+    private final ArtifactMetadataQuery artifactMetadataQuery;
 
     public ControlPlaneSessionFacade(
         SessionService sessionService,
@@ -56,7 +61,9 @@ public class ControlPlaneSessionFacade {
         SessionPolicyCache sessionPolicyCache,
         TaskEventPublisher taskEventPublisher,
         ControlPlaneTelemetry telemetry,
-        TaskWorkflowOrchestrator workflowOrchestrator
+        TaskWorkflowOrchestrator workflowOrchestrator,
+        SessionMetadataQuery sessionMetadataQuery,
+        ArtifactMetadataQuery artifactMetadataQuery
     ) {
         this.sessionService = sessionService;
         this.artifactStore = artifactStore;
@@ -68,6 +75,8 @@ public class ControlPlaneSessionFacade {
         this.taskEventPublisher = taskEventPublisher;
         this.telemetry = telemetry;
         this.workflowOrchestrator = workflowOrchestrator;
+        this.sessionMetadataQuery = sessionMetadataQuery;
+        this.artifactMetadataQuery = artifactMetadataQuery;
     }
 
     public Map<String, Object> createSession(String requestedProfile, boolean uiClient) {
@@ -87,12 +96,49 @@ public class ControlPlaneSessionFacade {
     }
 
     public Map<String, Object> status(String sessionId) {
-        ObfuscationSession session = requireSession(sessionId);
-        return policyService.filterSessionMap(session, ApiSupport.buildStatusResponse(session));
+        PersistedSessionState state = findSessionState(sessionId);
+        if (state == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
+        }
+        return policyService.filterSessionMap(state.getPolicyMode(), new LinkedHashMap<>(WebBridgeSupport.buildStatusMap(state)));
     }
 
     public List<String> logs(String sessionId) {
-        return policyService.filterLogs(requireSession(sessionId));
+        ObfuscationSession session = sessionService.getSession(sessionId);
+        if (session != null) {
+            return policyService.filterLogs(session);
+        }
+        if (findSessionState(sessionId) == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
+        }
+        return List.of();
+    }
+
+    public Map<String, Object> listSessions() {
+        Map<String, Object> result = ApiSupport.ok();
+        result.put(
+            "sessions",
+            sessionMetadataQuery.loadSessions().stream()
+                .map(state -> policyService.filterSessionMap(state.getPolicyMode(), new LinkedHashMap<>(WebBridgeSupport.buildStatusMap(state))))
+                .toList()
+        );
+        return result;
+    }
+
+    public Map<String, Object> artifacts(String sessionId) {
+        PersistedSessionState state = findSessionState(sessionId);
+        if (state == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
+        }
+        Map<String, Object> result = ApiSupport.ok();
+        result.put(
+            "artifacts",
+            artifactMetadataQuery.loadArtifactsForOwner("SESSION", sessionId).stream()
+                .map(WebBridgeSupport::buildArtifactMap)
+                .map(map -> policyService.filterArtifactMap(state.getPolicyMode(), new LinkedHashMap<>(map)))
+                .toList()
+        );
+        return result;
     }
 
     public Map<String, Object> configUploaded(String sessionId, String fileName, com.google.gson.JsonObject json) {
@@ -192,11 +238,16 @@ public class ControlPlaneSessionFacade {
     }
 
     public ResponseEntity<Resource> download(String sessionId) {
-        ObfuscationSession session = requireSession(sessionId);
-        String outputPath = session.getOutputJarPath();
+        ObfuscationSession session = sessionService.getSession(sessionId);
+        PersistedSessionState state = findSessionState(sessionId);
+        if (session == null && state == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
+        }
+        String outputPath = session == null ? null : session.getOutputJarPath();
         File file = outputPath == null ? null : new File(outputPath);
-        if ((file == null || !file.exists()) && session.getOutputObjectKey() != null) {
-            file = artifactStore.getObject(session.getOutputObjectKey());
+        String outputObjectKey = session != null ? session.getOutputObjectKey() : state.getOutputObjectKey();
+        if ((file == null || !file.exists()) && outputObjectKey != null) {
+            file = artifactStore.getObject(outputObjectKey);
         }
         if (file == null || !file.exists()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No output artifact available");
@@ -324,5 +375,37 @@ public class ControlPlaneSessionFacade {
         com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(jsonText).getAsJsonObject();
         sessionService.saveConfig(session, json, fileName);
         sessionService.linkConfigArtifact(session, session.getConfigObjectKey());
+    }
+
+    private PersistedSessionState findSessionState(String sessionId) {
+        PersistedSessionState persisted = sessionMetadataQuery.findSession(sessionId);
+        if (persisted != null) {
+            return persisted;
+        }
+        ObfuscationSession live = sessionService.getSession(sessionId);
+        if (live == null) {
+            return null;
+        }
+        return new PersistedSessionState(
+            live.getId(),
+            live.getAccessProfile().name(),
+            live.getControlPlane(),
+            live.getWorkerPlane(),
+            live.getStatus().name(),
+            live.getCurrentStep(),
+            live.getProgress(),
+            live.getTotalSteps(),
+            live.getErrorMessage(),
+            live.getConfigDisplayName(),
+            live.getInputDisplayName(),
+            live.getOutputJarPath() == null ? null : new File(live.getOutputJarPath()).getName(),
+            live.getConfigObjectKey(),
+            live.getInputObjectKey(),
+            live.getOutputObjectKey(),
+            live.getLibraryNames(),
+            live.getAssetNames(),
+            live.getLibraryObjectRefs(),
+            live.getAssetObjectRefs()
+        );
     }
 }

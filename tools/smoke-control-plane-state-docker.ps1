@@ -99,70 +99,64 @@ function Wait-HealthyEndpoint {
 
 function Get-HttpStatusCode {
     param(
-        [string]$Method,
         [string]$Url,
         [string]$OutFile
     )
 
-    try {
-        $request = @{
-            Method = $Method
-            Uri = $Url
-            UseBasicParsing = $true
-        }
-        if ($OutFile) {
-            $request["OutFile"] = $OutFile
-        }
-        $response = Invoke-WebRequest @request
-        return [int]$response.StatusCode
-    } catch {
-        if ($_.Exception.Response) {
-            return [int]$_.Exception.Response.StatusCode.value__
-        }
-        throw
+    $curlArgs = @("-sS", "-o")
+    if ($OutFile) {
+        $curlArgs += $OutFile
+    } else {
+        $curlArgs += "NUL"
     }
+    $curlArgs += @("-w", "%{http_code}", $Url)
+    $status = & curl.exe @curlArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "curl request failed for $Url"
+    }
+    return [int]$status
+}
+
+function Get-DownloadGrantUrl {
+    param(
+        [string]$TaskId,
+        [int]$RetryCount = 5
+    )
+
+    for ($attempt = 1; $attempt -le $RetryCount; $attempt++) {
+        try {
+            $grant = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks/$TaskId/artifacts/output-url"
+            $downloadUrl = [string]$grant.downloadUrl
+            if (-not [string]::IsNullOrWhiteSpace($downloadUrl)) {
+                return Resolve-Url -Url $downloadUrl
+            }
+        } catch {
+            if ($attempt -eq $RetryCount) {
+                throw
+            }
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    throw "Timed out waiting for download grant url for task: $TaskId"
 }
 
 function Invoke-PostgresQuery {
     param([string]$Query)
 
     $containerName = "$ComposeProjectName-postgres-1"
-    $stdoutPath = Join-Path $tmpDir ("psql-" + [guid]::NewGuid().ToString("N") + ".out.log")
-    $stderrPath = Join-Path $tmpDir ("psql-" + [guid]::NewGuid().ToString("N") + ".err.log")
-    try {
-        $process = Start-Process -FilePath "docker" `
-            -ArgumentList @(
-                "exec",
-                "-e", "PGPASSWORD=$PostgresPassword",
-                $containerName,
-                "psql",
-                "-U", $PostgresUser,
-                "-d", $PostgresDb,
-                "-t", "-A", "-F", "|",
-                "-c", $Query
-            ) `
-            -Wait `
-            -NoNewWindow `
-            -PassThru `
-            -RedirectStandardOutput $stdoutPath `
-            -RedirectStandardError $stderrPath
-        $stdout = if (Test-Path $stdoutPath) { Get-Content -Path $stdoutPath -Raw } else { "" }
-        $stderr = if (Test-Path $stderrPath) { Get-Content -Path $stderrPath -Raw } else { "" }
+    $output = & docker exec `
+        -e "PGPASSWORD=$PostgresPassword" `
+        $containerName `
+        psql `
+        -U $PostgresUser `
+        -d $PostgresDb `
+        -t -A -F "|" `
+        -c $Query 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker exec psql failed:`n$($output | Out-String)"
     }
-    finally {
-        foreach ($path in @($stdoutPath, $stderrPath)) {
-            if (Test-Path $path) {
-                Remove-Item -Path $path -Force
-            }
-        }
-    }
-    if ($process.ExitCode -ne 0) {
-        throw "docker exec psql failed:`n$stderr"
-    }
-    if ($null -eq $stdout) {
-        return ""
-    }
-    return $stdout.Trim()
+    return (($output | Out-String).Trim())
 }
 
 function Invoke-MinioList {
@@ -170,16 +164,18 @@ function Invoke-MinioList {
 mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
 mc ls -r local/"$MINIO_BUCKET"
 '@
-    $arguments = @(
-        "run", "--rm", "--no-deps",
-        "-e", "MINIO_ROOT_USER=$MinioUser",
-        "-e", "MINIO_ROOT_PASSWORD=$MinioPassword",
-        "-e", "MINIO_BUCKET=$MinioBucket",
-        "--entrypoint", "/bin/sh",
-        "minio-init",
-        "-c", $script
-    )
-    return Invoke-Compose -Arguments $arguments
+    $output = & docker run --rm `
+        --network $ComposeProjectName `
+        -e "MINIO_ROOT_USER=$MinioUser" `
+        -e "MINIO_ROOT_PASSWORD=$MinioPassword" `
+        -e "MINIO_BUCKET=$MinioBucket" `
+        --entrypoint /bin/sh `
+        minio/mc:RELEASE.2025-02-15T10-36-16Z `
+        -c $script 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker run minio/mc failed:`n$($output | Out-String)"
+    }
+    return (($output | Out-String).Trim())
 }
 
 function Parse-DelimitedRow {
@@ -358,7 +354,18 @@ try {
     if ($taskAfterStart.task.status -ne "COMPLETED") {
         throw "Task did not complete successfully. Status=$($taskAfterStart.task.status)"
     }
-    Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks" | Out-Null
+    $taskListBeforeRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks"
+    $sessionListBeforeRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/sessions"
+    $sessionStatusBeforeRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/sessions/$sessionId"
+    $taskStatusBeforeRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks/$taskId"
+    $sessionArtifactsBeforeRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/sessions/$sessionId/artifacts"
+    $taskArtifactsBeforeRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks/$taskId/artifacts"
+    if (@($sessionArtifactsBeforeRestart.artifacts).Count -lt 4) {
+        throw "Session artifact read model did not return expected entries before restart"
+    }
+    if (@($taskArtifactsBeforeRestart.artifacts).Count -lt 2) {
+        throw "Task artifact read model did not return expected entries before restart"
+    }
 
     $taskRow = Wait-PostgresRow `
         -Description "task metadata for $taskId" `
@@ -394,7 +401,13 @@ try {
         throw "Task session metadata not found in Postgres for sessionId=$taskSessionId"
     }
 
-    $artifactRowsText = Invoke-PostgresQuery -Query "SELECT owner_type,owner_id,owner_role,object_key,bucket_name,storage_backend FROM control_artifact_manifest WHERE owner_id IN ('$sessionId', '$taskId', '$taskSessionId') ORDER BY owner_type, owner_id, owner_role, object_key;"
+    $artifactRowsText = Invoke-PostgresQuery -Query @"
+SELECT r.owner_type,r.owner_id,r.owner_role,m.object_key,m.bucket_name,m.storage_backend
+FROM control_artifact_ref r
+JOIN control_artifact_manifest m ON m.object_key = r.object_key
+WHERE r.owner_id IN ('$sessionId', '$taskId', '$taskSessionId')
+ORDER BY r.owner_type, r.owner_id, r.owner_role, m.object_key;
+"@
     $artifactRows = Parse-DelimitedRows -Text $artifactRowsText -Columns @("owner_type", "owner_id", "owner_role", "object_key", "bucket_name", "storage_backend")
 
     $minioListing = Invoke-MinioList
@@ -411,11 +424,11 @@ try {
         }
     }
 
-    $directDownloadStatusBefore = Get-HttpStatusCode -Method Get -Url "$BaseUrl/api/control/tasks/$taskId/artifacts/output"
+    $directDownloadStatusBefore = Get-HttpStatusCode -Url "$BaseUrl/api/control/tasks/$taskId/artifacts/output"
 
-    $downloadGrantBefore = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks/$taskId/artifacts/output-url"
-    $downloadStatusBefore = Get-HttpStatusCode -Method Get -Url (Resolve-Url -Url $downloadGrantBefore.downloadUrl) -OutFile $downloadBefore
-    $downloadReplayStatusBefore = Get-HttpStatusCode -Method Get -Url (Resolve-Url -Url $downloadGrantBefore.downloadUrl)
+    $downloadUrlBefore = Get-DownloadGrantUrl -TaskId $taskId
+    $downloadStatusBefore = Get-HttpStatusCode -Url $downloadUrlBefore -OutFile $downloadBefore
+    $downloadReplayStatusBefore = Get-HttpStatusCode -Url $downloadUrlBefore
 
     if ($RestartWholeStack) {
         Invoke-Compose -Arguments @("down")
@@ -429,13 +442,23 @@ try {
     $restartLogs = Invoke-Compose -Arguments @("logs", "--no-color", "grunt-back")
     $bootstrapSeenAfterRestart = $restartLogs -match "Control plane state bootstrap restored"
 
+    $sessionListAfterRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/sessions"
     $taskAfterRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks/$taskId"
+    $taskListAfterRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks"
     $sessionAfterRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/sessions/$sessionId"
     $sessionTaskAfterRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/sessions/$taskSessionId"
+    $sessionArtifactsAfterRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/sessions/$sessionId/artifacts"
+    $taskArtifactsAfterRestart = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks/$taskId/artifacts"
+    if (@($sessionArtifactsAfterRestart.artifacts).Count -lt 4) {
+        throw "Session artifact read model did not return expected entries after restart"
+    }
+    if (@($taskArtifactsAfterRestart.artifacts).Count -lt 2) {
+        throw "Task artifact read model did not return expected entries after restart"
+    }
 
-    $downloadGrantAfter = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/control/tasks/$taskId/artifacts/output-url"
-    $downloadStatusAfter = Get-HttpStatusCode -Method Get -Url (Resolve-Url -Url $downloadGrantAfter.downloadUrl) -OutFile $downloadAfter
-    $downloadReplayStatusAfter = Get-HttpStatusCode -Method Get -Url (Resolve-Url -Url $downloadGrantAfter.downloadUrl)
+    $downloadUrlAfter = Get-DownloadGrantUrl -TaskId $taskId
+    $downloadStatusAfter = Get-HttpStatusCode -Url $downloadUrlAfter -OutFile $downloadAfter
+    $downloadReplayStatusAfter = Get-HttpStatusCode -Url $downloadUrlAfter
 
     [ordered]@{
         ComposeConfigValidated = $true
@@ -457,8 +480,19 @@ try {
             AfterRestart = $taskAfterRestart.task.status
         }
         SessionState = [ordered]@{
+            ControlSessionBeforeRestart = $sessionStatusBeforeRestart.status
             ControlSessionAfterRestart = $sessionAfterRestart.status
             TaskSessionAfterRestart = $sessionTaskAfterRestart.status
+        }
+        ApiReadModel = [ordered]@{
+            SessionListBeforeRestartCount = @($sessionListBeforeRestart.sessions).Count
+            TaskListBeforeRestartCount = @($taskListBeforeRestart.tasks).Count
+            SessionArtifactsBeforeRestartCount = @($sessionArtifactsBeforeRestart.artifacts).Count
+            TaskArtifactsBeforeRestartCount = @($taskArtifactsBeforeRestart.artifacts).Count
+            SessionListAfterRestartCount = @($sessionListAfterRestart.sessions).Count
+            TaskListAfterRestartCount = @($taskListAfterRestart.tasks).Count
+            SessionArtifactsAfterRestartCount = @($sessionArtifactsAfterRestart.artifacts).Count
+            TaskArtifactsAfterRestartCount = @($taskArtifactsAfterRestart.artifacts).Count
         }
         Postgres = [ordered]@{
             SessionRow = $sessionRow

@@ -14,6 +14,9 @@ data class PersistedTaskState(
     val message: String,
     val logs: List<String>,
     val stages: List<TaskStageRecord>,
+    val recoveryPreviousStatus: String?,
+    val recoveryReason: String?,
+    val recoveredAt: String?,
     val createdAt: String,
     val updatedAt: String
 )

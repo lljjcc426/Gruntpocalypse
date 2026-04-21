@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @RestController
 public class ControlPlaneTaskController {
@@ -26,13 +28,18 @@ public class ControlPlaneTaskController {
     }
 
     @GetMapping("/api/control/tasks")
-    public Map<String, Object> listTasks() {
-        return facade.listTasks();
+    public Mono<Map<String, Object>> listTasks() {
+        return Mono.fromCallable(facade::listTasks).subscribeOn(Schedulers.boundedElastic());
     }
 
     @GetMapping("/api/control/tasks/{taskId}")
-    public Map<String, Object> getTask(@PathVariable String taskId) {
-        return facade.getTask(taskId);
+    public Mono<Map<String, Object>> getTask(@PathVariable String taskId) {
+        return Mono.fromCallable(() -> facade.getTask(taskId)).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @GetMapping("/api/control/tasks/{taskId}/artifacts")
+    public Mono<Map<String, Object>> artifacts(@PathVariable String taskId) {
+        return Mono.fromCallable(() -> facade.artifacts(taskId)).subscribeOn(Schedulers.boundedElastic());
     }
 
     @PostMapping("/api/control/tasks/{taskId}/actions/start")
@@ -41,18 +48,18 @@ public class ControlPlaneTaskController {
     }
 
     @GetMapping("/api/control/tasks/{taskId}/stages")
-    public Map<String, Object> stages(@PathVariable String taskId) {
-        return facade.stages(taskId);
+    public Mono<Map<String, Object>> stages(@PathVariable String taskId) {
+        return Mono.fromCallable(() -> facade.stages(taskId)).subscribeOn(Schedulers.boundedElastic());
     }
 
     @GetMapping("/api/control/tasks/{taskId}/logs")
-    public Map<String, Object> logs(@PathVariable String taskId) {
-        return facade.logs(taskId);
+    public Mono<Map<String, Object>> logs(@PathVariable String taskId) {
+        return Mono.fromCallable(() -> facade.logs(taskId)).subscribeOn(Schedulers.boundedElastic());
     }
 
     @GetMapping("/api/control/tasks/{taskId}/artifacts/output-url")
-    public Map<String, Object> downloadUrl(@PathVariable String taskId) {
-        return facade.downloadUrl(taskId);
+    public Mono<Map<String, Object>> downloadUrl(@PathVariable String taskId) {
+        return Mono.fromCallable(() -> facade.downloadUrl(taskId)).subscribeOn(Schedulers.boundedElastic());
     }
 
     @GetMapping("/api/control/tasks/{taskId}/artifacts/output")

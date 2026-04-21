@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @RestController
 public class ControlPlaneSessionController {
@@ -40,14 +41,24 @@ public class ControlPlaneSessionController {
         return facade.createSession(profile, false);
     }
 
+    @GetMapping("/api/control/sessions")
+    public Mono<Map<String, Object>> listSessions() {
+        return Mono.fromCallable(facade::listSessions).subscribeOn(Schedulers.boundedElastic());
+    }
+
     @GetMapping("/api/control/sessions/{sessionId}")
-    public Map<String, Object> status(@PathVariable String sessionId) {
-        return facade.status(sessionId);
+    public Mono<Map<String, Object>> status(@PathVariable String sessionId) {
+        return Mono.fromCallable(() -> facade.status(sessionId)).subscribeOn(Schedulers.boundedElastic());
     }
 
     @GetMapping("/api/control/sessions/{sessionId}/logs")
-    public List<String> logs(@PathVariable String sessionId) {
-        return facade.logs(sessionId);
+    public Mono<List<String>> logs(@PathVariable String sessionId) {
+        return Mono.fromCallable(() -> facade.logs(sessionId)).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @GetMapping("/api/control/sessions/{sessionId}/artifacts")
+    public Mono<Map<String, Object>> artifacts(@PathVariable String sessionId) {
+        return Mono.fromCallable(() -> facade.artifacts(sessionId)).subscribeOn(Schedulers.boundedElastic());
     }
 
     @PostMapping(path = "/api/control/sessions/{sessionId}/artifacts/config", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
