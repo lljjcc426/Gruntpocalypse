@@ -17,5 +17,10 @@ set "GRADLE_USER_HOME=D:\dev-cache\gradle"
 set "MAVEN_OPTS=%MAVEN_OPTS% -Dmaven.repo.local=D:\dev-cache\maven"
 set "PATH=%JAVA_HOME%\bin;%MAVEN_HOME%\bin;%PATH%"
 
-call "%SCRIPT_DIR%gradlew.bat" :grunt-back:bootRun --no-daemon --stacktrace %*
+set "BOOT_ARGS="
+if not "%~1"=="" (
+    set "BOOT_ARGS=--args=%*"
+)
+
+call "%SCRIPT_DIR%gradlew.bat" :grunt-back:bootRun --no-daemon --stacktrace %BOOT_ARGS%
 exit /b %errorlevel%

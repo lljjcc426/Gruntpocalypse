@@ -1,242 +1,559 @@
 # Grunteon
 
-Grunteon is the current integrated Grunt codebase: a JVM bytecode obfuscation project that keeps the 2.x web workflow and feature surface while running on the refactored 3.x core pipeline.
+Grunteon is the current integrated Grunt codebase: a JVM bytecode obfuscation project that preserves the 2.x web workflow while running on the refactored 3.x execution core.
 
-This repository is the practical integration branch rather than a pure upstream 3.x snapshot. Its current focus is:
+This repository is not a bare framework snapshot. It is a runnable obfuscation workstation with:
 
-- preserve the 2.x style web UI and configuration experience
-- restore major 2.x obfuscation features into the 3.x architecture
-- expose both legacy session APIs and newer service-style task APIs
-- keep the project runnable locally as a real obfuscation tool
+- the retained 2.x-style web UI
+- the current 3.x typed pipeline core
+- a new Spring control plane in `grunt-back`
+- Docker bring-up for the platform stack
 
 ## Current Positioning
 
-The current repository state is:
+The repository currently serves three purposes at once:
 
-- 2.x-style frontend UI retained
-- 2.x configuration categories retained
-- 3.x typed config and execution pipeline retained
-- service-style backend routes added on top of the working web workflow
-
-This means the project is not just a framework demo. It can be used as:
-
-- a local web obfuscation workstation
+- a local web obfuscation tool
 - a CLI obfuscation tool
-- a backend integration base for future control-plane / worker-plane designs
+- a backend/control-plane integration base for the future worker-plane architecture
+
+That means the codebase still carries both:
+
+- compatibility for the legacy 2.x-style frontend workflow
+- the newer control-plane direction built around PostgreSQL, MinIO, and recovery-safe backend state
 
 ## Repository Layout
 
 - `grunt-back`
-  Spring Boot backend shell for replacing the embedded Ktor web layer while reusing the current obfuscation core
+  Spring Boot control plane, WebFlux API layer, security, recovery bootstrap, Docker-facing backend shell
 - `grunt-main`
-  Main obfuscation core, web backend, transformers, config adapter, tests
+  main obfuscation core, transformers, typed config, legacy web/session services, shared backend services
 - `grunt-bootstrap`
-  Bootstrap / launcher support
+  bootstrap launcher, plugin/module scanning, client/server entry selection
+- `genesis`
+  local shared dependency module used by the integrated build
 - `grunt-testcase`
-  Test inputs and verification samples
+  test inputs and verification samples
 - `grunt-yapyap`
-  Extension pack module
-- `buildSrc`
-  Shared Gradle conventions
+  extension pack module
+- `docker`
+  Dockerfiles and infrastructure init scripts
+- `docs`
+  topology, Docker environment, recovery validation, integration notes
+- `tools`
+  local environment scripts and smoke validation scripts
+
+## Overall Architecture
+
+The current architecture is split into four layers.
+
+### 1. Execution Core
+
+`grunt-main` contains the real obfuscation engine:
+
+- `ObfConfig`
+- `Grunteon`
+- transformer pipeline
+- ASM-based bytecode processing
+- jar dumping and output generation
+
+This is the part that actually obfuscates jars.
+
+### 2. Control Plane
+
+`grunt-back` is the new Spring Boot control plane.
+
+It is responsible for:
+
+- session APIs
+- task APIs
+- artifact APIs
+- policy enforcement
+- one-time secure download grants
+- restart recovery bootstrap
+- infrastructure dependency probing
+
+### 3. State and Artifact Storage
+
+The source of truth is now split by responsibility:
+
+- `PostgreSQL`
+  session/task/artifact metadata
+- `MinIO`
+  artifact file bodies
+- `Redis`
+  cache / policy cache / future coordination cache
+- `Kafka`
+  event bus entry point for orchestration and execution concerns
+
+Current durable metadata tables:
+
+- `control_session_state`
+- `control_task_state`
+- `control_artifact_manifest`
+- `control_artifact_ref`
+
+Meaning:
+
+- `control_artifact_manifest`
+  represents the file body and object metadata
+- `control_artifact_ref`
+  represents who uses that artifact and in what role
+
+### 4. Worker Direction
+
+The target topology already includes a `worker` service, but the current code still uses a local execution gateway internally.
+
+So the current status is:
+
+- control plane is real
+- externalized state is real
+- worker topology is prepared
+- fully remote worker execution is the next major phase
+
+## Current Stack
+
+### Core
+
+- Java 21
+- Kotlin
+- Gradle
+- ASM
+
+### Control Plane
+
+- Spring Boot 3.3.5
+- Spring WebFlux
+- Spring Security
+- Spring Data R2DBC
+- springdoc OpenAPI
+
+### Platform Dependencies
+
+- PostgreSQL
+- Redis
+- Kafka
+- MinIO
+- Docker Compose
+
+### Reserved Direction
+
+- Temporal
+- OpenTelemetry
+
+These are already part of the intended architecture direction, but Temporal is not the active workflow engine yet.
+
+## What Was Completed Today
+
+Today’s work was focused on making the control plane safer and more durable rather than adding another new subsystem.
+
+### Control-plane read side was tightened to PostgreSQL-first
+
+Session, task, and artifact reads now prefer PostgreSQL instead of relying on in-memory runtime state.
+
+That means:
+
+- `grunt-back` restart no longer depends on live memory to answer control-plane reads
+- control-plane APIs can rebuild their view from persisted metadata
+
+### Artifact ownership/binding was cleaned up
+
+Artifact persistence is now explicitly split into:
+
+- file-body metadata in `control_artifact_manifest`
+- ownership/usage bindings in `control_artifact_ref`
+
+This makes future worker and orchestration changes safer because file identity and usage relationships are no longer mixed together.
+
+### Non-terminal task restart recovery rules were implemented
+
+The backend now has an explicit restart policy for persisted tasks:
+
+- `CREATED` stays `CREATED`
+- `QUEUED` becomes `INTERRUPTED`
+- `STARTING` becomes `INTERRUPTED`
+- `RUNNING` becomes `INTERRUPTED`
+- `COMPLETED` stays `COMPLETED`
+- `FAILED` stays `FAILED`
+- `CANCELLED` stays `CANCELLED`
+
+Recovery metadata is recorded so the interruption reason is visible instead of looking like a normal business failure.
+
+### Docker recovery validation was completed
+
+The Docker recovery smoke now verifies:
+
+- platform stack bring-up
+- task completion
+- metadata in PostgreSQL
+- artifact bodies in MinIO
+- `grunt-back` restart
+- PostgreSQL-first API reads after restart
+- one-time secure download grant flow after restart
+
+### Local frontend bootstrap was repaired
+
+The local Spring profile now works correctly for direct development usage:
+
+- H2 uses its own schema script instead of the PostgreSQL-only script
+- the frontend schema path now matches the actual static resource file
+- `start-back.bat` now forwards Spring arguments correctly through Gradle
+
+That means the browser UI can now be opened locally from `grunt-back` without hitting the schema initialization failure you saw earlier.
 
 ## Implemented Areas
 
-The items below reflect the current integrated repository state.
+The integrated repository currently has the following major obfuscation feature areas available.
 
 ### Framework
 
-- Typed config system
-- Web schema adapter for legacy UI config
-- Resource management
-- Filter system
-- Parallel execution pipeline
-- Web UI/session backend
-- Platform-style task/storage backend routes
+- typed config system
+- web schema adapter for legacy UI config
+- resource management
+- filter system
+- parallel execution pipeline
+- web UI/session backend
+- service-style task/storage backend routes
 
 ### Encrypt
 
-- Number encryption
-- String encryption
-- Arithmetic substitution
-- Const pool extraction / encryption
+- number encryption
+- string encryption
+- arithmetic substitution
+- constant pool extraction / encryption
 
 ### Miscellaneous
 
-- Declared fields extractor
-- Parameter obfuscation
-- Trash class generator
-- Hardware ID authentication
-- Native candidate
-- Anti-debug
-- Cloned class
+- declared fields extractor
+- parameter obfuscation
+- trash class generator
+- hardware ID authentication
+- native candidate
+- anti-debug
+- cloned class
 
 ### Optimize
 
-- Class shrinking
-- Dead code removal
-- Enum optimize
+- class shrinking
+- dead code removal
+- enum optimize
 - Kotlin class shrinking
-- Source debug info hide
-- String equals optimize
+- source debug info hide
+- string equals optimize
 
 ### Renaming
 
-- Class renamer
-- Field renamer
-- Method renamer
-- Local variable renamer
-- Reflection support
-- Mixin class rename
-- Mixin field rename
+- class renamer
+- field renamer
+- method renamer
+- local variable renamer
+- reflection support
+- mixin class rename
+- mixin field rename
 
 ### Controlflow
 
-- Bogus conditional jump
-- Mangled conditional jump
-- Reverse existing conditionals
-- Table-switch based jump rewriting
-- Trapped switch cases
-- Switch extractor
-- Switch protect
-- Mutated conditional jumps
-- Arithmetic expression noise
-- Junk code
+- bogus conditional jump
+- mangled conditional jump
+- reverse existing conditionals
+- table-switch based jump rewriting
+- trapped switch cases
+- switch extractor
+- switch protect
+- mutated conditional jumps
+- arithmetic expression noise
+- junk code
 
 ### Redirect
 
-- Field access proxy
-- Invoke proxy
-- Invoke dispatcher
-- Invoke dynamic
+- field access proxy
+- invoke proxy
+- invoke dispatcher
+- invoke dynamic
 
 ### Other
 
-- Decompiler crasher
-- Fake synthetic bridge
-- Shuffle members
-- Watermark
-- Post-process
+- decompiler crasher
+- fake synthetic bridge
+- shuffle members
+- watermark
+- post-process
 
-## Web Backend
+## API Surface
 
-The backend currently exposes two layers of API.
+The repository currently exposes multiple backend layers.
 
-### Legacy workflow API
+### Legacy web workflow API
 
-Used by the retained 2.x-style frontend:
+Used by the retained web UI:
 
 - `/api/session/**`
+- `/ws/console`
+- `/ws/progress`
 
-Supported workflow:
+Capabilities:
 
 - create session
 - upload config
 - upload input jar
-- upload libraries / assets
+- upload libraries/assets
 - start obfuscation
 - query status
-- stream logs and progress
 - inspect input/output tree
-- inspect decompiled source
+- inspect source view
 - download artifact
 
 ### Service-style backend API
-
-Added as a cleaner backend integration surface:
 
 - `/api/v1/tasks/**`
 - `/api/v1/storage/**`
 - `/api/v1/artifacts/upload-url`
 
-Supported capabilities:
+Capabilities:
 
-- task creation and execution
+- task creation/execution
 - task logs
 - task stages
-- SSE event stream
-- artifact upload/download indirection
-- project meta/tree/source inspection
+- upload indirection
+- project inspection
 
-## Startup
+### Control-plane API
 
-### 1. Build executable jar
+Added by `grunt-back`:
 
-```powershell
-.\gradlew.bat :grunt-main:distJar
-```
+- `/api/control/sessions/**`
+- `/api/control/tasks/**`
+- `/api/control/artifacts/**`
 
-### 2. Start Web UI
+Capabilities:
 
-Use the helper script:
+- PostgreSQL-first control-plane reads
+- secure policy-aware responses
+- recovery-aware task status
+- one-time output download grants
 
-```powershell
-.\start-web.bat
-```
+## How To Use The Current Obfuscator
 
-### 2.1 Start Spring Backend
+There are three practical ways to use the current version.
 
-To launch the new Spring-based backend shell:
+### A. Use The Spring Web UI
+
+This is the recommended local workflow when you want to use the browser frontend.
+
+#### Start
+
+If port `8080` is free:
 
 ```powershell
 .\start-back.bat
 ```
 
-Or specify a port:
+If `8080` is occupied, pass a Spring port argument:
 
 ```powershell
-.\start-web.bat --port=8081
+.\start-back.bat --server.port=8082
 ```
 
 Then open:
 
 ```text
-http://127.0.0.1:8081/login
+http://127.0.0.1:8080/login
 ```
 
-Notes:
+or:
 
-- the project currently runs with Java 21 preview enabled
-- the helper script already adds `--enable-preview`
+```text
+http://127.0.0.1:8082/login
+```
 
-### 3. Start CLI
+#### What to do in the UI
+
+1. Wait until the page finishes initialization.
+2. Click `Upload JAR` and select the input jar.
+3. Review or edit the generated configuration in the left panel.
+4. Optionally upload libraries/assets if your config needs them.
+5. Click `Obfuscate`.
+6. Watch logs and pipeline progress in the console area.
+7. When the task completes, click `Download`.
+
+#### Minimal sanity test
+
+You know the UI path is working if:
+
+- configuration sections load
+- project browser shows input classes after upload
+- console logs move during obfuscation
+- `Download` becomes available after completion
+
+### B. Use The Embedded Web Mode
+
+This is the older embedded web route from `grunt-main`.
+
+#### Build
+
+```powershell
+.\gradlew.bat :grunt-main:distJar
+```
+
+#### Start
+
+```powershell
+.\start-web.bat
+```
+
+This starts the web UI from the fat jar built around `grunt-main-all.jar`.
+
+### C. Use The CLI
+
+Use CLI when you want direct config-driven execution without the browser UI.
 
 ```powershell
 .\start-cli.bat config.json
 ```
 
-## Configuration
+CLI reads the native current config format directly.
 
-There are currently two practical configuration paths:
+## Frontend Source Location
 
-### Web
+The current web frontend is still a static resource frontend served by the backend.
 
-The web UI uses the retained 2.x-style config layout and maps it into the current typed backend config through the web adapter.
+- entry page: [grunt-main/src/main/resources/web/index.html](/d:/新建文件夹%20(2)/初稿/Grunt/grunt-main/src/main/resources/web/index.html)
+- login page: [grunt-main/src/main/resources/web/login.html](/d:/新建文件夹%20(2)/初稿/Grunt/grunt-main/src/main/resources/web/login.html)
+- main UI logic: [grunt-main/src/main/resources/web/js/app.js](/d:/新建文件夹%20(2)/初稿/Grunt/grunt-main/src/main/resources/web/js/app.js)
+- API binding: [grunt-main/src/main/resources/web/js/api.js](/d:/新建文件夹%20(2)/初稿/Grunt/grunt-main/src/main/resources/web/js/api.js)
+- styles: [grunt-main/src/main/resources/web/css/style.css](/d:/新建文件夹%20(2)/初稿/Grunt/grunt-main/src/main/resources/web/css/style.css)
+- config schema: [grunt-main/src/main/resources/web/schema/config-schema.json](/d:/新建文件夹%20(2)/初稿/Grunt/grunt-main/src/main/resources/web/schema/config-schema.json)
 
-### CLI
+## Docker Bring-up
 
-CLI reads the current native `ObfConfig` format directly.
+The repository includes a platform compose layout for:
 
-This means:
+- `grunt-back`
+- `worker`
+- `postgres`
+- `redis`
+- `kafka`
+- `minio`
 
-- web is the most compatible route for old-style 2.x config documents
-- CLI is the most direct route for native current-version config
+### Start the platform
 
-## Current Notes
+```powershell
+Copy-Item .env.platform.example .env.platform
+docker compose --env-file .env.platform -f compose.platform.yml up -d --build
+```
 
-- this repository intentionally keeps the old UI experience
-- not every historical 2.x field has been restored to full depth yet
-- major core features are already integrated and usable
-- the repository currently ships both the embedded Ktor backend and the new Spring `grunt-back` shell
-- the Spring backend already serves the retained web UI and task/session APIs on top of the current core
-- the current service-style backend is real and executes the actual obfuscation pipeline
+### Recovery validation
+
+Main recovery smoke:
+
+```powershell
+.\tools\smoke-control-plane-state-docker.ps1
+```
+
+Interrupted-task recovery smoke:
+
+```powershell
+.\tools\smoke-control-plane-recovery-interrupted.ps1
+```
+
+## Current Recovery Model
+
+The control plane now has explicit restart behavior.
+
+### Sessions
+
+Session metadata is restored from PostgreSQL and object references are resolved back to storage paths as needed.
+
+### Tasks
+
+Task metadata is restored from PostgreSQL first.
+
+Non-terminal tasks are handled with deterministic recovery rules:
+
+- `QUEUED -> INTERRUPTED`
+- `STARTING -> INTERRUPTED`
+- `RUNNING -> INTERRUPTED`
+
+### Artifacts
+
+Artifacts are not deleted during restart recovery.
+
+Inputs, configs, libraries, assets, and persisted outputs remain available as long as:
+
+- PostgreSQL still has metadata
+- MinIO still has the object bodies
+
+## Local Development Notes
+
+### Java
+
+The project currently expects Java 21.
+
+### Cache locations
+
+This repository is configured to avoid reusing `C:` for large Gradle/Maven caches:
+
+- Gradle cache: `D:\dev-cache\gradle`
+- Maven local repo: `D:\dev-cache\maven`
+
+### Frontend development note
+
+If the browser still shows stale frontend resources after a backend restart, use:
+
+```text
+Ctrl + F5
+```
+
+to force-refresh static resources.
+
+### Port conflict
+
+If you see:
+
+```text
+Port 8080 was already in use
+```
+
+start the backend on another port:
+
+```powershell
+.\start-back.bat --server.port=8082
+```
+
+## What Is Still Not Final
+
+The project is already usable, but the final architecture is not fully complete yet.
+
+Still pending:
+
+- fully remote worker execution
+- Temporal-driven durable orchestration
+- complete retirement of the legacy dual-track web layer
+
+Current status:
+
+- control plane is real
+- PostgreSQL-first reads are real
+- MinIO artifact storage is real
+- restart recovery is real
+- worker remote execution is the next major phase
+
+## Additional Documents
+
+- [docs/container-topology.md](/d:/新建文件夹%20(2)/初稿/Grunt/docs/container-topology.md)
+- [docs/docker-recovery-validation.md](/d:/新建文件夹%20(2)/初稿/Grunt/docs/docker-recovery-validation.md)
+- [docs/grunt-back-integration.md](/d:/新建文件夹%20(2)/初稿/Grunt/docs/grunt-back-integration.md)
+- [docs/docker-environment.md](/d:/新建文件夹%20(2)/初稿/Grunt/docs/docker-environment.md)
 
 ## Development Validation
 
-The integrated repository has been repeatedly validated with:
+The recent integration work has been validated with:
 
-- `.\gradlew.bat test --no-daemon --rerun-tasks`
-
-as the main regression check during integration work.
+- direct `grunt-back` local startup
+- browser UI startup through Spring control plane
+- Docker recovery smoke
+- interrupted-task recovery smoke
+- repeated `bootJar` / backend runtime checks during integration
 
 ## License
 
@@ -251,9 +568,3 @@ Historical generation overview:
 | Grunt          | 1.0.0-1.5.x | Lightweight and stability      | MIT     | Allowed        |
 | Gruntpocalypse | 2.0.0-2.5.x | Diversity and intensity        | LGPL3   | Restricted     |
 | Grunteon       | 3.0.0-      | Industrial-grade and efficient | Apache2 | Allowed        |
-
-## Stargazers over time
-
-[![Stargazers over time](https://starchart.cc/SpartanB312/Grunt.svg?variant=adaptive)](https://starchart.cc/SpartanB312/Grunt)
-
-![Alt](https://repobeats.axiom.co/api/embed/ea2d273dbb7a9cb21f070102f01e31234afc2627.svg "Repobeats analytics image")

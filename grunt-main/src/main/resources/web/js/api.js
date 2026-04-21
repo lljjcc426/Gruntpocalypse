@@ -68,7 +68,7 @@ const API = {
     },
 
     getSchema() {
-        return this.get('/schema/config-editor.schema.json');
+        return this.get('/schema/config-schema.json');
     },
 
     uploadConfig(sessionId, file) {
