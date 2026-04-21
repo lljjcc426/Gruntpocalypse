@@ -18,6 +18,7 @@ output.jar
 config.json
 .env.platform
 .tmp-smoke/
+tools/downloads/
 *.pid
 *.out.log
 *.err.log
