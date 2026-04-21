@@ -3,8 +3,12 @@ package net.spartanb312.grunteon.obfuscator.util;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.Properties;
+import java.util.Set;
 
 @SuppressWarnings({"unused", "SameParameterValue", "DuplicatedCode", "SpellCheckingInspection"})
 public class ImplLookupGetter {
@@ -21,7 +25,7 @@ public class ImplLookupGetter {
 
     public static MethodHandles.Lookup getLookup() {
         try (Arena arena = Arena.ofConfined()) {
-            final SymbolLookup lookup = SymbolLookup.libraryLookup("jvm", arena);
+            final SymbolLookup lookup = findJvmLookup(arena);
             final MemorySegment vm = getJavaVm(arena, lookup);
             final MemorySegment env = getJniEnv(arena, vm);
             final MemorySegment lookupClass = getJniClass(arena, env, MethodHandles.Lookup.class);
@@ -43,6 +47,53 @@ public class ImplLookupGetter {
                 default -> throw new RuntimeException(t);
             }
         }
+    }
+
+    private static SymbolLookup findJvmLookup(Arena arena) {
+        RuntimeException lastError = null;
+        for (String candidate : getJvmLibraryCandidates()) {
+            try {
+                return SymbolLookup.libraryLookup(candidate, arena);
+            } catch (RuntimeException ex) {
+                lastError = ex;
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        throw new IllegalStateException("Unable to resolve JVM native library");
+    }
+
+    private static Set<String> getJvmLibraryCandidates() {
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        candidates.add("jvm");
+        candidates.add("java");
+
+        String os = System.getProperty("os.name", "").toLowerCase();
+        String mappedName = System.mapLibraryName("jvm");
+        if (!mappedName.isBlank()) {
+            candidates.add(mappedName);
+        }
+
+        String javaHome = System.getProperty("java.home");
+        if (javaHome != null && !javaHome.isBlank()) {
+            Path home = Path.of(javaHome);
+            candidates.add(home.resolve("bin").resolve(mappedName).toString());
+            candidates.add(home.resolve("lib").resolve(mappedName).toString());
+            candidates.add(home.resolve("lib").resolve("server").resolve(mappedName).toString());
+
+            if (os.contains("win")) {
+                candidates.add(home.resolve("bin").resolve("server").resolve("jvm.dll").toString());
+            } else if (os.contains("mac")) {
+                candidates.add(home.resolve("lib").resolve("server").resolve("libjvm.dylib").toString());
+            } else {
+                candidates.add(home.resolve("lib").resolve("server").resolve("libjvm.so").toString());
+                candidates.add(home.resolve("lib").resolve("amd64").resolve("server").resolve("libjvm.so").toString());
+            }
+        }
+
+        candidates.removeIf(path -> path.contains("/") || path.contains("\\") ? !Files.exists(Path.of(path)) : false);
+        return candidates;
     }
 
     private static MemorySegment getJavaVm(Arena arena, SymbolLookup lookup) throws Throwable {

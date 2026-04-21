@@ -4,7 +4,9 @@ rootProject.name = "Grunteon"
 include(":grunt-bootstrap")
 
 // Components
+include(":genesis")
 include(":grunt-main")
+include(":grunt-back")
 include(":grunt-testcase")
 include(":grunt-yapyap")
 

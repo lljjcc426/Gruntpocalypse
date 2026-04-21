@@ -7,6 +7,7 @@ plugins {
 
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.JavaExec
+import org.gradle.jvm.tasks.Jar
 import org.gradle.api.tasks.SourceSetContainer
 
 repositories {
@@ -21,7 +22,7 @@ val coroutineVersion: String = libs.versions.coroutine.get()
 
 dependencies {
     projectLib(project(":grunt-bootstrap"))
-    projectLib("net.spartanb312:genesis-kotlin:1.0.0")
+    projectLib(project(":genesis"))
 
     library("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutineVersion")
 
@@ -43,8 +44,19 @@ dependencies {
 
 tasks {
     jar {
+        manifest {
+            attributes(
+                "Main-Class" to "net.spartanb312.grunteon.obfuscator.MainKt"
+            )
+        }
+    }
+
+    register<Jar>("distJar") {
+        group = "build"
+        description = "Build a standalone Grunteon executable jar with runtime dependencies."
         val sourceSets = project.extensions.getByType<SourceSetContainer>()
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        archiveClassifier.set("all")
         dependsOn(configurations.runtimeClasspath)
         from(sourceSets.getByName("main").output)
         from({

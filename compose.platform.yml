@@ -1,0 +1,195 @@
+services:
+  grunt-back:
+    build:
+      context: .
+      dockerfile: docker/grunt-back.Dockerfile
+    image: grunteon/grunt-back:local
+    restart: unless-stopped
+    ports:
+      - "${GRUNT_BACK_HTTP_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${GRUNT_BACK_SPRING_PROFILE:-docker}
+      SPRING_SECURITY_USER_NAME: ${GRUNT_BACK_SECURITY_USER:-admin}
+      SPRING_SECURITY_USER_PASSWORD: ${GRUNT_BACK_SECURITY_PASSWORD:-change-me}
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/${POSTGRES_DB:-grunteon}
+      SPRING_R2DBC_USERNAME: ${POSTGRES_USER:-grunteon}
+      SPRING_R2DBC_PASSWORD: ${POSTGRES_PASSWORD:-grunteon}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      GRUNT_BACK_DEFAULT_PROFILE: ${GRUNT_BACK_DEFAULT_PROFILE:-SECURE}
+      GRUNT_BACK_UI_PROFILE: ${GRUNT_BACK_UI_PROFILE:-RESEARCH}
+      GRUNT_BACK_CONTROL_PLANE_NAME: ${GRUNT_BACK_CONTROL_PLANE_NAME:-docker-control-plane}
+      GRUNT_BACK_WORKER_PLANE_NAME: ${GRUNT_BACK_WORKER_PLANE_NAME:-docker-worker-plane}
+      GRUNT_BACK_KAFKA_ENABLED: ${GRUNT_BACK_KAFKA_ENABLED:-true}
+      GRUNT_BACK_REDIS_ENABLED: ${GRUNT_BACK_REDIS_ENABLED:-true}
+      GRUNT_BACK_MINIO_ENABLED: ${GRUNT_BACK_MINIO_ENABLED:-true}
+      GRUNT_BACK_TEMPORAL_ENABLED: ${GRUNT_BACK_TEMPORAL_ENABLED:-false}
+      GRUNT_BACK_OTEL_ENABLED: ${GRUNT_BACK_OTEL_ENABLED:-false}
+      GRUNT_BACK_DOWNLOAD_GRANT_TTL_SECONDS: ${GRUNT_BACK_DOWNLOAD_GRANT_TTL_SECONDS:-120}
+      GRUNT_BACK_INFRA_FAIL_FAST: ${GRUNT_BACK_INFRA_FAIL_FAST:-true}
+      GRUNT_BACK_MINIO_ENDPOINT: ${GRUNT_BACK_MINIO_ENDPOINT:-http://minio:9000}
+      GRUNT_BACK_MINIO_ACCESS_KEY: ${GRUNT_BACK_MINIO_ACCESS_KEY:-grunteon}
+      GRUNT_BACK_MINIO_SECRET_KEY: ${GRUNT_BACK_MINIO_SECRET_KEY:-grunteon123}
+      GRUNT_BACK_MINIO_BUCKET: ${GRUNT_BACK_MINIO_BUCKET:-grunteon-artifacts}
+      GRUNT_BACK_MINIO_REGION: ${GRUNT_BACK_MINIO_REGION:-us-east-1}
+      GRUNT_BACK_SESSION_BASE_DIR: /app/.state/web
+      GRUNT_BACK_OBJECT_BASE_DIR: /app/.state/object-store
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - grunt-back-state:/app/.state
+    networks:
+      - platform
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/grunt-worker.Dockerfile
+    image: grunteon/grunt-worker:local
+    restart: unless-stopped
+    command:
+      - --web
+      - --port=${WORKER_HTTP_PORT:-8081}
+    volumes:
+      - grunt-worker-state:/app/.state
+      - grunt-worker-logs:/app/logs
+      - grunt-worker-modules:/app/modules
+      - grunt-worker-plugins:/app/plugins
+    networks:
+      - platform
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-grunteon}
+      POSTGRES_USER: ${POSTGRES_USER:-grunteon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-grunteon}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-grunteon} -d ${POSTGRES_DB:-grunteon}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - platform
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - redis-data:/data
+    networks:
+      - platform
+
+  kafka:
+    image: ${KAFKA_IMAGE:-bitnamilegacy/kafka:latest}
+    restart: unless-stopped
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_KRAFT_CLUSTER_ID: ${KAFKA_CLUSTER_ID:-abcdefghijklmnopqrstuv}
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - kafka-data:/bitnami/kafka
+    networks:
+      - platform
+
+  kafka-init:
+    image: ${KAFKA_IMAGE:-bitnamilegacy/kafka:latest}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - /scripts/create-topics.sh
+    environment:
+      KAFKA_BOOTSTRAP_SERVER: kafka:9092
+    restart: "no"
+    volumes:
+      - ./docker/kafka/create-topics.sh:/scripts/create-topics.sh:ro
+    networks:
+      - platform
+
+  minio:
+    image: minio/minio:RELEASE.2025-02-18T16-25-55Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-grunteon}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-grunteon123}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - minio-data:/data
+    networks:
+      - platform
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-02-15T10-36-16Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "${MINIO_ROOT_USER:-grunteon}" "${MINIO_ROOT_PASSWORD:-grunteon123}"; do
+          sleep 2
+        done
+        mc mb --ignore-existing local/"${MINIO_BUCKET:-grunteon-artifacts}"
+        mc anonymous set private local/"${MINIO_BUCKET:-grunteon-artifacts}"
+    restart: "no"
+    networks:
+      - platform
+
+networks:
+  platform:
+    name: grunteon-platform
+
+volumes:
+  grunt-back-state:
+  grunt-worker-state:
+  grunt-worker-logs:
+  grunt-worker-modules:
+  grunt-worker-plugins:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  minio-data:

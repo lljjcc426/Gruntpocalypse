@@ -55,10 +55,19 @@ class ObfuscationSession(
     var configFilePath: String? = null
 
     @Volatile
+    var configObjectKey: String? = null
+
+    @Volatile
     var inputJarPath: String? = null
 
     @Volatile
+    var inputObjectKey: String? = null
+
+    @Volatile
     var outputJarPath: String? = null
+
+    @Volatile
+    var outputObjectKey: String? = null
 
     @Volatile
     var inputDisplayName: String? = null
@@ -72,14 +81,26 @@ class ObfuscationSession(
     @Volatile
     var finalClassList: List<String>? = null
 
+    @Volatile
+    var accessProfile: SessionAccessProfile = SessionAccessProfile.SECURE
+
+    @Volatile
+    var controlPlane: String = "embedded-web"
+
+    @Volatile
+    var workerPlane: String = "local-worker"
+
     val consoleLogs = CopyOnWriteArrayList<String>()
 
     private val decompiledCache = ConcurrentHashMap<String, String>()
     private val libraryFiles = CopyOnWriteArrayList<String>()
     private val assetFiles = ConcurrentHashMap<String, String>()
+    private val libraryObjectRefs = ConcurrentHashMap<String, String>()
+    private val assetObjectRefs = ConcurrentHashMap<String, String>()
 
     var onLogMessage: ((String) -> Unit)? = null
     var onProgressUpdate: ((String) -> Unit)? = null
+    var onStateChanged: ((ObfuscationSession) -> Unit)? = null
 
     init {
         configDir.mkdirs()
@@ -101,6 +122,7 @@ class ObfuscationSession(
         configFilePath = file.absolutePath
         configDisplayName = file.name
         discardPreviousResult(Status.READY)
+        notifyStateChanged()
         return file
     }
 
@@ -130,6 +152,7 @@ class ObfuscationSession(
         inputDisplayName = copied.name
         setInputClasses(readJarClasses(copied))
         discardPreviousResult(Status.READY)
+        notifyStateChanged()
     }
 
     fun addLibraries(files: List<File>) {
@@ -142,6 +165,7 @@ class ObfuscationSession(
             libraryFiles.add(target.absolutePath)
         }
         discardPreviousResult(Status.READY)
+        notifyStateChanged()
     }
 
     fun addAssets(files: List<File>) {
@@ -153,13 +177,18 @@ class ObfuscationSession(
             assetFiles[target.name] = target.absolutePath
         }
         discardPreviousResult(Status.READY)
+        notifyStateChanged()
     }
-
-    fun getLibraryNames(): List<String> = libraryFiles.map { File(it).name }.sorted()
 
     fun getLibraryPaths(): List<String> = libraryFiles.toList()
 
-    fun getAssetNames(): List<String> = assetFiles.keys.sorted()
+    fun getLibraryNames(): List<String> = (libraryFiles.map { File(it).name } + libraryObjectRefs.keys).distinct().sorted()
+
+    fun getAssetNames(): List<String> = (assetFiles.keys + assetObjectRefs.keys).distinct().sorted()
+
+    fun getLibraryObjectRefs(): Map<String, String> = libraryObjectRefs.toSortedMap()
+
+    fun getAssetObjectRefs(): Map<String, String> = assetObjectRefs.toSortedMap()
 
     fun resolveAssetPath(name: String?): String? {
         if (name.isNullOrBlank()) return null
@@ -174,6 +203,7 @@ class ObfuscationSession(
 
     fun discardPreviousResult(nextStatus: Status = status) {
         outputJarPath = null
+        outputObjectKey = null
         finalClassList = null
         clearCachedSources(ProjectScope.OUTPUT)
         clearDir(outputDir)
@@ -181,11 +211,13 @@ class ObfuscationSession(
         if (status != Status.RUNNING) {
             status = nextStatus
         }
+        notifyStateChanged()
     }
 
     fun setInputClasses(classes: List<String>) {
         inputClassList = classes.sorted()
         clearCachedSources(ProjectScope.INPUT)
+        notifyStateChanged()
     }
 
     fun getProjectClasses(scope: ProjectScope): List<String>? {
@@ -215,6 +247,76 @@ class ObfuscationSession(
         }
     }
 
+    fun configureControlPlane(
+        accessProfile: SessionAccessProfile,
+        controlPlane: String,
+        workerPlane: String
+    ) {
+        this.accessProfile = accessProfile
+        this.controlPlane = controlPlane
+        this.workerPlane = workerPlane
+        notifyStateChanged()
+    }
+
+    fun restorePersistedState(state: PersistedSessionState) {
+        accessProfile = SessionAccessProfile.parseOrNull(state.policyMode) ?: SessionAccessProfile.SECURE
+        controlPlane = state.controlPlane
+        workerPlane = state.workerPlane
+        status = runCatching { Status.valueOf(state.status) }.getOrElse { Status.IDLE }
+        currentStep = state.currentStep
+        progress = state.progress
+        totalSteps = state.totalSteps
+        errorMessage = state.errorMessage
+        configDisplayName = state.configFileName
+        inputDisplayName = state.inputFileName
+        configObjectKey = state.configObjectKey
+        inputObjectKey = state.inputObjectKey
+        outputObjectKey = state.outputObjectKey
+        outputJarPath = resolvePersistedPath(outputDir, state.outputFileName)
+        inputJarPath = resolvePersistedPath(inputDir, state.inputFileName)
+        configFilePath = resolvePersistedPath(configDir, state.configFileName)
+
+        libraryObjectRefs.clear()
+        libraryObjectRefs.putAll(state.libraryObjectRefs)
+        assetObjectRefs.clear()
+        assetObjectRefs.putAll(state.assetObjectRefs)
+
+        libraryFiles.removeIf { true }
+        state.libraryFiles.forEach { name ->
+            resolvePersistedPath(librariesDir, name)?.let { libraryFiles.add(it) }
+        }
+
+        assetFiles.clear()
+        state.assetFiles.forEach { name ->
+            resolvePersistedPath(assetsDir, name)?.let { assetFiles[name] = it }
+        }
+    }
+
+    fun bindConfigObjectKey(objectKey: String?) {
+        configObjectKey = objectKey
+        notifyStateChanged()
+    }
+
+    fun bindInputObjectKey(objectKey: String?) {
+        inputObjectKey = objectKey
+        notifyStateChanged()
+    }
+
+    fun bindOutputObjectKey(objectKey: String?) {
+        outputObjectKey = objectKey
+        notifyStateChanged()
+    }
+
+    fun putLibraryObjectRef(fileName: String, objectKey: String) {
+        libraryObjectRefs[fileName] = objectKey
+        notifyStateChanged()
+    }
+
+    fun putAssetObjectRef(fileName: String, objectKey: String) {
+        assetObjectRefs[fileName] = objectKey
+        notifyStateChanged()
+    }
+
     fun runObfuscation(config: ObfConfig) {
         status = Status.RUNNING
         currentStep = "Preparing"
@@ -224,6 +326,7 @@ class ObfuscationSession(
         clearCachedSources(ProjectScope.OUTPUT)
         clearDir(outputDir)
         consoleLogs.clear()
+        notifyStateChanged()
         emitProgress("Preparing", 0)
 
         val previousLogger = Logger
@@ -259,12 +362,14 @@ class ObfuscationSession(
             currentStep = "Completed"
             progress = 100
             status = Status.COMPLETED
+            notifyStateChanged()
             emitProgress("Completed", 100)
         } catch (throwable: Throwable) {
             status = Status.ERROR
             errorMessage = throwable.message ?: throwable::class.java.simpleName ?: "Unknown error"
             log("ERROR: ${errorMessage}")
             throwable.printStackTrace()
+            notifyStateChanged()
             onProgressUpdate?.invoke(
                 """{"step":"Error","error":"${escapeJson(errorMessage ?: "Unknown error")}"}"""
             )
@@ -274,9 +379,14 @@ class ObfuscationSession(
     }
 
     private fun emitProgress(step: String, percentage: Int) {
+        notifyStateChanged()
         onProgressUpdate?.invoke(
             """{"step":"${escapeJson(step)}","current":0,"total":$totalSteps,"progress":$percentage,"status":"${status.name}"}"""
         )
+    }
+
+    private fun notifyStateChanged() {
+        onStateChanged?.invoke(this)
     }
 
     private fun normalizeClassName(className: String): String {
@@ -325,5 +435,11 @@ class ObfuscationSession(
 
     private fun escapeJson(value: String): String {
         return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+    }
+
+    private fun resolvePersistedPath(dir: File, fileName: String?): String? {
+        if (fileName.isNullOrBlank()) return null
+        val file = File(dir, fileName).absoluteFile
+        return file.absolutePath.takeIf { file.exists() }
     }
 }

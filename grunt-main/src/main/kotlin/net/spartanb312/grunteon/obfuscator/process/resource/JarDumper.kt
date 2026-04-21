@@ -25,10 +25,23 @@ import java.util.zip.ZipOutputStream
 import kotlin.io.path.*
 
 object JarDumper {
+    private data class PreparedZipEntry(
+        val zipEntry: ZipEntry,
+        val content: ByteArray,
+        val encoded: ByteArray?,
+    )
+
+    private data class FastZipAccess(
+        val varEntries: java.lang.invoke.VarHandle,
+        val varWritten: java.lang.invoke.VarHandle,
+        val xEntryConstructor: java.lang.invoke.MethodHandle,
+    )
+
     @OptIn(ExperimentalCoroutinesApi::class)
     context(instance: Grunteon)
         fun dumpJar(outputFile: Path) {
         val config = instance.obfConfig
+        val zipAccess = this@JarDumper.fastZipAccess
 
         fun checkFileNameRemove(name: String): Boolean {
             return config.fileRemovePrefix.any { name.startsWith(it) }
@@ -95,19 +108,24 @@ object JarDumper {
             fun processZipEntry(
                 entryName: String,
                 byteArray: ByteArray?
-            ): Pair<ZipEntry, ByteArray> {
+            ): PreparedZipEntry {
                 val (resolvedEntryName, resolvedBytes) = remapServiceResource(entryName, byteArray ?: ByteArray(0))
-                val out = ByteArrayOutputStream()
                 val zipEntry = ZipEntry(resolvedEntryName)
                 if (config.removeTimeStamps) zipEntry.time = 0
-                SingleEntryZipOutputStream(out).use { zip ->
-                    // Compression level
-                    zip.setLevel(config.compressionLevel)
-                    zip.putNextEntry(zipEntry)
-                    zip.write(resolvedBytes)
-                    zip.closeEntry()
+                val encoded = if (zipAccess != null) {
+                    val out = ByteArrayOutputStream()
+                    SingleEntryZipOutputStream(out).use { zip ->
+                        // Compression level
+                        zip.setLevel(config.compressionLevel)
+                        zip.putNextEntry(zipEntry)
+                        zip.write(resolvedBytes)
+                        zip.closeEntry()
+                    }
+                    out.toByteArray()
+                } else {
+                    null
                 }
-                return zipEntry to out.toByteArray()
+                return PreparedZipEntry(zipEntry, resolvedBytes, encoded)
             }
 
             val classes = produce(
@@ -183,6 +201,7 @@ object JarDumper {
 
             withContext(Dispatchers.IO) {
                 ZipOutputStream(directOut).use { zipOut ->
+                    zipOut.setLevel(config.compressionLevel)
                     // Archive comment
                     if (config.archiveComment.isNotEmpty()) zipOut.setComment(config.archiveComment)
                     // Corrupt CRC32
@@ -208,15 +227,24 @@ object JarDumper {
                         }
 
                     Logger.info("Writing files...")
-                    @Suppress("UNCHECKED_CAST")
-                    val xEntries = varEntries.get(zipOut) as Vector<Any>
-                    var offset = 0L
-                    for ((zipEntry, bytes) in classes) {
-                        xEntries.add(xEntryConstructor.invoke(zipEntry, offset))
-                        directOut.write(bytes)
-                        offset += bytes.size.toLong()
+                    if (zipAccess != null) {
+                        @Suppress("UNCHECKED_CAST")
+                        val xEntries = zipAccess.varEntries.get(zipOut) as Vector<Any>
+                        var offset = 0L
+                        for ((zipEntry, _, encoded) in classes) {
+                            val bytes = requireNotNull(encoded) { "Fast zip path requires encoded entry bytes" }
+                            xEntries.add(zipAccess.xEntryConstructor.invoke(zipEntry, offset))
+                            directOut.write(bytes)
+                            offset += bytes.size.toLong()
+                        }
+                        zipAccess.varWritten.set(zipOut, offset)
+                    } else {
+                        for ((zipEntry, bytes, _) in classes) {
+                            zipOut.putNextEntry(zipEntry)
+                            zipOut.write(bytes)
+                            zipOut.closeEntry()
+                        }
                     }
-                    varWritten.set(zipOut, offset)
                 }
                 if (config.dumpMappings) {
                     val mappingPath = outputFile.resolveSibling("${outputFile.nameWithoutExtension}.mappings.json")
@@ -236,12 +264,20 @@ object JarDumper {
         }
     }
 
-    private val lookup = ImplLookupGetter.getLookup()
-    private val varEntries = lookup.findVarHandle(ZipOutputStream::class.java, "xentries", Vector::class.java)
-    private val varWritten = lookup.findVarHandle(ZipOutputStream::class.java, "written", Long::class.java)
-    private val xEntryConstructor = lookup.findConstructor(
-        Class.forName("java.util.zip.ZipOutputStream\$XEntry"),
-        MethodType.methodType(Void.TYPE, ZipEntry::class.java, Long::class.java)
-    )
+    private val fastZipAccess by lazy {
+        runCatching {
+            val lookup = ImplLookupGetter.getLookup()
+            FastZipAccess(
+                varEntries = lookup.findVarHandle(ZipOutputStream::class.java, "xentries", Vector::class.java),
+                varWritten = lookup.findVarHandle(ZipOutputStream::class.java, "written", Long::class.java),
+                xEntryConstructor = lookup.findConstructor(
+                    Class.forName("java.util.zip.ZipOutputStream\$XEntry"),
+                    MethodType.methodType(Void.TYPE, ZipEntry::class.java, Long::class.java)
+                )
+            )
+        }.onFailure {
+            Logger.warn("Fast zip writer unavailable, falling back to standard ZipOutputStream path: ${it::class.simpleName}: ${it.message}")
+        }.getOrNull()
+    }
 
 }

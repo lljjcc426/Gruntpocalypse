@@ -1,0 +1,59 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: grunt-back
+  main:
+    banner-mode: console
+  codec:
+    max-in-memory-size: 32MB
+  r2dbc:
+    url: r2dbc:h2:mem:///grunteon-control
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/postgresql/schema.sql
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  health:
+    kafka:
+      enabled: false
+    redis:
+      enabled: false
+
+info:
+  app:
+    name: Grunt Back
+    stack: Spring Boot WebFlux + Security + R2DBC + Redis + Kafka + MinIO + Temporal + OpenTelemetry
+
+grunteon:
+  back:
+    policy:
+      default-profile: SECURE
+      ui-profile: RESEARCH
+      control-plane-name: spring-control-plane
+      worker-plane-name: local-worker-plane
+    integration:
+      temporal-enabled: false
+      kafka-enabled: false
+      redis-enabled: false
+      minio-enabled: false
+      otel-enabled: false
+      download-grant-ttl-seconds: 120
+    storage:
+      session-base-dir: .state/web
+      object-base-dir: .state/object-store

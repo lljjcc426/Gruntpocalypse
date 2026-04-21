@@ -1,0 +1,328 @@
+package net.spartanb312.grunteon.back.controlplane;
+
+import java.io.File;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import net.spartanb312.grunteon.back.controlplane.artifact.ArtifactStore;
+import net.spartanb312.grunteon.back.controlplane.cache.SessionPolicyCache;
+import net.spartanb312.grunteon.back.controlplane.events.TaskEventPublisher;
+import net.spartanb312.grunteon.back.controlplane.orchestration.TaskWorkflowOrchestrator;
+import net.spartanb312.grunteon.back.controlplane.telemetry.ControlPlaneTelemetry;
+import net.spartanb312.grunteon.back.config.BackPolicyProperties;
+import net.spartanb312.grunteon.back.policy.ControlPlanePolicyService;
+import net.spartanb312.grunteon.back.support.ApiSupport;
+import net.spartanb312.grunteon.back.websocket.SessionSocketHub;
+import net.spartanb312.grunteon.back.worker.WorkerGateway;
+import net.spartanb312.grunteon.obfuscator.web.ObfuscationSession;
+import net.spartanb312.grunteon.obfuscator.web.ProjectMeta;
+import net.spartanb312.grunteon.obfuscator.web.ProjectSource;
+import net.spartanb312.grunteon.obfuscator.web.ProjectTree;
+import net.spartanb312.grunteon.obfuscator.web.SessionAccessProfile;
+import net.spartanb312.grunteon.obfuscator.web.SessionService;
+import net.spartanb312.grunteon.obfuscator.web.StartResult;
+import net.spartanb312.grunteon.obfuscator.web.WebBridgeSupport;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class ControlPlaneSessionFacade {
+
+    private final SessionService sessionService;
+    private final ArtifactStore artifactStore;
+    private final WorkerGateway workerGateway;
+    private final SessionSocketHub sessionSocketHub;
+    private final ControlPlanePolicyService policyService;
+    private final BackPolicyProperties policyProperties;
+    private final SessionPolicyCache sessionPolicyCache;
+    private final TaskEventPublisher taskEventPublisher;
+    private final ControlPlaneTelemetry telemetry;
+    private final TaskWorkflowOrchestrator workflowOrchestrator;
+
+    public ControlPlaneSessionFacade(
+        SessionService sessionService,
+        ArtifactStore artifactStore,
+        WorkerGateway workerGateway,
+        SessionSocketHub sessionSocketHub,
+        ControlPlanePolicyService policyService,
+        BackPolicyProperties policyProperties,
+        SessionPolicyCache sessionPolicyCache,
+        TaskEventPublisher taskEventPublisher,
+        ControlPlaneTelemetry telemetry,
+        TaskWorkflowOrchestrator workflowOrchestrator
+    ) {
+        this.sessionService = sessionService;
+        this.artifactStore = artifactStore;
+        this.workerGateway = workerGateway;
+        this.sessionSocketHub = sessionSocketHub;
+        this.policyService = policyService;
+        this.policyProperties = policyProperties;
+        this.sessionPolicyCache = sessionPolicyCache;
+        this.taskEventPublisher = taskEventPublisher;
+        this.telemetry = telemetry;
+        this.workflowOrchestrator = workflowOrchestrator;
+    }
+
+    public Map<String, Object> createSession(String requestedProfile, boolean uiClient) {
+        SessionAccessProfile profile = policyService.resolveProfile(requestedProfile, uiClient);
+        ObfuscationSession session = sessionService.createSession(
+            profile,
+            policyProperties.getControlPlaneName(),
+            policyProperties.getWorkerPlaneName()
+        );
+        sessionPolicyCache.remember(session.getId(), profile);
+        telemetry.record("control.session.create", Map.of("sessionId", session.getId(), "profile", profile.name()));
+        taskEventPublisher.publish("control.session.create", Map.of("sessionId", session.getId(), "profile", profile.name()));
+        Map<String, Object> result = ApiSupport.ok();
+        result.put("sessionId", session.getId());
+        result.put("session", policyService.filterSessionMap(session, ApiSupport.buildStatusResponse(session)));
+        return result;
+    }
+
+    public Map<String, Object> status(String sessionId) {
+        ObfuscationSession session = requireSession(sessionId);
+        return policyService.filterSessionMap(session, ApiSupport.buildStatusResponse(session));
+    }
+
+    public List<String> logs(String sessionId) {
+        return policyService.filterLogs(requireSession(sessionId));
+    }
+
+    public Map<String, Object> configUploaded(String sessionId, String fileName, com.google.gson.JsonObject json) {
+        ObfuscationSession session = requireEditable(sessionId);
+        sessionService.saveConfig(session, json, fileName);
+        byte[] bytes = json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String objectKey = artifactStore.createManagedObjectKey(fileName, "config");
+        artifactStore.putObject(objectKey, bytes);
+        sessionService.linkConfigArtifact(session, objectKey);
+        Map<String, Object> result = ApiSupport.ok();
+        if (session.getAccessProfile().getAllowDetailedLogs()) {
+            result.put("fileName", fileName);
+            result.put("config", ApiSupport.gsonToJava(json));
+        } else {
+            result.put("accepted", true);
+        }
+        result.put("session", policyService.filterSessionMap(session, ApiSupport.buildStatusResponse(session)));
+        return result;
+    }
+
+    public Map<String, Object> inputUploaded(String sessionId, File target) {
+        ObfuscationSession session = requireEditable(sessionId);
+        sessionService.saveInput(session, target);
+        String objectKey = artifactStore.createManagedObjectKey(target.getName(), "input");
+        sessionService.linkInputArtifact(session, storeLocalFile(objectKey, target));
+        Map<String, Object> result = ApiSupport.ok();
+        result.put("classCount", session.getInputClassList() == null ? 0 : session.getInputClassList().size());
+        if (session.getAccessProfile().getAllowDetailedLogs()) {
+            result.put("fileName", target.getName());
+            result.put("classes", session.getInputClassList());
+        }
+        result.put("session", policyService.filterSessionMap(session, ApiSupport.buildStatusResponse(session)));
+        return result;
+    }
+
+    public Map<String, Object> uploadedFiles(String sessionId, List<File> savedFiles, boolean libraries) {
+        ObfuscationSession session = requireEditable(sessionId);
+        if (libraries) {
+            sessionService.saveLibraries(session, savedFiles);
+        } else {
+            sessionService.saveAssets(session, savedFiles);
+        }
+        for (File file : savedFiles) {
+            String kind = libraries ? "asset" : "asset";
+            String objectKey = artifactStore.createManagedObjectKey(file.getName(), kind);
+            storeLocalFile(objectKey, file);
+            if (libraries) {
+                sessionService.linkLibraryArtifact(session, file.getName(), objectKey);
+            } else {
+                sessionService.linkAssetArtifact(session, file.getName(), objectKey);
+            }
+        }
+        Map<String, Object> result = ApiSupport.ok();
+        result.put("count", savedFiles.size());
+        if (session.getAccessProfile().getAllowDetailedLogs()) {
+            result.put("files", libraries ? session.getLibraryNames() : session.getAssetNames());
+        }
+        result.put("session", policyService.filterSessionMap(session, ApiSupport.buildStatusResponse(session)));
+        return result;
+    }
+
+    public Map<String, Object> obfuscate(String sessionId) {
+        ObfuscationSession session = requireSession(sessionId);
+        rehydrateSessionArtifacts(session);
+        sessionSocketHub.attachSessionCallbacks(session);
+        telemetry.record("control.session.obfuscate", Map.of("sessionId", sessionId, "profile", session.getAccessProfile().name()));
+        taskEventPublisher.publish("control.session.obfuscate", Map.of("sessionId", sessionId, "profile", session.getAccessProfile().name()));
+        StartResult result = workflowOrchestrator.startSessionWorkflow(
+            session,
+            () -> {
+                if (session.getStatus() == ObfuscationSession.Status.COMPLETED && session.getOutputJarPath() != null) {
+                    File outputFile = new File(session.getOutputJarPath());
+                    if (outputFile.exists()) {
+                        String outputKey = artifactStore.createManagedObjectKey(outputFile.getName(), "output");
+                        String storedKey = storeLocalFile(outputKey, outputFile);
+                        sessionService.linkOutputArtifact(session, storedKey);
+                    }
+                }
+                return kotlin.Unit.INSTANCE;
+            },
+            null
+        );
+
+        if (result == StartResult.Busy) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Another obfuscation task is already running");
+        }
+        if (result == StartResult.MissingConfig) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No config uploaded");
+        }
+        if (result == StartResult.MissingInput) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No input JAR uploaded");
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "started");
+        return response;
+    }
+
+    public ResponseEntity<Resource> download(String sessionId) {
+        ObfuscationSession session = requireSession(sessionId);
+        String outputPath = session.getOutputJarPath();
+        File file = outputPath == null ? null : new File(outputPath);
+        if ((file == null || !file.exists()) && session.getOutputObjectKey() != null) {
+            file = artifactStore.getObject(session.getOutputObjectKey());
+        }
+        if (file == null || !file.exists()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No output artifact available");
+        }
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + file.getName())
+            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+            .body(new FileSystemResource(file));
+    }
+
+    public Map<String, Object> projectMeta(String sessionId, String scopeValue) {
+        ObfuscationSession session = requireSession(sessionId);
+        ObfuscationSession.ProjectScope scope = parseScope(scopeValue);
+        ProjectMeta meta = workerGateway.projectMeta(session, scope);
+        Map<String, Object> result = ApiSupport.ok();
+        result.put("scope", meta.getScope());
+        result.put("available", meta.getAvailable());
+        result.put("classCount", meta.getClassCount());
+        return result;
+    }
+
+    public Map<String, Object> projectTree(String sessionId, String scopeValue) {
+        ObfuscationSession session = requireSession(sessionId);
+        policyService.requireProjectPreview(session);
+        ObfuscationSession.ProjectScope scope = parseScope(scopeValue);
+        ProjectTree tree;
+        try {
+            tree = workerGateway.projectTree(session, scope);
+        } catch (IllegalStateException exception) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No " + scope.name().toLowerCase() + " class structure available");
+        }
+        Map<String, Object> result = ApiSupport.ok();
+        result.put("scope", tree.getScope());
+        result.put("classCount", tree.getClassCount());
+        result.put("classes", tree.getClasses());
+        return result;
+    }
+
+    public Map<String, Object> projectSource(String sessionId, String scopeValue, String className) {
+        ObfuscationSession session = requireSession(sessionId);
+        policyService.requireSourcePreview(session);
+        ObfuscationSession.ProjectScope scope = parseScope(scopeValue);
+        if (!WebBridgeSupport.isValidClassName(className)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid class name");
+        }
+        ProjectSource source;
+        try {
+            source = workerGateway.projectSource(session, scope, className);
+        } catch (NoSuchElementException exception) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Class not found");
+        } catch (IllegalStateException exception) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No " + scope.name().toLowerCase() + " JAR available");
+        }
+        Map<String, Object> result = ApiSupport.ok();
+        result.put("scope", source.getScope());
+        result.put("class", source.getClassName());
+        result.put("language", source.getLanguage());
+        result.put("code", source.getCode());
+        return result;
+    }
+
+    public ObfuscationSession requireSession(String sessionId) {
+        return ApiSupport.requireSession(sessionService, sessionId);
+    }
+
+    public ObfuscationSession requireEditable(String sessionId) {
+        ObfuscationSession session = requireSession(sessionId);
+        ApiSupport.ensureEditable(session);
+        return session;
+    }
+
+    private ObfuscationSession.ProjectScope parseScope(String scopeValue) {
+        ObfuscationSession.ProjectScope scope = WebBridgeSupport.parseProjectScope(scopeValue);
+        if (scope == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid scope");
+        }
+        return scope;
+    }
+
+    private String storeLocalFile(String objectKey, File file) {
+        try {
+            artifactStore.putObject(objectKey, java.nio.file.Files.readAllBytes(file.toPath()));
+            return objectKey;
+        } catch (java.io.IOException exception) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to externalize artifact");
+        }
+    }
+
+    private void rehydrateSessionArtifacts(ObfuscationSession session) {
+        if ((session.getConfigFilePath() == null || !(new File(session.getConfigFilePath()).exists()))
+            && session.getConfigObjectKey() != null && !session.getConfigObjectKey().isBlank()) {
+            File configFile = artifactStore.getObject(session.getConfigObjectKey());
+            try {
+                String jsonText = java.nio.file.Files.readString(configFile.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                facadeRehydrateConfig(session, configFile.getName(), jsonText);
+            } catch (java.io.IOException exception) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to restore config artifact");
+            }
+        }
+        if ((session.getInputJarPath() == null || !(new File(session.getInputJarPath()).exists()))
+            && session.getInputObjectKey() != null && !session.getInputObjectKey().isBlank()) {
+            File inputFile = artifactStore.getObject(session.getInputObjectKey());
+            sessionService.saveInput(session, inputFile);
+            sessionService.linkInputArtifact(session, session.getInputObjectKey());
+        }
+        session.getLibraryObjectRefs().forEach((fileName, objectKey) -> {
+            File localFile = new File(session.getLibrariesDir(), fileName);
+            if (!localFile.exists()) {
+                File restored = artifactStore.getObject(objectKey);
+                sessionService.saveLibraries(session, java.util.List.of(restored));
+                sessionService.linkLibraryArtifact(session, fileName, objectKey);
+            }
+        });
+        session.getAssetObjectRefs().forEach((fileName, objectKey) -> {
+            File localFile = new File(session.getAssetsDir(), fileName);
+            if (!localFile.exists()) {
+                File restored = artifactStore.getObject(objectKey);
+                sessionService.saveAssets(session, java.util.List.of(restored));
+                sessionService.linkAssetArtifact(session, fileName, objectKey);
+            }
+        });
+    }
+
+    private void facadeRehydrateConfig(ObfuscationSession session, String fileName, String jsonText) {
+        com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(jsonText).getAsJsonObject();
+        sessionService.saveConfig(session, json, fileName);
+        sessionService.linkConfigArtifact(session, session.getConfigObjectKey());
+    }
+}

@@ -26,6 +26,8 @@ This means the project is not just a framework demo. It can be used as:
 
 ## Repository Layout
 
+- `grunt-back`
+  Spring Boot backend shell for replacing the embedded Ktor web layer while reusing the current obfuscation core
 - `grunt-main`
   Main obfuscation core, web backend, transformers, config adapter, tests
 - `grunt-bootstrap`
@@ -160,7 +162,7 @@ Supported capabilities:
 ### 1. Build executable jar
 
 ```powershell
-.\gradlew.bat :grunt-main:jar
+.\gradlew.bat :grunt-main:distJar
 ```
 
 ### 2. Start Web UI
@@ -169,6 +171,14 @@ Use the helper script:
 
 ```powershell
 .\start-web.bat
+```
+
+### 2.1 Start Spring Backend
+
+To launch the new Spring-based backend shell:
+
+```powershell
+.\start-back.bat
 ```
 
 Or specify a port:
@@ -216,7 +226,8 @@ This means:
 - this repository intentionally keeps the old UI experience
 - not every historical 2.x field has been restored to full depth yet
 - major core features are already integrated and usable
-- the current backend is Ktor-based, not Spring-based
+- the repository currently ships both the embedded Ktor backend and the new Spring `grunt-back` shell
+- the Spring backend already serves the retained web UI and task/session APIs on top of the current core
 - the current service-style backend is real and executes the actual obfuscation pipeline
 
 ## Development Validation

@@ -3,6 +3,24 @@
  */
 const API = {
     base: '',
+    sessionProfile: 'RESEARCH',
+    routes: {
+        createSession: '/api/session/create',
+        status: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/status',
+        logs: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/logs',
+        config: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/config',
+        input: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/input',
+        libraries: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/libraries',
+        assets: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/assets',
+        obfuscate: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/obfuscate',
+        download: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/download',
+        projectMeta: (sessionId, scope) => '/api/session/' + encodeURIComponent(sessionId) + '/project/meta?scope=' + encodeURIComponent(scope || 'input'),
+        projectTree: (sessionId, scope) => '/api/session/' + encodeURIComponent(sessionId) + '/project/tree?scope=' + encodeURIComponent(scope || 'input'),
+        projectSource: (sessionId, scope, className) =>
+            '/api/session/' + encodeURIComponent(sessionId) + '/project/source?scope=' + encodeURIComponent(scope || 'input') + '&class=' + encodeURIComponent(className || ''),
+        consoleWs: (sessionId) => '/ws/console?sessionId=' + encodeURIComponent(sessionId),
+        progressWs: (sessionId) => '/ws/progress?sessionId=' + encodeURIComponent(sessionId)
+    },
 
     async requestJson(path, options) {
         const res = await fetch(this.base + path, options);
@@ -46,7 +64,7 @@ const API = {
     },
 
     createSession() {
-        return this.post('/api/session/create', {});
+        return this.post(this.routes.createSession, { profile: this.sessionProfile });
     },
 
     getSchema() {
@@ -54,60 +72,52 @@ const API = {
     },
 
     uploadConfig(sessionId, file) {
-        return this.upload('/api/session/' + encodeURIComponent(sessionId) + '/config', 'file', [file]);
+        return this.upload(this.routes.config(sessionId), 'file', [file]);
     },
 
     uploadInput(sessionId, file) {
-        return this.upload('/api/session/' + encodeURIComponent(sessionId) + '/input', 'file', [file]);
+        return this.upload(this.routes.input(sessionId), 'file', [file]);
     },
 
     uploadLibraries(sessionId, files) {
-        return this.upload('/api/session/' + encodeURIComponent(sessionId) + '/libraries', 'files', files);
+        return this.upload(this.routes.libraries(sessionId), 'files', files);
     },
 
     uploadAssets(sessionId, files) {
-        return this.upload('/api/session/' + encodeURIComponent(sessionId) + '/assets', 'files', files);
+        return this.upload(this.routes.assets(sessionId), 'files', files);
     },
 
     startObfuscation(sessionId) {
-        return this.post('/api/session/' + encodeURIComponent(sessionId) + '/obfuscate', {});
+        return this.post(this.routes.obfuscate(sessionId), {});
     },
 
     getStatus(sessionId) {
-        return this.get('/api/session/' + encodeURIComponent(sessionId) + '/status');
+        return this.get(this.routes.status(sessionId));
     },
 
     getLogs(sessionId) {
-        return this.get('/api/session/' + encodeURIComponent(sessionId) + '/logs');
+        return this.get(this.routes.logs(sessionId));
     },
 
     getDownloadUrl(sessionId) {
-        return this.base + '/api/session/' + encodeURIComponent(sessionId) + '/download';
+        return this.base + this.routes.download(sessionId);
     },
 
     getProjectMeta(sessionId, scope) {
-        const sid = encodeURIComponent(sessionId);
-        const s = encodeURIComponent(scope || 'input');
-        return this.get('/api/session/' + sid + '/project/meta?scope=' + s);
+        return this.get(this.routes.projectMeta(sessionId, scope));
     },
 
     getProjectTree(sessionId, scope) {
-        const sid = encodeURIComponent(sessionId);
-        const s = encodeURIComponent(scope || 'input');
-        return this.get('/api/session/' + sid + '/project/tree?scope=' + s);
+        return this.get(this.routes.projectTree(sessionId, scope));
     },
 
     getProjectSource(sessionId, scope, className) {
-        const sid = encodeURIComponent(sessionId);
-        const s = encodeURIComponent(scope || 'input');
-        const c = encodeURIComponent(className || '');
-        return this.get('/api/session/' + sid + '/project/source?scope=' + s + '&class=' + c);
+        return this.get(this.routes.projectSource(sessionId, scope, className));
     },
 
     connectConsole(sessionId, onMessage) {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const sid = encodeURIComponent(sessionId);
-        const ws = new WebSocket(protocol + '//' + location.host + '/ws/console?sessionId=' + sid);
+        const ws = new WebSocket(protocol + '//' + location.host + this.routes.consoleWs(sessionId));
         ws.onmessage = (event) => {
             try {
                 onMessage(JSON.parse(event.data));
@@ -121,8 +131,7 @@ const API = {
 
     connectProgress(sessionId, onProgress) {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const sid = encodeURIComponent(sessionId);
-        const ws = new WebSocket(protocol + '//' + location.host + '/ws/progress?sessionId=' + sid);
+        const ws = new WebSocket(protocol + '//' + location.host + this.routes.progressWs(sessionId));
         ws.onmessage = (event) => {
             try {
                 onProgress(JSON.parse(event.data));

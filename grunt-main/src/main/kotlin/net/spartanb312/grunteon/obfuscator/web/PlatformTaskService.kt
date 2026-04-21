@@ -10,26 +10,38 @@ import java.util.concurrent.CopyOnWriteArrayList
 class PlatformTaskService(
     private val sessionService: SessionService,
     private val objectStorageService: ObjectStorageService,
-    private val obfuscationService: ObfuscationService
+    private val obfuscationService: ObfuscationService,
+    private val taskMetadataStore: TaskMetadataStore = NoOpTaskMetadataStore,
+    private val artifactMetadataStore: ArtifactMetadataStore = NoOpArtifactMetadataStore,
+    private val taskMetadataQuery: TaskMetadataQuery = NoOpTaskMetadataQuery
 ) {
     private val tasks = ConcurrentHashMap<String, PlatformTaskRecord>()
 
-    fun createTask(projectName: String, inputObjectKey: String, configObjectKey: String?): PlatformTaskRecord {
+    fun createTask(
+        projectName: String,
+        inputObjectKey: String,
+        configObjectKey: String?,
+        accessProfile: SessionAccessProfile = SessionAccessProfile.SECURE
+    ): PlatformTaskRecord {
         val id = UUID.randomUUID().toString()
         val record = PlatformTaskRecord(
             id = id,
             projectName = projectName,
             inputObjectKey = inputObjectKey,
-            configObjectKey = configObjectKey
+            configObjectKey = configObjectKey,
+            accessProfile = accessProfile
         )
         tasks[id] = record
         record.message = "Task created"
+        bindArtifact(record.inputObjectKey, record.id, "INPUT")
+        record.configObjectKey?.let { bindArtifact(it, record.id, "CONFIG") }
         touch(record)
         return record
     }
 
     fun getTask(taskId: String): PlatformTaskRecord {
-        val task = requireNotNull(tasks[taskId]) { "Task not found" }
+        val task = tasks[taskId]
+        requireNotNull(task) { "Task not found" }
         refreshFromSession(task)
         return task
     }
@@ -44,14 +56,20 @@ class PlatformTaskService(
         require(task.status == TaskStatus.CREATED || task.status == TaskStatus.FAILED) { "Task is not in a startable state" }
 
         val inputFile = objectStorageService.getObject(task.inputObjectKey)
-        val session = sessionService.createSession()
+        val session = sessionService.createSession(
+            accessProfile = task.accessProfile,
+            controlPlane = "platform-task-control",
+            workerPlane = "local-worker"
+        )
         sessionService.saveInput(session, inputFile)
+        sessionService.linkInputArtifact(session, task.inputObjectKey)
 
         val configJson = task.configObjectKey
             ?.let { key -> objectStorageService.getObject(key).readText(Charsets.UTF_8) }
             ?.let { text -> com.google.gson.JsonParser.parseString(text).asJsonObject }
             ?: JsonObject()
         sessionService.saveConfig(session, configJson, "config.json")
+        sessionService.linkConfigArtifact(session, task.configObjectKey)
 
         task.sessionId = session.id
         task.status = TaskStatus.RUNNING
@@ -85,11 +103,13 @@ class PlatformTaskService(
 
         when (obfuscationService.start(session, config, onFinish = {
             if (session.status == ObfuscationSession.Status.COMPLETED && session.outputJarPath != null) {
-                val outputKey = "output/${task.id}/artifact-obf.jar"
                 val outputFile = File(session.outputJarPath!!)
                 if (outputFile.exists()) {
+                    val outputKey = objectStorageService.createOutputObjectKey(task.id, outputFile.name)
                     objectStorageService.putObject(outputKey, outputFile.readBytes())
                     task.outputObjectKey = outputKey
+                    sessionService.linkOutputArtifact(session, outputKey)
+                    bindArtifact(outputKey, task.id, "OUTPUT")
                     task.status = TaskStatus.COMPLETED
                     task.progress = 100
                     task.currentStage = "Completed"
@@ -132,6 +152,14 @@ class PlatformTaskService(
         return getTask(taskId).logs.toList()
     }
 
+    fun preloadPersistedTasks() {
+        taskMetadataQuery.loadTasks().forEach(::restoreTask)
+    }
+
+    fun listTaskIds(): List<String> {
+        return tasks.keys().toList()
+    }
+
     private fun extractJsonField(payload: String, key: String): String? {
         val marker = "\"$key\":\""
         val stringIndex = payload.indexOf(marker)
@@ -152,6 +180,7 @@ class PlatformTaskService(
 
     private fun touch(task: PlatformTaskRecord) {
         task.updatedAt = Instant.now().toString()
+        taskMetadataStore.saveTask(task)
     }
 
     private fun refreshFromSession(task: PlatformTaskRecord) {
@@ -207,6 +236,37 @@ class PlatformTaskService(
             message = message
         )
     }
+
+    private fun bindArtifact(objectKey: String, taskId: String, ownerRole: String) {
+        artifactMetadataStore.bindArtifact(
+            objectKey = objectKey,
+            ownerType = "TASK",
+            ownerId = taskId,
+            ownerRole = ownerRole
+        )
+    }
+
+    private fun restoreTask(state: PersistedTaskState): PlatformTaskRecord {
+        return tasks.computeIfAbsent(state.taskId) {
+            PlatformTaskRecord(
+                id = state.taskId,
+                projectName = state.projectName,
+                inputObjectKey = state.inputObjectKey,
+                configObjectKey = state.configObjectKey,
+                accessProfile = SessionAccessProfile.parseOrNull(state.policyMode) ?: SessionAccessProfile.SECURE,
+                createdAt = state.createdAt,
+                updatedAt = state.updatedAt,
+                sessionId = state.sessionId,
+                outputObjectKey = state.outputObjectKey,
+                status = runCatching { TaskStatus.valueOf(state.status) }.getOrElse { TaskStatus.CREATED },
+                currentStage = state.currentStage,
+                progress = state.progress,
+                message = state.message,
+                logs = CopyOnWriteArrayList(state.logs),
+                stages = CopyOnWriteArrayList(state.stages)
+            )
+        }
+    }
 }
 
 data class PlatformTaskRecord(
@@ -214,6 +274,7 @@ data class PlatformTaskRecord(
     val projectName: String,
     val inputObjectKey: String,
     val configObjectKey: String?,
+    val accessProfile: SessionAccessProfile = SessionAccessProfile.SECURE,
     val createdAt: String = Instant.now().toString(),
     var updatedAt: String = Instant.now().toString(),
     var sessionId: String? = null,

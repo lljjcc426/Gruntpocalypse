@@ -1,0 +1,64 @@
+server:
+  port: 8080
+
+spring:
+  r2dbc:
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://postgres:5432/grunteon}
+    username: ${SPRING_R2DBC_USERNAME:grunteon}
+    password: ${SPRING_R2DBC_PASSWORD:grunteon}
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/postgresql/schema.sql
+  data:
+    redis:
+      repositories:
+        enabled: false
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    admin:
+      fail-fast: true
+
+management:
+  health:
+    kafka:
+      enabled: true
+    redis:
+      enabled: true
+
+grunteon:
+  back:
+    policy:
+      default-profile: ${GRUNT_BACK_DEFAULT_PROFILE:SECURE}
+      ui-profile: ${GRUNT_BACK_UI_PROFILE:RESEARCH}
+      control-plane-name: ${GRUNT_BACK_CONTROL_PLANE_NAME:docker-control-plane}
+      worker-plane-name: ${GRUNT_BACK_WORKER_PLANE_NAME:docker-worker-plane}
+    integration:
+      temporal-enabled: ${GRUNT_BACK_TEMPORAL_ENABLED:false}
+      kafka-enabled: ${GRUNT_BACK_KAFKA_ENABLED:true}
+      redis-enabled: ${GRUNT_BACK_REDIS_ENABLED:true}
+      minio-enabled: ${GRUNT_BACK_MINIO_ENABLED:true}
+      otel-enabled: ${GRUNT_BACK_OTEL_ENABLED:false}
+      download-grant-ttl-seconds: ${GRUNT_BACK_DOWNLOAD_GRANT_TTL_SECONDS:120}
+    infrastructure:
+      fail-fast: ${GRUNT_BACK_INFRA_FAIL_FAST:true}
+      minio:
+        endpoint: ${GRUNT_BACK_MINIO_ENDPOINT:http://minio:9000}
+        access-key: ${GRUNT_BACK_MINIO_ACCESS_KEY:grunteon}
+        secret-key: ${GRUNT_BACK_MINIO_SECRET_KEY:grunteon123}
+        bucket: ${GRUNT_BACK_MINIO_BUCKET:grunteon-artifacts}
+        region: ${GRUNT_BACK_MINIO_REGION:us-east-1}
+      kafka-topics:
+        - control.session.create
+        - control.session.obfuscate
+        - control.task.create
+        - control.task.start
+    storage:
+      session-base-dir: ${GRUNT_BACK_SESSION_BASE_DIR:/app/.state/web}
+      object-base-dir: ${GRUNT_BACK_OBJECT_BASE_DIR:/app/.state/object-store}

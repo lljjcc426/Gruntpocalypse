@@ -16,6 +16,8 @@ output.jar
 .playwright-cli/
 .vscode/
 config.json
+.env.platform
+.tmp-smoke/
 *.pid
 *.out.log
 *.err.log
