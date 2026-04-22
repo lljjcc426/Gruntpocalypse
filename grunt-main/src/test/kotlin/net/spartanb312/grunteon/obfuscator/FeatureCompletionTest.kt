@@ -26,6 +26,7 @@ import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.TableSwitchInsnNode
 import java.nio.file.Files
 import java.nio.file.Path
+import java.net.URLClassLoader
 import java.util.jar.JarFile
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
@@ -375,6 +376,134 @@ class FeatureCompletionTest {
             branchMethod.instructions.toArray().any { it is LookupSwitchInsnNode },
             "Controlflow 鎼存柨鐨?null/object compare 鏉烆剚鍨?lookup switch bridge"
         )
+    }
+
+    @Test
+    fun controlflowBuilderPreservesRuntimeBranchSemantics() {
+        val inputJar = compileJar(
+            "sample/FlowRuntimeSample.java" to """
+                package sample;
+                public class FlowRuntimeSample {
+                    public static int branch(int value) {
+                        if (value > 5) return value + 1;
+                        return value - 1;
+                    }
+                }
+            """.trimIndent()
+        )
+        val outputJar = Files.createTempFile("grunteon-controlflow-runtime-builder", ".jar")
+        val instance = Grunteon.create(
+            ObfConfig(
+                input = inputJar.pathString,
+                output = outputJar.pathString,
+                transformerConfigs = listOf(
+                    Controlflow.Config(
+                        intensity = 2,
+                        bogusConditionJump = true,
+                        tableSwitchJump = true,
+                        mangledCompareJump = true,
+                        arithmeticExprBuilder = true,
+                        junkBuilderParameter = true,
+                        builderNativeAnnotation = true
+                    )
+                )
+            )
+        )
+
+        instance.execute()
+
+        assertEquals(3, invokeStatic(outputJar, "sample.FlowRuntimeSample", "branch", 4) as Int)
+        assertEquals(8, invokeStatic(outputJar, "sample.FlowRuntimeSample", "branch", 7) as Int)
+    }
+
+    @Test
+    fun controlflowCompareJumpBridgesPreserveRuntimeResults() {
+        val inputJar = compileJar(
+            "sample/CompareRuntimeSample.java" to """
+                package sample;
+                public class CompareRuntimeSample {
+                    public static int branch(int left, int right) {
+                        if (left > right) {
+                            return left - right;
+                        }
+                        return right - left;
+                    }
+                }
+            """.trimIndent()
+        )
+        val outputJar = Files.createTempFile("grunteon-controlflow-runtime-compare", ".jar")
+        val instance = Grunteon.create(
+            ObfConfig(
+                input = inputJar.pathString,
+                output = outputJar.pathString,
+                transformerConfigs = listOf(
+                    Controlflow.Config(
+                        intensity = 1,
+                        bogusConditionJump = false,
+                        switchExtractor = false,
+                        switchProtect = false,
+                        mutateJumps = false,
+                        tableSwitchJump = true,
+                        switchReplaceRate = 100,
+                        mangledCompareJump = true,
+                        ifReplaceRate = 100,
+                        ifICompareReplaceRate = 100,
+                        junkCode = true,
+                        trappedSwitchCase = true
+                    )
+                )
+            )
+        )
+
+        instance.execute()
+
+        assertEquals(4, invokeStatic(outputJar, "sample.CompareRuntimeSample", "branch", 9, 5) as Int)
+        assertEquals(3, invokeStatic(outputJar, "sample.CompareRuntimeSample", "branch", 2, 5) as Int)
+    }
+
+    @Test
+    fun controlflowNullChecksPreserveRuntimeResults() {
+        val inputJar = compileJar(
+            "sample/LookupRuntimeSample.java" to """
+                package sample;
+                public class LookupRuntimeSample {
+                    public static int branch(String value) {
+                        if (value != null) {
+                            return value.length();
+                        }
+                        return 0;
+                    }
+                }
+            """.trimIndent()
+        )
+        val outputJar = Files.createTempFile("grunteon-controlflow-runtime-lookup", ".jar")
+        val instance = Grunteon.create(
+            ObfConfig(
+                input = inputJar.pathString,
+                output = outputJar.pathString,
+                transformerConfigs = listOf(
+                    Controlflow.Config(
+                        intensity = 1,
+                        bogusConditionJump = false,
+                        switchExtractor = false,
+                        switchProtect = false,
+                        mutateJumps = false,
+                        tableSwitchJump = true,
+                        switchReplaceRate = 100,
+                        mangledCompareJump = true,
+                        ifReplaceRate = 100,
+                        ifICompareReplaceRate = 100,
+                        junkCode = true,
+                        trappedSwitchCase = true
+                    )
+                )
+            )
+        )
+
+        instance.execute()
+
+        assertEquals(0, invokeStatic(outputJar, "sample.LookupRuntimeSample", "branch", null) as Int)
+        assertEquals(6, invokeStatic(outputJar, "sample.LookupRuntimeSample", "branch", "sample") as Int)
     }
 
     @Test
@@ -1060,5 +1189,16 @@ class FeatureCompletionTest {
                 ldc.cst as? String
             }
             .toSet()
+    }
+
+    private fun invokeStatic(jar: Path, className: String, methodName: String, vararg args: Any?): Any? {
+        URLClassLoader(arrayOf(jar.toUri().toURL()), javaClass.classLoader).use { loader ->
+            val klass = loader.loadClass(className)
+            val method = klass.declaredMethods.firstOrNull {
+                it.name == methodName && it.parameterCount == args.size
+            }
+            assertNotNull(method, "找不到方法 $className#$methodName/${args.size}")
+            return method.invoke(null, *args)
+        }
     }
 }
