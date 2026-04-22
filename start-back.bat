@@ -4,18 +4,18 @@ setlocal
 set "SCRIPT_DIR=%~dp0"
 
 echo Loading Grunt backend environment...
-powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\use-grunt-env.ps1"
-if errorlevel 1 exit /b %errorlevel%
+set "ENV_FILE=%TEMP%\grunteon-env-%RANDOM%.cmd"
+powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\use-grunt-env.ps1" -EmitBatch > "%ENV_FILE%"
+if errorlevel 1 (
+    if exist "%ENV_FILE%" del "%ENV_FILE%"
+    exit /b %errorlevel%
+)
+call "%ENV_FILE%"
+del "%ENV_FILE%" >nul 2>nul
 
 echo.
 echo Starting Spring Boot backend...
 echo.
-
-set "JAVA_HOME=C:\Users\zyc\dev-tools\microsoft-jdk-21\jdk-21.0.7+6"
-set "MAVEN_HOME=C:\Users\zyc\dev-tools\apache-maven-3.9.11\apache-maven-3.9.11"
-set "GRADLE_USER_HOME=D:\dev-cache\gradle"
-set "MAVEN_OPTS=%MAVEN_OPTS% -Dmaven.repo.local=D:\dev-cache\maven"
-set "PATH=%JAVA_HOME%\bin;%MAVEN_HOME%\bin;%PATH%"
 
 set "BOOT_ARGS="
 if not "%~1"=="" (

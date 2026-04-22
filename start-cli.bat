@@ -18,7 +18,7 @@ if "%~1"=="" (
     echo.
     echo Usage:
     echo     start-cli.bat config.json
-    echo     start-cli.bat D:\path\to\config.json
+    echo     start-cli.bat path\to\config.json
     exit /b 1
 )
 

@@ -5,11 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not $env:JAVA_HOME) {
-    $jdk = "C:\Users\zyc\dev-tools\microsoft-jdk-21\jdk-21.0.7+6"
-    if (Test-Path $jdk) {
-        $env:JAVA_HOME = $jdk
-        $env:PATH = "$jdk\bin;$env:PATH"
-    }
+    . (Join-Path $PSScriptRoot "use-grunt-env.ps1")
 }
 
 $stdoutLog = "grunt-back-smoke-state.out.log"

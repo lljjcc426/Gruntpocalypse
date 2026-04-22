@@ -606,10 +606,13 @@ The project currently expects Java 21.
 
 ### Cache locations
 
-This repository is configured to avoid reusing `C:` for large Gradle/Maven caches:
+The repository helper scripts support a dedicated cache root via environment variables:
 
-- Gradle cache: `D:\dev-cache\gradle`
-- Maven local repo: `D:\dev-cache\maven`
+- `GRUNTEON_CACHE_ROOT`
+- `GRADLE_USER_HOME`
+- `MAVEN_OPTS` with `-Dmaven.repo.local=...`
+
+By default, `tools/use-grunt-env.ps1` resolves a user-local cache directory and can be overridden for a dedicated data drive in local development.
 
 ### Frontend development note
 

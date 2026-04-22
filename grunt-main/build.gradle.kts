@@ -50,9 +50,9 @@ val mirroredTestRuntimeRoot = providers
     .orElse(providers.environmentVariable("GRUNTEON_TEST_RUNTIME_ROOT"))
     .orElse(
         run {
-            val windowsDevCache = File("D:/dev-cache/grunteon-test-runtime")
-            val defaultRoot = if (windowsDevCache.parentFile.exists() || windowsDevCache.parentFile.mkdirs()) {
-                windowsDevCache
+            val preferredRoot = File(gradle.gradleUserHomeDir, "grunteon-test-runtime")
+            val defaultRoot = if (preferredRoot.parentFile.exists() || preferredRoot.parentFile.mkdirs()) {
+                preferredRoot
             } else {
                 File(System.getProperty("java.io.tmpdir"), "grunteon-test-runtime")
             }

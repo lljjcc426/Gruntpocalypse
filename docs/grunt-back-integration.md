@@ -2,20 +2,28 @@
 
 ## Local environment prepared
 
-The current workstation has been prepared with:
-
-- JDK 21: `C:\Users\zyc\dev-tools\microsoft-jdk-21\jdk-21.0.7+6`
-- Maven 3.9.11: `C:\Users\zyc\dev-tools\apache-maven-3.9.11\apache-maven-3.9.11`
-
-Project helper script:
+The repository ships with a local environment helper:
 
 - `tools/use-grunt-env.ps1`
 
-Run it before local development if the shell is still pointing at an older Java:
+It resolves:
+
+- JDK 21
+- Maven 3.9.x
+- local Gradle and Maven cache roots
+
+Recommended usage:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\use-grunt-env.ps1
 ```
+
+Optional overrides:
+
+- `GRUNTEON_TOOLS_ROOT`
+- `GRUNTEON_JAVA_HOME`
+- `GRUNTEON_MAVEN_HOME`
+- `GRUNTEON_CACHE_ROOT`
 
 ## What grunt-back is in the old repository
 
