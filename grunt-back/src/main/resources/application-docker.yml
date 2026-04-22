@@ -34,11 +34,32 @@ management:
 
 grunteon:
   back:
+    runtime:
+      mode: ${GRUNT_BACK_RUNTIME_MODE:control}
+    auth:
+      users:
+        - username: ${GRUNT_BACK_USER_USERNAME:user}
+          password: ${GRUNT_BACK_USER_PASSWORD:grunteon-user}
+          roles:
+            - USER
+        - username: ${GRUNT_BACK_PLATFORM_ADMIN_USERNAME:platform-admin}
+          password: ${GRUNT_BACK_PLATFORM_ADMIN_PASSWORD:grunteon-platform-admin}
+          roles:
+            - PLATFORM_ADMIN
+        - username: ${GRUNT_BACK_SUPER_ADMIN_USERNAME:super-admin}
+          password: ${GRUNT_BACK_SUPER_ADMIN_PASSWORD:grunteon-super-admin}
+          roles:
+            - SUPER_ADMIN
     policy:
       default-profile: ${GRUNT_BACK_DEFAULT_PROFILE:SECURE}
       ui-profile: ${GRUNT_BACK_UI_PROFILE:RESEARCH}
       control-plane-name: ${GRUNT_BACK_CONTROL_PLANE_NAME:docker-control-plane}
       worker-plane-name: ${GRUNT_BACK_WORKER_PLANE_NAME:docker-worker-plane}
+    worker:
+      mode: ${GRUNT_BACK_WORKER_MODE:local}
+      remote:
+        base-url: ${GRUNT_BACK_WORKER_REMOTE_BASE_URL:http://worker:8080}
+        shared-secret: ${GRUNT_BACK_WORKER_SHARED_SECRET:}
     integration:
       temporal-enabled: ${GRUNT_BACK_TEMPORAL_ENABLED:false}
       kafka-enabled: ${GRUNT_BACK_KAFKA_ENABLED:true}

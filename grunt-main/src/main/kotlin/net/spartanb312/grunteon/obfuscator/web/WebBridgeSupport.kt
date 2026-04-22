@@ -23,6 +23,7 @@ object WebBridgeSupport {
         return linkedMapOf(
             "status" to session.status.name,
             "sessionId" to session.id,
+            "ownerUsername" to session.ownerUsername,
             "currentStep" to session.currentStep,
             "progress" to session.progress,
             "totalSteps" to session.totalSteps,
@@ -60,6 +61,7 @@ object WebBridgeSupport {
         return linkedMapOf(
             "status" to state.status,
             "sessionId" to state.sessionId,
+            "ownerUsername" to state.ownerUsername,
             "currentStep" to state.currentStep,
             "progress" to state.progress,
             "totalSteps" to state.totalSteps,
@@ -95,6 +97,7 @@ object WebBridgeSupport {
     fun buildTaskMap(task: PlatformTaskRecord, sessionService: SessionService): Map<String, Any?> {
         val base = linkedMapOf<String, Any?>(
             "id" to task.id,
+            "ownerUsername" to task.ownerUsername,
             "projectName" to task.projectName,
             "inputObjectKey" to task.inputObjectKey,
             "configObjectKey" to task.configObjectKey,
@@ -130,6 +133,7 @@ object WebBridgeSupport {
     fun buildTaskMap(task: PersistedTaskState, session: PersistedSessionState?): Map<String, Any?> {
         val base = linkedMapOf<String, Any?>(
             "id" to task.taskId,
+            "ownerUsername" to task.ownerUsername,
             "projectName" to task.projectName,
             "inputObjectKey" to task.inputObjectKey,
             "configObjectKey" to task.configObjectKey,

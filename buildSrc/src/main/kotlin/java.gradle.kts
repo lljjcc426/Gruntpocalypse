@@ -1,5 +1,7 @@
 package buildsrc.convention
 
+import org.gradle.api.tasks.testing.Test
+
 group = "net.spartanb312"
 
 plugins {
@@ -32,5 +34,6 @@ tasks {
 }
 
 tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
     jvmArgs("--enable-preview")
 }

@@ -4,9 +4,8 @@ FROM ${JAVA_IMAGE}
 
 WORKDIR /app
 
-COPY grunt-main/build/libs/grunt-main-all.jar /app/grunt-main-all.jar
+COPY grunt-back/build/libs/grunt-back.jar /app/grunt-back.jar
 
-EXPOSE 8081
+EXPOSE 8080
 
-ENTRYPOINT ["java", "--enable-preview", "-jar", "/app/grunt-main-all.jar"]
-CMD ["--web", "--port=8081"]
+ENTRYPOINT ["java", "--enable-preview", "-jar", "/app/grunt-back.jar"]

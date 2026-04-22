@@ -6,11 +6,9 @@ services:
     image: grunteon/grunt-back:local
     restart: unless-stopped
     ports:
-      - "${GRUNT_BACK_HTTP_PORT:-8080}:8080"
+      - "${GRUNT_BACK_HTTP_PORT:-8082}:8080"
     environment:
       SPRING_PROFILES_ACTIVE: ${GRUNT_BACK_SPRING_PROFILE:-docker}
-      SPRING_SECURITY_USER_NAME: ${GRUNT_BACK_SECURITY_USER:-admin}
-      SPRING_SECURITY_USER_PASSWORD: ${GRUNT_BACK_SECURITY_PASSWORD:-change-me}
       SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/${POSTGRES_DB:-grunteon}
       SPRING_R2DBC_USERNAME: ${POSTGRES_USER:-grunteon}
       SPRING_R2DBC_PASSWORD: ${POSTGRES_PASSWORD:-grunteon}
@@ -20,8 +18,18 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       GRUNT_BACK_DEFAULT_PROFILE: ${GRUNT_BACK_DEFAULT_PROFILE:-SECURE}
       GRUNT_BACK_UI_PROFILE: ${GRUNT_BACK_UI_PROFILE:-RESEARCH}
+      GRUNT_BACK_RUNTIME_MODE: ${GRUNT_BACK_RUNTIME_MODE:-control}
       GRUNT_BACK_CONTROL_PLANE_NAME: ${GRUNT_BACK_CONTROL_PLANE_NAME:-docker-control-plane}
       GRUNT_BACK_WORKER_PLANE_NAME: ${GRUNT_BACK_WORKER_PLANE_NAME:-docker-worker-plane}
+      GRUNT_BACK_USER_USERNAME: ${GRUNT_BACK_USER_USERNAME:-user}
+      GRUNT_BACK_USER_PASSWORD: ${GRUNT_BACK_USER_PASSWORD:-grunteon-user}
+      GRUNT_BACK_PLATFORM_ADMIN_USERNAME: ${GRUNT_BACK_PLATFORM_ADMIN_USERNAME:-platform-admin}
+      GRUNT_BACK_PLATFORM_ADMIN_PASSWORD: ${GRUNT_BACK_PLATFORM_ADMIN_PASSWORD:-grunteon-platform-admin}
+      GRUNT_BACK_SUPER_ADMIN_USERNAME: ${GRUNT_BACK_SUPER_ADMIN_USERNAME:-super-admin}
+      GRUNT_BACK_SUPER_ADMIN_PASSWORD: ${GRUNT_BACK_SUPER_ADMIN_PASSWORD:-grunteon-super-admin}
+      GRUNT_BACK_WORKER_MODE: ${GRUNT_BACK_WORKER_MODE:-remote}
+      GRUNT_BACK_WORKER_REMOTE_BASE_URL: ${GRUNT_BACK_WORKER_REMOTE_BASE_URL:-http://worker:8080}
+      GRUNT_BACK_WORKER_SHARED_SECRET: ${GRUNT_BACK_WORKER_SHARED_SECRET:-grunteon-worker-secret}
       GRUNT_BACK_KAFKA_ENABLED: ${GRUNT_BACK_KAFKA_ENABLED:-true}
       GRUNT_BACK_REDIS_ENABLED: ${GRUNT_BACK_REDIS_ENABLED:-true}
       GRUNT_BACK_MINIO_ENABLED: ${GRUNT_BACK_MINIO_ENABLED:-true}
@@ -60,14 +68,57 @@ services:
       dockerfile: docker/grunt-worker.Dockerfile
     image: grunteon/grunt-worker:local
     restart: unless-stopped
-    command:
-      - --web
-      - --port=${WORKER_HTTP_PORT:-8081}
+    environment:
+      SPRING_PROFILES_ACTIVE: ${WORKER_SPRING_PROFILE:-docker}
+      SERVER_PORT: 8080
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/${POSTGRES_DB:-grunteon}
+      SPRING_R2DBC_USERNAME: ${POSTGRES_USER:-grunteon}
+      SPRING_R2DBC_PASSWORD: ${POSTGRES_PASSWORD:-grunteon}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      GRUNT_BACK_PLATFORM_ADMIN_USERNAME: ${WORKER_PLATFORM_ADMIN_USERNAME:-worker}
+      GRUNT_BACK_PLATFORM_ADMIN_PASSWORD: ${WORKER_PLATFORM_ADMIN_PASSWORD:-worker-dev-only}
+      GRUNT_BACK_RUNTIME_MODE: ${WORKER_RUNTIME_MODE:-worker}
+      GRUNT_BACK_WORKER_MODE: local
+      GRUNT_BACK_WORKER_SHARED_SECRET: ${GRUNT_BACK_WORKER_SHARED_SECRET:-grunteon-worker-secret}
+      GRUNT_BACK_DEFAULT_PROFILE: ${WORKER_DEFAULT_PROFILE:-SECURE}
+      GRUNT_BACK_UI_PROFILE: ${WORKER_UI_PROFILE:-RESEARCH}
+      GRUNT_BACK_CONTROL_PLANE_NAME: ${WORKER_CONTROL_PLANE_NAME:-docker-control-plane}
+      GRUNT_BACK_WORKER_PLANE_NAME: ${WORKER_WORKER_PLANE_NAME:-docker-worker-plane}
+      GRUNT_BACK_KAFKA_ENABLED: ${WORKER_KAFKA_ENABLED:-true}
+      GRUNT_BACK_REDIS_ENABLED: ${WORKER_REDIS_ENABLED:-true}
+      GRUNT_BACK_MINIO_ENABLED: ${WORKER_MINIO_ENABLED:-true}
+      GRUNT_BACK_TEMPORAL_ENABLED: ${WORKER_TEMPORAL_ENABLED:-false}
+      GRUNT_BACK_OTEL_ENABLED: ${WORKER_OTEL_ENABLED:-false}
+      GRUNT_BACK_DOWNLOAD_GRANT_TTL_SECONDS: ${WORKER_DOWNLOAD_GRANT_TTL_SECONDS:-120}
+      GRUNT_BACK_INFRA_FAIL_FAST: ${WORKER_INFRA_FAIL_FAST:-true}
+      GRUNT_BACK_MINIO_ENDPOINT: ${GRUNT_BACK_MINIO_ENDPOINT:-http://minio:9000}
+      GRUNT_BACK_MINIO_ACCESS_KEY: ${GRUNT_BACK_MINIO_ACCESS_KEY:-grunteon}
+      GRUNT_BACK_MINIO_SECRET_KEY: ${GRUNT_BACK_MINIO_SECRET_KEY:-grunteon123}
+      GRUNT_BACK_MINIO_BUCKET: ${GRUNT_BACK_MINIO_BUCKET:-grunteon-artifacts}
+      GRUNT_BACK_MINIO_REGION: ${GRUNT_BACK_MINIO_REGION:-us-east-1}
+      GRUNT_BACK_SESSION_BASE_DIR: /app/.state/web
+      GRUNT_BACK_OBJECT_BASE_DIR: /app/.state/object-store
     volumes:
       - grunt-worker-state:/app/.state
       - grunt-worker-logs:/app/logs
       - grunt-worker-modules:/app/modules
       - grunt-worker-plugins:/app/plugins
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     networks:
       - platform
 

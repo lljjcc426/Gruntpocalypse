@@ -156,7 +156,8 @@
                         </button>
                     </div>
 
-                    <form class="auth-form active" data-tab-content="signin" data-tier="basic">
+                    <form class="auth-form active" data-tab-content="signin" data-tier="user">
+                        <div class="auth-feedback" id="auth-feedback" aria-live="polite" style="display:none;"></div>
                         <div class="field-block">
                             <label for="username">USERNAME</label>
                             <div class="field-shell">
@@ -166,7 +167,7 @@
                                         <path d="M4 20C4.95342 16.9464 7.98346 15 12 15C16.0165 15 19.0466 16.9464 20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                                     </svg>
                                 </span>
-                                <input id="username" type="text" placeholder="admin@gruntpocalypse.com" autocomplete="username">
+                                <input id="username" type="text" placeholder="user / platform-admin / super-admin" autocomplete="username">
                             </div>
                         </div>
 
@@ -179,7 +180,7 @@
                                         <rect x="5" y="11" width="15" height="10" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
                                     </svg>
                                 </span>
-                                <input id="password" type="password" placeholder="Enter your secure password" autocomplete="current-password">
+                                <input id="password" type="password" placeholder="Enter your workspace password" autocomplete="current-password">
                                 <button class="field-toggle" type="button" data-password-toggle aria-label="Show password">
                                     <svg viewBox="0 0 24 24" fill="none">
                                         <path d="M2 12C4.4 7.8 7.73333 5.7 12 5.7C16.2667 5.7 19.6 7.8 22 12C19.6 16.2 16.2667 18.3 12 18.3C7.73333 18.3 4.4 16.2 2 12Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
@@ -202,12 +203,12 @@
                             <span class="submit-arrow" aria-hidden="true">&rsaquo;</span>
                         </button>
 
-                        <button class="auth-secondary" type="button" data-direct-tier="pro">
-                            Try Pro
+                        <button class="auth-secondary" type="button" data-direct-tier="super-admin">
+                            Open Super Admin Console
                         </button>
                     </form>
 
-                    <form class="auth-form" data-tab-content="signup" data-tier="basic">
+                    <form class="auth-form" data-tab-content="signup" data-tier="user">
                         <div class="field-block">
                             <label for="signup-name">DISPLAY NAME</label>
                             <div class="field-shell">
@@ -253,7 +254,7 @@
                             </div>
                         </div>
 
-                        <p class="cdk-tip">Create a standard workspace account first. You can still jump into the pro interface with the dedicated button above.</p>
+                        <p class="cdk-tip">Create a standard workspace account first. Higher-privilege consoles are still available after authenticating with the matching administrator role.</p>
 
                         <button class="auth-submit" type="submit">
                             <span>Create Account</span>

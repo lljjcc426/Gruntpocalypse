@@ -59,6 +59,7 @@ ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS control_task_state (
     task_id VARCHAR(128) PRIMARY KEY,
+    owner_username VARCHAR(128),
     project_name VARCHAR(255) NOT NULL,
     input_object_key VARCHAR(512) NOT NULL,
     config_object_key VARCHAR(512),
@@ -81,9 +82,11 @@ CREATE TABLE IF NOT EXISTS control_task_state (
 ALTER TABLE control_task_state ADD COLUMN IF NOT EXISTS recovery_previous_status VARCHAR(32);
 ALTER TABLE control_task_state ADD COLUMN IF NOT EXISTS recovery_reason VARCHAR(128);
 ALTER TABLE control_task_state ADD COLUMN IF NOT EXISTS recovered_at VARCHAR(64);
+ALTER TABLE control_task_state ADD COLUMN IF NOT EXISTS owner_username VARCHAR(128);
 
 CREATE TABLE IF NOT EXISTS control_session_state (
     session_id VARCHAR(128) PRIMARY KEY,
+    owner_username VARCHAR(128),
     policy_mode VARCHAR(32) NOT NULL,
     control_plane VARCHAR(128) NOT NULL,
     worker_plane VARCHAR(128) NOT NULL,
@@ -105,6 +108,8 @@ CREATE TABLE IF NOT EXISTS control_session_state (
     created_at VARCHAR(64) NOT NULL,
     updated_at VARCHAR(64) NOT NULL
 );
+
+ALTER TABLE control_session_state ADD COLUMN IF NOT EXISTS owner_username VARCHAR(128);
 
 CREATE INDEX IF NOT EXISTS idx_control_task_event_log_topic_created_at
     ON control_task_event_log(topic, created_at DESC);

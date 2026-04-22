@@ -13,6 +13,7 @@ import net.spartanb312.grunteon.obfuscator.web.SessionService;
 import net.spartanb312.grunteon.obfuscator.web.TaskStageRecord;
 import net.spartanb312.grunteon.obfuscator.web.WebBridgeSupport;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
 
 public final class ApiSupport {
@@ -41,6 +42,27 @@ public final class ApiSupport {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
         }
         return session;
+    }
+
+    public static String requireUsername(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getName() == null || authentication.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        return authentication.getName();
+    }
+
+    public static boolean hasAnyRole(Authentication authentication, String... roles) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        for (String role : roles) {
+            String authority = "ROLE_" + role;
+            boolean match = authentication.getAuthorities().stream().anyMatch(granted -> authority.equals(granted.getAuthority()));
+            if (match) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void ensureEditable(ObfuscationSession session) {

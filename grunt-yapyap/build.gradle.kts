@@ -2,6 +2,8 @@ plugins {
     id("buildsrc.convention.kotlin-jvm")
 }
 
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 repositories {
     mavenCentral()
     google()
@@ -24,6 +26,10 @@ dependencies {
 }
 
 tasks {
+    withType<KotlinCompile>().configureEach {
+        incremental = false
+    }
+
     jar {
         exclude("META-INF/versions/**", "module-info.class", "**/**.RSA")
         manifest {

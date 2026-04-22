@@ -20,11 +20,12 @@ class SessionService(
     fun createSession(
         accessProfile: SessionAccessProfile = SessionAccessProfile.SECURE,
         controlPlane: String = "embedded-web",
-        workerPlane: String = "local-worker"
+        workerPlane: String = "local-worker",
+        ownerUsername: String? = null
     ): ObfuscationSession {
         val sessionId = UUID.randomUUID().toString()
         return getOrCreateSession(sessionId).also {
-            it.configureControlPlane(accessProfile, controlPlane, workerPlane)
+            it.configureControlPlane(accessProfile, controlPlane, workerPlane, ownerUsername)
             sessionMetadataStore.saveSession(it)
         }
     }
@@ -54,6 +55,10 @@ class SessionService(
 
     fun saveAssets(session: ObfuscationSession, files: List<File>) {
         session.addAssets(files)
+    }
+
+    fun saveOutput(session: ObfuscationSession, file: File) {
+        session.replaceOutput(file)
     }
 
     fun linkConfigArtifact(session: ObfuscationSession, objectKey: String?) {

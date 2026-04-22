@@ -90,6 +90,9 @@ class ObfuscationSession(
     @Volatile
     var workerPlane: String = "local-worker"
 
+    @Volatile
+    var ownerUsername: String? = null
+
     val consoleLogs = CopyOnWriteArrayList<String>()
 
     private val decompiledCache = ConcurrentHashMap<String, String>()
@@ -180,6 +183,27 @@ class ObfuscationSession(
         notifyStateChanged()
     }
 
+    fun replaceOutput(file: File) {
+        val source = file.absoluteFile
+        val copied = File(outputDir, source.name).absoluteFile
+        val sameTarget = source.absolutePath == copied.absolutePath
+
+        if (sameTarget) {
+            require(source.exists()) { "Output file not found: ${source.absolutePath}" }
+            outputDir.listFiles()
+                ?.filter { it.absolutePath != source.absolutePath }
+                ?.forEach { it.deleteRecursively() }
+        } else {
+            clearDir(outputDir)
+            source.copyTo(copied, overwrite = true)
+        }
+
+        outputJarPath = copied.absolutePath
+        finalClassList = readJarClasses(copied)
+        clearCachedSources(ProjectScope.OUTPUT)
+        notifyStateChanged()
+    }
+
     fun getLibraryPaths(): List<String> = libraryFiles.toList()
 
     fun getLibraryNames(): List<String> = (libraryFiles.map { File(it).name } + libraryObjectRefs.keys).distinct().sorted()
@@ -250,11 +274,13 @@ class ObfuscationSession(
     fun configureControlPlane(
         accessProfile: SessionAccessProfile,
         controlPlane: String,
-        workerPlane: String
+        workerPlane: String,
+        ownerUsername: String? = this.ownerUsername
     ) {
         this.accessProfile = accessProfile
         this.controlPlane = controlPlane
         this.workerPlane = workerPlane
+        this.ownerUsername = ownerUsername
         notifyStateChanged()
     }
 
@@ -262,6 +288,7 @@ class ObfuscationSession(
         accessProfile = SessionAccessProfile.parseOrNull(state.policyMode) ?: SessionAccessProfile.SECURE
         controlPlane = state.controlPlane
         workerPlane = state.workerPlane
+        ownerUsername = state.ownerUsername
         status = runCatching { Status.valueOf(state.status) }.getOrElse { Status.IDLE }
         currentStep = state.currentStep
         progress = state.progress
@@ -289,6 +316,57 @@ class ObfuscationSession(
         assetFiles.clear()
         state.assetFiles.forEach { name ->
             resolvePersistedPath(assetsDir, name)?.let { assetFiles[name] = it }
+        }
+    }
+
+    fun applyExternalState(
+        status: String,
+        currentStep: String,
+        progress: Int,
+        totalSteps: Int,
+        errorMessage: String?,
+        outputObjectKey: String?,
+        logs: List<String>
+    ) {
+        var changed = false
+
+        logs.drop(consoleLogs.size).forEach { line ->
+            consoleLogs.add(line)
+            onLogMessage?.invoke(line)
+            changed = true
+        }
+
+        val parsedStatus = runCatching { Status.valueOf(status) }.getOrNull()
+        if (parsedStatus != null && this.status != parsedStatus) {
+            this.status = parsedStatus
+            changed = true
+        }
+        if (this.currentStep != currentStep) {
+            this.currentStep = currentStep
+            changed = true
+        }
+        if (this.progress != progress) {
+            this.progress = progress
+            changed = true
+        }
+        if (this.totalSteps != totalSteps) {
+            this.totalSteps = totalSteps
+            changed = true
+        }
+        if (this.errorMessage != errorMessage) {
+            this.errorMessage = errorMessage
+            changed = true
+        }
+        if (!outputObjectKey.isNullOrBlank() && this.outputObjectKey != outputObjectKey) {
+            this.outputObjectKey = outputObjectKey
+            changed = true
+        }
+
+        if (changed) {
+            onProgressUpdate?.invoke(
+                """{"step":"${escapeJson(this.currentStep)}","current":0,"total":${this.totalSteps},"progress":${this.progress},"status":"${this.status.name}"}"""
+            )
+            notifyStateChanged()
         }
     }
 

@@ -508,6 +508,27 @@ body::after {
     transform: scale(1.05);
 }
 
+.auth-feedback {
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.auth-feedback.info {
+    color: #34517d;
+    background: rgba(116, 170, 255, 0.14);
+    border: 1px solid rgba(116, 170, 255, 0.25);
+}
+
+.auth-feedback.error {
+    color: #8d2442;
+    background: rgba(255, 102, 140, 0.12);
+    border: 1px solid rgba(255, 102, 140, 0.22);
+}
+
 .auth-form-row {
     display: flex;
     align-items: center;

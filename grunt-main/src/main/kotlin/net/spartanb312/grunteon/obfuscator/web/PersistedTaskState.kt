@@ -2,6 +2,7 @@ package net.spartanb312.grunteon.obfuscator.web
 
 data class PersistedTaskState(
     val taskId: String,
+    val ownerUsername: String?,
     val projectName: String,
     val inputObjectKey: String,
     val configObjectKey: String?,

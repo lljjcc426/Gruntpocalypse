@@ -35,8 +35,9 @@ object WebServer {
     private val sessionService = SessionService(sessionRootDir)
     private val projectInspectionService = ProjectInspectionService()
     private val obfuscationService = ObfuscationService()
+    private val sessionExecutionGateway = LocalSessionExecutionGateway(obfuscationService)
     private val objectStorageService = ObjectStorageService()
-    private val platformTaskService = PlatformTaskService(sessionService, objectStorageService, obfuscationService)
+    private val platformTaskService = PlatformTaskService(sessionService, objectStorageService, sessionExecutionGateway)
 
     fun start(port: Int = 8080) {
         sessionRootDir.mkdirs()

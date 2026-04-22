@@ -32,6 +32,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -79,12 +80,14 @@ public class ControlPlaneSessionFacade {
         this.artifactMetadataQuery = artifactMetadataQuery;
     }
 
-    public Map<String, Object> createSession(String requestedProfile, boolean uiClient) {
+    public Map<String, Object> createSession(String requestedProfile, boolean uiClient, Authentication authentication) {
         SessionAccessProfile profile = policyService.resolveProfile(requestedProfile, uiClient);
+        String ownerUsername = ApiSupport.requireUsername(authentication);
         ObfuscationSession session = sessionService.createSession(
             profile,
             policyProperties.getControlPlaneName(),
-            policyProperties.getWorkerPlaneName()
+            policyProperties.getWorkerPlaneName(),
+            ownerUsername
         );
         sessionPolicyCache.remember(session.getId(), profile);
         telemetry.record("control.session.create", Map.of("sessionId", session.getId(), "profile", profile.name()));
@@ -95,41 +98,49 @@ public class ControlPlaneSessionFacade {
         return result;
     }
 
-    public Map<String, Object> status(String sessionId) {
+    public Map<String, Object> status(String sessionId, Authentication authentication) {
         PersistedSessionState state = findSessionState(sessionId);
         if (state == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
         }
+        requireSessionAccess(state, authentication);
         return policyService.filterSessionMap(state.getPolicyMode(), new LinkedHashMap<>(WebBridgeSupport.buildStatusMap(state)));
     }
 
-    public List<String> logs(String sessionId) {
+    public List<String> logs(String sessionId, Authentication authentication) {
         ObfuscationSession session = sessionService.getSession(sessionId);
         if (session != null) {
+            requireSessionAccess(session, authentication);
             return policyService.filterLogs(session);
         }
-        if (findSessionState(sessionId) == null) {
+        PersistedSessionState state = findSessionState(sessionId);
+        if (state == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
         }
+        requireSessionAccess(state, authentication);
         return List.of();
     }
 
-    public Map<String, Object> listSessions() {
+    public Map<String, Object> listSessions(Authentication authentication) {
+        String ownerUsername = ApiSupport.requireUsername(authentication);
+        boolean privileged = isPrivileged(authentication);
         Map<String, Object> result = ApiSupport.ok();
         result.put(
             "sessions",
             sessionMetadataQuery.loadSessions().stream()
+                .filter(state -> privileged || ownerUsername.equals(state.getOwnerUsername()))
                 .map(state -> policyService.filterSessionMap(state.getPolicyMode(), new LinkedHashMap<>(WebBridgeSupport.buildStatusMap(state))))
                 .toList()
         );
         return result;
     }
 
-    public Map<String, Object> artifacts(String sessionId) {
+    public Map<String, Object> artifacts(String sessionId, Authentication authentication) {
         PersistedSessionState state = findSessionState(sessionId);
         if (state == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
         }
+        requireSessionAccess(state, authentication);
         Map<String, Object> result = ApiSupport.ok();
         result.put(
             "artifacts",
@@ -200,8 +211,8 @@ public class ControlPlaneSessionFacade {
         return result;
     }
 
-    public Map<String, Object> obfuscate(String sessionId) {
-        ObfuscationSession session = requireSession(sessionId);
+    public Map<String, Object> obfuscate(String sessionId, Authentication authentication) {
+        ObfuscationSession session = requireSession(sessionId, authentication);
         rehydrateSessionArtifacts(session);
         sessionSocketHub.attachSessionCallbacks(session);
         telemetry.record("control.session.obfuscate", Map.of("sessionId", sessionId, "profile", session.getAccessProfile().name()));
@@ -237,11 +248,16 @@ public class ControlPlaneSessionFacade {
         return response;
     }
 
-    public ResponseEntity<Resource> download(String sessionId) {
+    public ResponseEntity<Resource> download(String sessionId, Authentication authentication) {
         ObfuscationSession session = sessionService.getSession(sessionId);
         PersistedSessionState state = findSessionState(sessionId);
         if (session == null && state == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
+        }
+        if (session != null) {
+            requireSessionAccess(session, authentication);
+        } else {
+            requireSessionAccess(state, authentication);
         }
         String outputPath = session == null ? null : session.getOutputJarPath();
         File file = outputPath == null ? null : new File(outputPath);
@@ -258,8 +274,8 @@ public class ControlPlaneSessionFacade {
             .body(new FileSystemResource(file));
     }
 
-    public Map<String, Object> projectMeta(String sessionId, String scopeValue) {
-        ObfuscationSession session = requireSession(sessionId);
+    public Map<String, Object> projectMeta(String sessionId, String scopeValue, Authentication authentication) {
+        ObfuscationSession session = requireSession(sessionId, authentication);
         ObfuscationSession.ProjectScope scope = parseScope(scopeValue);
         ProjectMeta meta = workerGateway.projectMeta(session, scope);
         Map<String, Object> result = ApiSupport.ok();
@@ -269,8 +285,8 @@ public class ControlPlaneSessionFacade {
         return result;
     }
 
-    public Map<String, Object> projectTree(String sessionId, String scopeValue) {
-        ObfuscationSession session = requireSession(sessionId);
+    public Map<String, Object> projectTree(String sessionId, String scopeValue, Authentication authentication) {
+        ObfuscationSession session = requireSession(sessionId, authentication);
         policyService.requireProjectPreview(session);
         ObfuscationSession.ProjectScope scope = parseScope(scopeValue);
         ProjectTree tree;
@@ -286,8 +302,8 @@ public class ControlPlaneSessionFacade {
         return result;
     }
 
-    public Map<String, Object> projectSource(String sessionId, String scopeValue, String className) {
-        ObfuscationSession session = requireSession(sessionId);
+    public Map<String, Object> projectSource(String sessionId, String scopeValue, String className, Authentication authentication) {
+        ObfuscationSession session = requireSession(sessionId, authentication);
         policyService.requireSourcePreview(session);
         ObfuscationSession.ProjectScope scope = parseScope(scopeValue);
         if (!WebBridgeSupport.isValidClassName(className)) {
@@ -307,6 +323,18 @@ public class ControlPlaneSessionFacade {
         result.put("language", source.getLanguage());
         result.put("code", source.getCode());
         return result;
+    }
+
+    public ObfuscationSession requireSession(String sessionId, Authentication authentication) {
+        ObfuscationSession session = ApiSupport.requireSession(sessionService, sessionId);
+        requireSessionAccess(session, authentication);
+        return session;
+    }
+
+    public ObfuscationSession requireEditable(String sessionId, Authentication authentication) {
+        ObfuscationSession session = requireSession(sessionId, authentication);
+        ApiSupport.ensureEditable(session);
+        return session;
     }
 
     public ObfuscationSession requireSession(String sessionId) {
@@ -388,6 +416,7 @@ public class ControlPlaneSessionFacade {
         }
         return new PersistedSessionState(
             live.getId(),
+            live.getOwnerUsername(),
             live.getAccessProfile().name(),
             live.getControlPlane(),
             live.getWorkerPlane(),
@@ -407,5 +436,30 @@ public class ControlPlaneSessionFacade {
             live.getLibraryObjectRefs(),
             live.getAssetObjectRefs()
         );
+    }
+
+    private void requireSessionAccess(ObfuscationSession session, Authentication authentication) {
+        if (isPrivileged(authentication)) {
+            return;
+        }
+        String ownerUsername = session.getOwnerUsername();
+        String currentUsername = ApiSupport.requireUsername(authentication);
+        if (ownerUsername == null || !ownerUsername.equals(currentUsername)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Session is not accessible");
+        }
+    }
+
+    private void requireSessionAccess(PersistedSessionState state, Authentication authentication) {
+        if (isPrivileged(authentication)) {
+            return;
+        }
+        String currentUsername = ApiSupport.requireUsername(authentication);
+        if (state.getOwnerUsername() == null || !state.getOwnerUsername().equals(currentUsername)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Session is not accessible");
+        }
+    }
+
+    private boolean isPrivileged(Authentication authentication) {
+        return ApiSupport.hasAnyRole(authentication, "PLATFORM_ADMIN", "SUPER_ADMIN");
     }
 }

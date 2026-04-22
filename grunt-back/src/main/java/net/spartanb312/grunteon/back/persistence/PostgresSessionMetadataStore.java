@@ -43,7 +43,8 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
         return databaseClient.sql(
                 """
                 UPDATE control_session_state
-                SET policy_mode = :policyMode,
+                SET owner_username = :ownerUsername,
+                    policy_mode = :policyMode,
                     control_plane = :controlPlane,
                     worker_plane = :workerPlane,
                     status = :status,
@@ -65,6 +66,7 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
                 WHERE session_id = :sessionId
                 """
             )
+            .bind("ownerUsername", Parameter.fromOrEmpty(session.getOwnerUsername(), String.class))
             .bind("policyMode", session.getAccessProfile().name())
             .bind("controlPlane", session.getControlPlane())
             .bind("workerPlane", session.getWorkerPlane())
@@ -94,6 +96,7 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
                 """
                 INSERT INTO control_session_state (
                     session_id,
+                    owner_username,
                     policy_mode,
                     control_plane,
                     worker_plane,
@@ -116,6 +119,7 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
                     updated_at
                 ) VALUES (
                     :sessionId,
+                    :ownerUsername,
                     :policyMode,
                     :controlPlane,
                     :workerPlane,
@@ -140,6 +144,7 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
                 """
             )
             .bind("sessionId", session.getId())
+            .bind("ownerUsername", Parameter.fromOrEmpty(session.getOwnerUsername(), String.class))
             .bind("policyMode", session.getAccessProfile().name())
             .bind("controlPlane", session.getControlPlane())
             .bind("workerPlane", session.getWorkerPlane())
@@ -201,7 +206,7 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
             return databaseClient.sql(
                     """
                     SELECT session_id, policy_mode, control_plane, worker_plane, status, current_step,
-                           progress, total_steps, error_message, config_file_name, input_file_name,
+                           owner_username, progress, total_steps, error_message, config_file_name, input_file_name,
                            output_file_name, config_object_key, input_object_key, output_object_key,
                            library_files_json, asset_files_json, library_object_refs_json, asset_object_refs_json
                     FROM control_session_state
@@ -211,6 +216,7 @@ public class PostgresSessionMetadataStore implements SessionMetadataStore, Sessi
                 .bind("sessionId", sessionId)
                 .map((row, metadata) -> new PersistedSessionState(
                     row.get("session_id", String.class),
+                    row.get("owner_username", String.class),
                     row.get("policy_mode", String.class),
                     row.get("control_plane", String.class),
                     row.get("worker_plane", String.class),

@@ -10,10 +10,11 @@ import java.util.concurrent.CopyOnWriteArrayList
 class PlatformTaskService(
     private val sessionService: SessionService,
     private val objectStorageService: ObjectStorageService,
-    private val obfuscationService: ObfuscationService,
+    private val sessionExecutionGateway: SessionExecutionGateway,
     private val taskMetadataStore: TaskMetadataStore = NoOpTaskMetadataStore,
     private val artifactMetadataStore: ArtifactMetadataStore = NoOpArtifactMetadataStore,
-    private val taskMetadataQuery: TaskMetadataQuery = NoOpTaskMetadataQuery
+    private val taskMetadataQuery: TaskMetadataQuery = NoOpTaskMetadataQuery,
+    private val workerPlaneName: String = "local-worker"
 ) {
     private val tasks = ConcurrentHashMap<String, PlatformTaskRecord>()
 
@@ -21,7 +22,8 @@ class PlatformTaskService(
         projectName: String,
         inputObjectKey: String,
         configObjectKey: String?,
-        accessProfile: SessionAccessProfile = SessionAccessProfile.SECURE
+        accessProfile: SessionAccessProfile = SessionAccessProfile.SECURE,
+        ownerUsername: String? = null
     ): PlatformTaskRecord {
         val id = UUID.randomUUID().toString()
         val record = PlatformTaskRecord(
@@ -29,7 +31,8 @@ class PlatformTaskService(
             projectName = projectName,
             inputObjectKey = inputObjectKey,
             configObjectKey = configObjectKey,
-            accessProfile = accessProfile
+            accessProfile = accessProfile,
+            ownerUsername = ownerUsername
         )
         tasks[id] = record
         record.message = "Task created"
@@ -61,7 +64,8 @@ class PlatformTaskService(
         val session = sessionService.createSession(
             accessProfile = task.accessProfile,
             controlPlane = "platform-task-control",
-            workerPlane = "local-worker"
+            workerPlane = workerPlaneName,
+            ownerUsername = task.ownerUsername
         )
         sessionService.saveInput(session, inputFile)
         sessionService.linkInputArtifact(session, task.inputObjectKey)
@@ -97,13 +101,7 @@ class PlatformTaskService(
             touch(task)
         }
 
-        val config = WebConfigAdapter.toObfConfig(configJson).copy(
-            input = session.inputJarPath ?: "",
-            output = File(session.outputDir, "artifact-obf.jar").absolutePath,
-            libs = session.getLibraryPaths()
-        )
-
-        when (obfuscationService.start(session, config, onFinish = {
+        when (sessionExecutionGateway.startSession(session, onFinish = {
             if (session.status == ObfuscationSession.Status.COMPLETED && session.outputJarPath != null) {
                 val outputFile = File(session.outputJarPath!!)
                 if (outputFile.exists()) {
@@ -118,12 +116,32 @@ class PlatformTaskService(
                     task.message = "Task completed"
                     addStage(task, "Completed", 100, "Task completed")
                     touch(task)
-                    return@start
+                } else {
+                    task.status = TaskStatus.FAILED
+                    task.message = "Task completed without a readable output artifact"
+                    addStage(task, "Failed", task.progress, task.message)
+                    touch(task)
                 }
+            } else if (session.status == ObfuscationSession.Status.COMPLETED && !session.outputObjectKey.isNullOrBlank()) {
+                task.outputObjectKey = session.outputObjectKey
+                bindArtifact(session.outputObjectKey!!, task.id, "OUTPUT")
+                task.status = TaskStatus.COMPLETED
+                task.progress = 100
+                task.currentStage = "Completed"
+                task.message = "Task completed"
+                addStage(task, "Completed", 100, "Task completed")
+                touch(task)
+            } else {
+                task.status = TaskStatus.FAILED
+                task.message = session.errorMessage ?: "Task failed"
+                addStage(task, "Failed", task.progress, task.message)
+                touch(task)
             }
-            task.status = TaskStatus.FAILED
-            task.message = session.errorMessage ?: "Task failed"
-            addStage(task, "Failed", task.progress, task.message)
+        }, onStart = {
+            task.status = TaskStatus.STARTING
+            task.message = "Dispatching worker execution"
+            task.currentStage = "Starting"
+            addStage(task, "Starting", task.progress, task.message)
             touch(task)
         })) {
             StartResult.Started -> {}
@@ -256,6 +274,7 @@ class PlatformTaskService(
         return tasks.computeIfAbsent(state.taskId) {
             PlatformTaskRecord(
                 id = state.taskId,
+                ownerUsername = state.ownerUsername,
                 projectName = state.projectName,
                 inputObjectKey = state.inputObjectKey,
                 configObjectKey = state.configObjectKey,
@@ -280,6 +299,7 @@ class PlatformTaskService(
 
 data class PlatformTaskRecord(
     val id: String,
+    val ownerUsername: String? = null,
     val projectName: String,
     val inputObjectKey: String,
     val configObjectKey: String?,

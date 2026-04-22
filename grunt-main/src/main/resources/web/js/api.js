@@ -23,7 +23,9 @@ const API = {
     },
 
     async requestJson(path, options) {
-        const res = await fetch(this.base + path, options);
+        const res = await fetch(this.base + path, Object.assign({
+            credentials: 'same-origin'
+        }, options || {}));
         const text = await res.text();
         let payload = {};
         if (text) {
@@ -34,6 +36,10 @@ const API = {
             }
         }
         if (!res.ok) {
+            if (res.status === 401 && !location.pathname.endsWith('/login') && !location.pathname.endsWith('/login.html')) {
+                const target = encodeURIComponent(location.pathname + location.search);
+                window.location.href = '/login?next=' + target;
+            }
             const err = new Error(payload.message || payload.error || res.statusText || 'Request failed');
             err.status = res.status;
             err.payload = payload;
@@ -52,6 +58,22 @@ const API = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body || {})
         });
+    },
+
+    authLogin(username, password, tier) {
+        return this.post('/api/auth/login', {
+            username: username || '',
+            password: password || '',
+            tier: tier || 'user'
+        });
+    },
+
+    authMe() {
+        return this.get('/api/auth/me');
+    },
+
+    authLogout() {
+        return this.post('/api/auth/logout', {});
     },
 
     upload(path, fieldName, files) {

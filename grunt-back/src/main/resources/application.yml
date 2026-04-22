@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8082
 
 spring:
   application:
@@ -42,11 +42,32 @@ info:
 
 grunteon:
   back:
+    runtime:
+      mode: control
+    auth:
+      users:
+        - username: user
+          password: grunteon-user
+          roles:
+            - USER
+        - username: platform-admin
+          password: grunteon-platform-admin
+          roles:
+            - PLATFORM_ADMIN
+        - username: super-admin
+          password: grunteon-super-admin
+          roles:
+            - SUPER_ADMIN
     policy:
       default-profile: SECURE
       ui-profile: RESEARCH
       control-plane-name: spring-control-plane
       worker-plane-name: local-worker-plane
+    worker:
+      mode: local
+      remote:
+        base-url: http://127.0.0.1:${server.port}
+        shared-secret:
     integration:
       temporal-enabled: false
       kafka-enabled: false

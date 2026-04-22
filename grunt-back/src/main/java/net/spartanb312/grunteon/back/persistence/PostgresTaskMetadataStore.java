@@ -43,7 +43,8 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
         return databaseClient.sql(
                 """
                 UPDATE control_task_state
-                SET project_name = :projectName,
+                SET owner_username = :ownerUsername,
+                    project_name = :projectName,
                     input_object_key = :inputObjectKey,
                     config_object_key = :configObjectKey,
                     output_object_key = :outputObjectKey,
@@ -62,6 +63,7 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                 WHERE task_id = :taskId
                 """
             )
+            .bind("ownerUsername", Parameter.fromOrEmpty(task.getOwnerUsername(), String.class))
             .bind("projectName", task.getProjectName())
             .bind("inputObjectKey", task.getInputObjectKey())
             .bind("configObjectKey", Parameter.fromOrEmpty(task.getConfigObjectKey(), String.class))
@@ -88,6 +90,7 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                 """
                 INSERT INTO control_task_state (
                     task_id,
+                    owner_username,
                     project_name,
                     input_object_key,
                     config_object_key,
@@ -107,6 +110,7 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                     updated_at
                 ) VALUES (
                     :taskId,
+                    :ownerUsername,
                     :projectName,
                     :inputObjectKey,
                     :configObjectKey,
@@ -128,6 +132,7 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                 """
             )
             .bind("taskId", task.getId())
+            .bind("ownerUsername", Parameter.fromOrEmpty(task.getOwnerUsername(), String.class))
             .bind("projectName", task.getProjectName())
             .bind("inputObjectKey", task.getInputObjectKey())
             .bind("configObjectKey", Parameter.fromOrEmpty(task.getConfigObjectKey(), String.class))
@@ -217,7 +222,7 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
         try {
             return databaseClient.sql(
                     """
-                    SELECT task_id, project_name, input_object_key, config_object_key, output_object_key,
+                    SELECT task_id, owner_username, project_name, input_object_key, config_object_key, output_object_key,
                            session_id, policy_mode, status, current_stage, progress, message,
                            logs_json, stages_json, recovery_previous_status, recovery_reason,
                            recovered_at, created_at, updated_at
@@ -228,6 +233,7 @@ public class PostgresTaskMetadataStore implements TaskMetadataStore, TaskMetadat
                 .bind("taskId", taskId)
                 .map((row, metadata) -> new PersistedTaskState(
                     row.get("task_id", String.class),
+                    row.get("owner_username", String.class),
                     row.get("project_name", String.class),
                     row.get("input_object_key", String.class),
                     row.get("config_object_key", String.class),

@@ -9,6 +9,7 @@ import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.JavaExec
 import org.gradle.jvm.tasks.Jar
 import org.gradle.api.tasks.SourceSetContainer
+import java.io.File
 
 repositories {
     mavenCentral()
@@ -37,12 +38,65 @@ dependencies {
     library(libs.cfr)
     library("org.javassist:javassist:3.30.2-GA")
 
-    testImplementation(kotlin("test"))
+    testImplementation(kotlin("test-junit5"))
     testImplementation(libs.ktor.server.test.host)
     testImplementation(project(":grunt-testcase"))
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+val testSourceSet = project.extensions.getByType<SourceSetContainer>().getByName("test")
+val mirroredTestRuntimeRoot = providers
+    .gradleProperty("grunteon.testRuntimeRoot")
+    .orElse(providers.environmentVariable("GRUNTEON_TEST_RUNTIME_ROOT"))
+    .orElse(
+        run {
+            val windowsDevCache = File("D:/dev-cache/grunteon-test-runtime")
+            val defaultRoot = if (windowsDevCache.parentFile.exists() || windowsDevCache.parentFile.mkdirs()) {
+                windowsDevCache
+            } else {
+                File(System.getProperty("java.io.tmpdir"), "grunteon-test-runtime")
+            }
+            defaultRoot.absolutePath
+        }
+    )
+val mirroredRuntimeEntries = testSourceSet.runtimeClasspath.files.toList().mapIndexed { index, entry ->
+    val mirrored = if (entry.toPath().startsWith(rootProject.rootDir.toPath())) {
+        File(mirroredTestRuntimeRoot.get(), "${project.name}/${index.toString().padStart(3, '0')}-${entry.name}")
+    } else {
+        entry
+    }
+    entry to mirrored
+}
+val mirroredTestClassDirs = testSourceSet.output.classesDirs.files.map { dir ->
+    mirroredRuntimeEntries.firstOrNull { it.first == dir }?.second ?: dir
 }
 
 tasks {
+    register("prepareAsciiTestRuntime") {
+        dependsOn("testClasses")
+        notCompatibleWithConfigurationCache("Mirrors project test runtime artifacts into an ASCII-only path for Gradle test workers.")
+        outputs.dir(File(mirroredTestRuntimeRoot.get(), project.name))
+        doLast {
+            val root = File(mirroredTestRuntimeRoot.get(), project.name)
+            if (root.exists()) {
+                root.deleteRecursively()
+            }
+            root.mkdirs()
+            mirroredRuntimeEntries.forEach { (source, target) ->
+                if (source == target || !source.exists()) return@forEach
+                if (source.isDirectory) {
+                    copy {
+                        from(source)
+                        into(target)
+                    }
+                } else {
+                    target.parentFile.mkdirs()
+                    source.copyTo(target, overwrite = true)
+                }
+            }
+        }
+    }
+
     jar {
         manifest {
             attributes(
@@ -94,5 +148,14 @@ tasks {
 }
 
 tasks.withType<Test> {
+    dependsOn("prepareAsciiTestRuntime")
+    notCompatibleWithConfigurationCache("Uses an ASCII-only mirrored runtime to avoid Gradle test worker classpath issues in non-ASCII workspaces.")
     maxHeapSize = "4G"
+    testClassesDirs = files(mirroredTestClassDirs)
+    classpath = files(mirroredRuntimeEntries.map { it.second })
+    isScanForTestClasses = false
+    include("**/*Test.class")
+    doFirst {
+        logger.lifecycle("Using mirrored test runtime root: ${mirroredTestRuntimeRoot.get()}")
+    }
 }

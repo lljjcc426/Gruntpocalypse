@@ -35,8 +35,9 @@ flowchart LR
   - owns session/task APIs, policy enforcement, audit surface, and artifact download grants
 - `worker`
   - execution-plane runtime
-  - currently packaged from `grunt-main-all.jar`
-  - runs internal Ktor endpoints today, but is intended to evolve into a narrower worker API
+  - currently packaged from `grunt-back.jar`
+  - exposes internal `/internal/worker/**` endpoints that are consumed by `RemoteWorkerGateway`
+  - is not published to the host and is intended to stay private to the platform network
 - `postgres`
   - durable metadata store for artifact/task/session state
 - `redis`
@@ -49,7 +50,9 @@ flowchart LR
 ## Metadata Source Of Truth
 
 - `control_artifact_manifest`
-  - source of truth for `objectKey`, storage backend, bucket/path, owner binding, size, and artifact status
+  - source of truth for `objectKey`, storage backend, bucket/path, size, and artifact status
+- `control_artifact_ref`
+  - source of truth for session/task-to-artifact binding relationships
 - `control_task_state`
   - source of truth for task status, progress/stage, input/config/output object-key relationships, and task-to-session binding
 - `control_session_state`
@@ -74,15 +77,17 @@ flowchart LR
 ## Current Code Alignment
 
 - The compose layout matches the required stack direction: `grunt-back / worker / postgres / redis / kafka / minio`.
-- Current code still uses `LocalWorkerGateway` inside `grunt-back`, so the `worker` container is a topology target and packaging baseline rather than a fully remote execution hop today.
-- `Temporal` is intentionally not included in this compose file because your requested topology did not list it, and the current code path still uses inline orchestration. The stack reservation remains in `grunt-back` dependencies.
+- `grunt-back` now defaults to `RemoteWorkerGateway` in the docker profile and talks to `worker` over internal HTTP.
+- `worker` still runs the same application codebase as `grunt-back`, but it now runs in explicit `worker` runtime mode and only the internal worker endpoints are intended to be used across the private network.
+- `PlatformTaskService` now also executes through the same worker boundary used by the control-plane session path, so session execution, task execution, and project inspection all share the same control-to-worker hop.
+- `Temporal` is intentionally not included in this compose file because your requested topology did not list it, and the current code path still uses inline orchestration.
 
 ## Port Policy
 
 - Published to host:
   - `grunt-back:8080`
 - Internal only:
-  - `worker:8081`
+  - `worker:8080`
   - `postgres:5432`
   - `redis:6379`
   - `kafka:9092`

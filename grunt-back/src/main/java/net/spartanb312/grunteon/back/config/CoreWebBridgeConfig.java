@@ -10,11 +10,13 @@ import net.spartanb312.grunteon.obfuscator.web.ObjectStorageService;
 import net.spartanb312.grunteon.obfuscator.web.ObfuscationService;
 import net.spartanb312.grunteon.obfuscator.web.PlatformTaskService;
 import net.spartanb312.grunteon.obfuscator.web.ProjectInspectionService;
+import net.spartanb312.grunteon.obfuscator.web.SessionExecutionGateway;
 import net.spartanb312.grunteon.obfuscator.web.SessionMetadataStore;
 import net.spartanb312.grunteon.obfuscator.web.SessionMetadataQuery;
 import net.spartanb312.grunteon.obfuscator.web.SessionService;
 import net.spartanb312.grunteon.obfuscator.web.TaskMetadataStore;
 import net.spartanb312.grunteon.obfuscator.web.TaskMetadataQuery;
+import net.spartanb312.grunteon.back.worker.WorkerGateway;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -76,18 +78,20 @@ public class CoreWebBridgeConfig {
     public PlatformTaskService platformTaskService(
         SessionService sessionService,
         ObjectStorageService objectStorageService,
-        ObfuscationService obfuscationService,
+        WorkerGateway workerGateway,
         TaskMetadataStore taskMetadataStore,
         ArtifactMetadataStore artifactMetadataStore,
-        TaskMetadataQuery taskMetadataQuery
+        TaskMetadataQuery taskMetadataQuery,
+        BackPolicyProperties policyProperties
     ) {
         return new PlatformTaskService(
             sessionService,
             objectStorageService,
-            obfuscationService,
+            workerGateway,
             taskMetadataStore,
             artifactMetadataStore,
-            taskMetadataQuery
+            taskMetadataQuery,
+            policyProperties.getWorkerPlaneName()
         );
     }
 }

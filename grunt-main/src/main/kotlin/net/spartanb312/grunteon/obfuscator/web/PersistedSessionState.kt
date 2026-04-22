@@ -2,6 +2,7 @@ package net.spartanb312.grunteon.obfuscator.web
 
 data class PersistedSessionState(
     val sessionId: String,
+    val ownerUsername: String?,
     val policyMode: String,
     val controlPlane: String,
     val workerPlane: String,
