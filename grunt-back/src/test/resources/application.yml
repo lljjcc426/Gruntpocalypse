@@ -1,0 +1,11 @@
+grunteon:
+  back:
+    integration:
+      kafka-enabled: false
+      redis-enabled: false
+      minio-enabled: false
+      temporal-enabled: false
+      otel-enabled: false
+      download-grant-ttl-seconds: 120
+    infrastructure:
+      fail-fast: false

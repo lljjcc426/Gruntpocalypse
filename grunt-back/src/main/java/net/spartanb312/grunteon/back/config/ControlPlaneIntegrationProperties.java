@@ -8,7 +8,7 @@ public class ControlPlaneIntegrationProperties {
     private boolean temporalEnabled = false;
     private boolean kafkaEnabled = false;
     private boolean redisEnabled = false;
-    private boolean minioEnabled = false;
+    private boolean minioEnabled = true;
     private boolean otelEnabled = false;
     private long downloadGrantTtlSeconds = 120L;
 

@@ -72,9 +72,17 @@ grunteon:
       temporal-enabled: false
       kafka-enabled: false
       redis-enabled: false
-      minio-enabled: false
+      minio-enabled: true
       otel-enabled: false
       download-grant-ttl-seconds: 120
+    infrastructure:
+      fail-fast: false
+      minio:
+        endpoint: ${GRUNT_BACK_MINIO_ENDPOINT:http://127.0.0.1:9000}
+        access-key: ${GRUNT_BACK_MINIO_ACCESS_KEY:grunteon}
+        secret-key: ${GRUNT_BACK_MINIO_SECRET_KEY:grunteon123}
+        bucket: ${GRUNT_BACK_MINIO_BUCKET:grunteon-artifacts}
+        region: ${GRUNT_BACK_MINIO_REGION:us-east-1}
     storage:
       session-base-dir: .state/web
       object-base-dir: .state/object-store

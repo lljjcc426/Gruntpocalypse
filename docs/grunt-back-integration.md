@@ -47,7 +47,7 @@ Its structure is meaningful, but some parts are still placeholder-oriented:
 - `SessionController` exposes `/api/session/**`
 - `PlatformTaskController` and `ObjectStorageController` expose `/api/v1/**`
 - `SessionService` manages upload/session workspace state
-- `ObjectStorageService` simulates object storage on the local filesystem
+- `ObjectStorageService` abstracts object storage and, in the current branch, the main persisted path is MinIO-backed with filesystem fallback/caching only
 - `PlatformTaskService` simulates task orchestration, optionally through RabbitMQ
 - `ObfuscationService` is placeholder-style and mainly copies the input JAR to output after staged progress simulation
 
@@ -81,7 +81,7 @@ It is implemented as:
 - Java 21
 
 It does not reuse the old Maven module directly.
-Instead, it reuses the current `grunt-main/web` service layer and real obfuscation core.
+Instead, it reuses the current `grunt-main/web` service layer and real obfuscation core, with MinIO as the primary artifact file store in the platform profile.
 
 That means the project is now in an intermediate state:
 

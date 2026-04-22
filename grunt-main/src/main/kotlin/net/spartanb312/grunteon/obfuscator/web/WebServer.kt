@@ -36,7 +36,7 @@ object WebServer {
     private val projectInspectionService = ProjectInspectionService()
     private val obfuscationService = ObfuscationService()
     private val sessionExecutionGateway = LocalSessionExecutionGateway(obfuscationService)
-    private val objectStorageService = ObjectStorageService()
+    private val objectStorageService = createObjectStorageService()
     private val platformTaskService = PlatformTaskService(sessionService, objectStorageService, sessionExecutionGateway)
 
     fun start(port: Int = 8080) {
@@ -50,6 +50,35 @@ object WebServer {
 
         tryOpenBrowser(port)
         Thread.currentThread().join()
+    }
+
+    private fun createObjectStorageService(): ObjectStorageService {
+        val minioEnabled = resolveBooleanSetting("grunteon.minio.enabled", "GRUNTEON_MINIO_ENABLED", true)
+        if (!minioEnabled) {
+            return ObjectStorageService()
+        }
+        val cacheDir = File(resolveSetting("grunteon.object.cacheDir", "GRUNTEON_OBJECT_CACHE_DIR", ".state/object-store"))
+        return ObjectStorageService(
+            MinioObjectStorageBackend(
+                endpoint = resolveSetting("grunteon.minio.endpoint", "GRUNTEON_MINIO_ENDPOINT", "http://127.0.0.1:9000"),
+                accessKey = resolveSetting("grunteon.minio.accessKey", "GRUNTEON_MINIO_ACCESS_KEY", "grunteon"),
+                secretKey = resolveSetting("grunteon.minio.secretKey", "GRUNTEON_MINIO_SECRET_KEY", "grunteon123"),
+                bucket = resolveSetting("grunteon.minio.bucket", "GRUNTEON_MINIO_BUCKET", "grunteon-artifacts"),
+                region = resolveSetting("grunteon.minio.region", "GRUNTEON_MINIO_REGION", "us-east-1"),
+                cacheDir = cacheDir
+            )
+        )
+    }
+
+    private fun resolveSetting(systemProperty: String, envName: String, defaultValue: String): String {
+        return System.getProperty(systemProperty)
+            ?.takeIf { it.isNotBlank() }
+            ?: System.getenv(envName)?.takeIf { it.isNotBlank() }
+            ?: defaultValue
+    }
+
+    private fun resolveBooleanSetting(systemProperty: String, envName: String, defaultValue: Boolean): Boolean {
+        return resolveSetting(systemProperty, envName, defaultValue.toString()).toBooleanStrictOrNull() ?: defaultValue
     }
 
     private fun tryOpenBrowser(port: Int) {

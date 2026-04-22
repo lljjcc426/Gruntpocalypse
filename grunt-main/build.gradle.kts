@@ -37,6 +37,7 @@ dependencies {
     library(libs.bundles.ktor.server)
     library(libs.cfr)
     library("org.javassist:javassist:3.30.2-GA")
+    library("io.minio:minio:8.5.12")
 
     testImplementation(kotlin("test-junit5"))
     testImplementation(libs.ktor.server.test.host)
