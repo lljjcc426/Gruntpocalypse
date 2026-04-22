@@ -1,5 +1,4 @@
 import org.gradle.api.tasks.testing.Test
-import org.gradle.jvm.tasks.Jar
 import org.gradle.api.tasks.SourceSetContainer
 import java.io.File
 import java.util.UUID
@@ -46,28 +45,6 @@ dependencies {
 }
 
 val testSourceSet = project.extensions.getByType<SourceSetContainer>().getByName("test")
-data class MirroredRuntimeEntry(
-    val source: File,
-    val target: File
-)
-
-fun localProjectRuntimeSources(entry: File): List<File>? {
-    if (!entry.name.endsWith(".jar")) return null
-    val canonicalEntry = entry.canonicalFile
-    return rootProject.allprojects.firstNotNullOfOrNull { candidate ->
-        val sourceSets = candidate.extensions.findByType(SourceSetContainer::class.java) ?: return@firstNotNullOfOrNull null
-        val mainSourceSet = sourceSets.findByName("main") ?: return@firstNotNullOfOrNull null
-        val jarTask = candidate.tasks.findByName("jar") as? Jar ?: return@firstNotNullOfOrNull null
-        val archiveFile = runCatching { jarTask.archiveFile.get().asFile.canonicalFile }.getOrNull()
-            ?: return@firstNotNullOfOrNull null
-        if (archiveFile != canonicalEntry) return@firstNotNullOfOrNull null
-        buildList {
-            addAll(mainSourceSet.output.classesDirs.files)
-            mainSourceSet.output.resourcesDir?.let(::add)
-        }.filter { it.exists() }
-    }
-}
-
 val mirroredTestRuntimeRoot = providers
     .gradleProperty("grunteon.testRuntimeRoot")
     .orElse(providers.environmentVariable("GRUNTEON_TEST_RUNTIME_ROOT"))
@@ -82,35 +59,23 @@ val mirroredTestRuntimeRoot = providers
             defaultRoot.absolutePath
         }
     )
-val mirroredRuntimeEntries = testSourceSet.runtimeClasspath.files.toList().flatMapIndexed { index, entry ->
-    val localSources = localProjectRuntimeSources(entry) ?: listOf(entry)
-    localSources.mapIndexed { nestedIndex, source ->
-        val mirrored = if (source.toPath().startsWith(rootProject.rootDir.toPath())) {
-            val originalName = if (localSources.size == 1) {
-                source.name
-            } else {
-                "${entry.nameWithoutExtension}-${nestedIndex.toString().padStart(2, '0')}-${source.name}"
-            }
-            File(
-                mirroredTestRuntimeRoot.get(),
-                "${project.name}/${mirroredRuntimeSessionId.get()}/${index.toString().padStart(3, '0')}-${originalName}"
-            )
-        } else {
-            source
-        }
-        MirroredRuntimeEntry(source, mirrored)
+val mirroredRuntimeEntries = testSourceSet.runtimeClasspath.files.toList().mapIndexed { index, entry ->
+    val mirrored = if (entry.toPath().startsWith(rootProject.rootDir.toPath())) {
+        File(
+            mirroredTestRuntimeRoot.get(),
+            "${project.name}/${mirroredRuntimeSessionId.get()}/${index.toString().padStart(3, '0')}-${entry.name}"
+        )
+    } else {
+        entry
     }
+    entry to mirrored
 }
 val mirroredTestClassDirs = testSourceSet.output.classesDirs.files.map { dir ->
-    mirroredRuntimeEntries.firstOrNull { it.source == dir }?.target ?: dir
-}
-
-tasks.named<Jar>("jar") {
-    enabled = false
+    mirroredRuntimeEntries.firstOrNull { it.first == dir }?.second ?: dir
 }
 
 tasks.register("prepareAsciiTestRuntime") {
-    dependsOn("testClasses", ":grunt-main:classes", ":genesis:classes", ":grunt-bootstrap:classes")
+    dependsOn("testClasses", ":grunt-main:jar", ":genesis:jar", ":grunt-bootstrap:jar")
     notCompatibleWithConfigurationCache("Mirrors project test runtime artifacts into an ASCII-only path for Gradle test workers.")
     outputs.dir(File(mirroredTestRuntimeRoot.get(), "${project.name}/${mirroredRuntimeSessionId.get()}"))
     doLast {
@@ -120,14 +85,9 @@ tasks.register("prepareAsciiTestRuntime") {
             root.deleteRecursively()
         }
         root.mkdirs()
-        mirroredRuntimeEntries.forEach { entry ->
-            val source = entry.source
-            val target = entry.target
+        mirroredRuntimeEntries.forEach { (source, target) ->
             if (source == target || !source.exists()) return@forEach
             if (source.isDirectory) {
-                if (target.exists()) {
-                    target.deleteRecursively()
-                }
                 copy {
                     from(source)
                     into(target)
@@ -152,7 +112,7 @@ tasks.withType<Test>().configureEach {
     notCompatibleWithConfigurationCache("Uses an ASCII-only mirrored runtime to avoid Gradle test worker classpath issues in non-ASCII workspaces.")
     maxHeapSize = "4G"
     testClassesDirs = files(mirroredTestClassDirs)
-    classpath = files(mirroredRuntimeEntries.map { it.target })
+    classpath = files(mirroredRuntimeEntries.map { it.second })
     isScanForTestClasses = false
     include("**/*Test.class")
     doFirst {
