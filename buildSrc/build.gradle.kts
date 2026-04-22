@@ -9,5 +9,4 @@ repositories {
 
 dependencies {
     implementation(libs.kotlinGradlePlugin)
-    implementation(libs.kotlinDSLGradlePlugin)
 }

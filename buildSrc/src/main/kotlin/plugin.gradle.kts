@@ -4,7 +4,6 @@ group = "net.spartanb312"
 
 plugins {
     id("buildsrc.convention.kotlin-jvm")
-    id("org.gradle.kotlin.kotlin-dsl")
     `maven-publish`
 }
 
