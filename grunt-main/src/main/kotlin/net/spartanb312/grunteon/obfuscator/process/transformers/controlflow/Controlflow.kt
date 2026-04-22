@@ -123,6 +123,9 @@ class Controlflow : Transformer<Controlflow.Config>(
 
     context(instance: Grunteon, _: PipelineBuilder)
     override fun buildStageImpl(config: Config) {
+        // Controlflow pre-work reads shared class collections and helper pools.
+        // Flush any pending parallel stages before touching that state.
+        barrier()
         pre {
             methodExPredicate = buildMethodNamePredicates(config.exclusion)
             junkCallPool = buildJunkCallPool(config)

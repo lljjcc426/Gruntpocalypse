@@ -16,7 +16,7 @@ val coroutineVersion: String = libs.versions.coroutine.get()
 
 dependencies {
     implementation(project(":grunt-bootstrap"))
-    implementation("net.spartanb312:genesis-kotlin:1.0.0")
+    implementation(project(":genesis"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutineVersion")
 
