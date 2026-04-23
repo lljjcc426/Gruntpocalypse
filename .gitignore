@@ -19,6 +19,7 @@ config.json
 .env.platform
 .tmp-smoke/
 tools/downloads/
+installer/build/
 *.pid
 *.out.log
 *.err.log

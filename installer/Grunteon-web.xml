@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch4jConfig>
+  <headerType>gui</headerType>
+  <jar>grunt-main-all.jar</jar>
+  <dontWrapJar>true</dontWrapJar>
+  <outfile>build\package\Grunteon.exe</outfile>
+  <errTitle>Grunteon</errTitle>
+  <cmdLine>--web</cmdLine>
+  <chdir>.</chdir>
+  <icon>assets\grunteon.ico</icon>
+  <downloadUrl>https://www.oracle.com/java/technologies/downloads/#java21</downloadUrl>
+  <supportUrl>https://github.com/lljjcc426/Gruntpocalypse/tree/LiJiachen</supportUrl>
+  <stayAlive>false</stayAlive>
+  <restartOnCrash>false</restartOnCrash>
+  <jre>
+    <path>%JAVA_HOME%;%PATH%</path>
+    <requiresJdk>false</requiresJdk>
+    <requires64Bit>false</requires64Bit>
+    <minVersion>21</minVersion>
+    <opt>--enable-preview</opt>
+  </jre>
+  <messages>
+    <startupErr>Grunteon failed to start. Check that the installation directory is complete and accessible.</startupErr>
+    <jreNotFoundErr>No compatible Java runtime was found. Grunteon requires Java 21 or newer.</jreNotFoundErr>
+    <jreVersionErr>The detected Java runtime is too old. Install Java 21 or newer and try again.</jreVersionErr>
+    <launcherErr>The launcher failed to initialize. Reinstall Grunteon and try again.</launcherErr>
+    <instanceAlreadyExistsMsg>Grunteon is already running. Check the existing window in the taskbar.</instanceAlreadyExistsMsg>
+  </messages>
+</launch4jConfig>
