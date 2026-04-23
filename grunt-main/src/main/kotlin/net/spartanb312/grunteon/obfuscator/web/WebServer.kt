@@ -131,6 +131,10 @@ object WebServer {
             call.respondText(WebConfigSchema.loadSchemaText(), ContentType.Application.Json)
         }
 
+        get("/schema/config-schema.json") {
+            call.respondText(WebConfigSchema.loadSchemaText(), ContentType.Application.Json)
+        }
+
         get("/fonts/{file...}") {
             val pathParts = call.parameters.getAll("file")
             if (pathParts.isNullOrEmpty() || pathParts.any { it.contains("..") || it.contains("\\") || it.contains(":") }) {

@@ -11,7 +11,7 @@
       ],
       "DumpMappings": true,
       "ControllableRandom": true,
-      "InputSeed": "I love XJP",
+      "InputSeed": "",
       "Multithreading": false,
       "PrintTimeUsage": true,
       "Profiler": false,
@@ -500,7 +500,7 @@
           ],
           "type": "string",
           "description": "Base seed used when ControllableRandom is enabled.",
-          "placeholder": "I love XJP"
+          "placeholder": ""
         },
         {
           "key": "Multithreading",

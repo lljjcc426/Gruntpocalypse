@@ -44,18 +44,14 @@ public class SecurityConfig {
                         .anyExchange().denyAll();
                 } else {
                     exchanges
-                        .pathMatchers("/", "/login", "/login.html").permitAll()
-                        .pathMatchers("/css/**", "/fonts/**", "/schema/**", "/favicon.ico").permitAll()
-                        .pathMatchers("/js/login.js").permitAll()
+                        .pathMatchers("/", "/login", "/login.html", "/index.html").permitAll()
+                        .pathMatchers("/css/**", "/fonts/**", "/schema/**", "/js/**", "/favicon.ico").permitAll()
                         .pathMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .pathMatchers("/api/auth/login").permitAll()
+                        .pathMatchers("/api/auth/**").permitAll()
                         .pathMatchers("/internal/worker/**").permitAll()
-                        .pathMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                         .pathMatchers("/api/control/policy/**").hasRole("SUPER_ADMIN")
                         .pathMatchers("/api/control/**", "/api/v1/**").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN")
-                        .pathMatchers("/api/session/**").hasAnyRole("USER", "PLATFORM_ADMIN", "SUPER_ADMIN")
-                        .pathMatchers("/index.html", "/ws/**").hasAnyRole("USER", "PLATFORM_ADMIN", "SUPER_ADMIN")
-                        .pathMatchers("/api/**").denyAll()
+                        .pathMatchers("/api/session/**", "/ws/**").permitAll()
                         .anyExchange().permitAll();
                 }
             })
@@ -78,6 +74,13 @@ public class SecurityConfig {
             }
             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
             return exchange.getResponse().setComplete();
+        }
+        if (path.startsWith("/api/control/") || path.startsWith("/api/v1/")) {
+            return writeJson(
+                exchange,
+                HttpStatus.UNAUTHORIZED,
+                "{\"status\":\"error\",\"message\":\"Authentication required\"}"
+            );
         }
         if (path.startsWith("/api/") || path.startsWith("/ws/")) {
             return writeJson(

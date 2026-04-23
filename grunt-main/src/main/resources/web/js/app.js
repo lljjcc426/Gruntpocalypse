@@ -36,7 +36,6 @@
       let projectLeftPct = CFG.projectLeft;
       let scope = 'input';
     let sessionId = '';
-    let currentAuth = null;
     let consoleWs = null;
       let progressWs = null;
       let schemaFieldMap = Object.create(null);
@@ -77,8 +76,6 @@
         btnSaveConfig: document.getElementById('btn-save-config'),
         btnObf: document.getElementById('btn-obfuscate'),
         btnDl: document.getElementById('btn-download'),
-        btnLogout: document.getElementById('btn-logout'),
-        sessionUser: document.getElementById('session-user'),
         statusDot: document.querySelector('.status-dot'),
         statusText: document.getElementById('status-text'),
         progressWrap: document.getElementById('progress-container'),
@@ -179,13 +176,6 @@
         document.body.setAttribute('data-status', kind);
     }
 
-    function renderAuth(auth) {
-        if (!el.sessionUser) return;
-        const username = auth && auth.username ? String(auth.username) : 'Guest';
-        const tier = auth && auth.tier ? String(auth.tier).toUpperCase() : '';
-        el.sessionUser.textContent = tier ? (username + ' · ' + tier) : username;
-    }
-
     function log(msg, level) {
         const line = document.createElement('div');
         line.className = 'console-line ' + (level || 'info');
@@ -194,18 +184,11 @@
         el.console.scrollTop = el.console.scrollHeight;
     }
 
-    function applyAccessTier(auth) {
-        const tier = (auth && auth.tier) || new URLSearchParams(window.location.search).get('tier') || 'user';
-        const normalizedTier = String(tier).toLowerCase();
+    function applyAccessTier() {
+        const tier = new URLSearchParams(window.location.search).get('tier');
+        const isBasic = (tier || '').toLowerCase() === 'basic';
         const proBadge = document.querySelector('.pro-badge');
-        const proText = proBadge ? proBadge.querySelector('.pro-text') : null;
-        if (!proBadge || !proText) return;
-        if (normalizedTier === 'user') {
-            proBadge.style.display = 'none';
-            return;
-        }
-        proBadge.style.display = 'inline-flex';
-        proText.textContent = normalizedTier.replace(/-/g, ' ').toUpperCase();
+        if (proBadge) proBadge.style.display = isBasic ? 'none' : 'inline-flex';
     }
 
       function restoreSplit() {
@@ -1214,16 +1197,6 @@
             if (!sessionId) return;
             window.location.href = API.getDownloadUrl(sessionId);
         });
-        if (el.btnLogout) {
-            el.btnLogout.addEventListener('click', async () => {
-                try {
-                    await API.authLogout();
-                } catch (_) {
-                    // Ignore logout transport failures and still return to the login page.
-                }
-                window.location.href = '/login';
-            });
-        }
         document.getElementById('btn-clear-console').addEventListener('click', () => {
             el.console.innerHTML = '';
         });
@@ -1305,6 +1278,7 @@
     }
 
       async function start() {
+          applyAccessTier();
           applySavedTheme();
           restoreSplit();
           leftPct = clampLeft(leftPct);
@@ -1314,11 +1288,8 @@
           }
           applySplit();
           syncCompact();
-        bindEvents();
+          bindEvents();
         try {
-            currentAuth = await API.authMe();
-            renderAuth(currentAuth);
-            applyAccessTier(currentAuth);
             await ensureSession();
             schema = await API.getSchema();
             if (!schema || !schema.defaults || !Array.isArray(schema.sections)) {

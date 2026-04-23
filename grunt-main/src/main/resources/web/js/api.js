@@ -3,29 +3,9 @@
  */
 const API = {
     base: '',
-    sessionProfile: 'RESEARCH',
-    routes: {
-        createSession: '/api/session/create',
-        status: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/status',
-        logs: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/logs',
-        config: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/config',
-        input: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/input',
-        libraries: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/libraries',
-        assets: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/assets',
-        obfuscate: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/obfuscate',
-        download: (sessionId) => '/api/session/' + encodeURIComponent(sessionId) + '/download',
-        projectMeta: (sessionId, scope) => '/api/session/' + encodeURIComponent(sessionId) + '/project/meta?scope=' + encodeURIComponent(scope || 'input'),
-        projectTree: (sessionId, scope) => '/api/session/' + encodeURIComponent(sessionId) + '/project/tree?scope=' + encodeURIComponent(scope || 'input'),
-        projectSource: (sessionId, scope, className) =>
-            '/api/session/' + encodeURIComponent(sessionId) + '/project/source?scope=' + encodeURIComponent(scope || 'input') + '&class=' + encodeURIComponent(className || ''),
-        consoleWs: (sessionId) => '/ws/console?sessionId=' + encodeURIComponent(sessionId),
-        progressWs: (sessionId) => '/ws/progress?sessionId=' + encodeURIComponent(sessionId)
-    },
 
     async requestJson(path, options) {
-        const res = await fetch(this.base + path, Object.assign({
-            credentials: 'same-origin'
-        }, options || {}));
+        const res = await fetch(this.base + path, options);
         const text = await res.text();
         let payload = {};
         if (text) {
@@ -36,10 +16,6 @@ const API = {
             }
         }
         if (!res.ok) {
-            if (res.status === 401 && !location.pathname.endsWith('/login') && !location.pathname.endsWith('/login.html')) {
-                const target = encodeURIComponent(location.pathname + location.search);
-                window.location.href = '/login?next=' + target;
-            }
             const err = new Error(payload.message || payload.error || res.statusText || 'Request failed');
             err.status = res.status;
             err.payload = payload;
@@ -60,22 +36,6 @@ const API = {
         });
     },
 
-    authLogin(username, password, tier) {
-        return this.post('/api/auth/login', {
-            username: username || '',
-            password: password || '',
-            tier: tier || 'user'
-        });
-    },
-
-    authMe() {
-        return this.get('/api/auth/me');
-    },
-
-    authLogout() {
-        return this.post('/api/auth/logout', {});
-    },
-
     upload(path, fieldName, files) {
         const formData = new FormData();
         Array.from(files || []).forEach((file) => formData.append(fieldName, file));
@@ -86,7 +46,7 @@ const API = {
     },
 
     createSession() {
-        return this.post(this.routes.createSession, { profile: this.sessionProfile });
+        return this.post('/api/session/create', {});
     },
 
     getSchema() {
@@ -94,52 +54,60 @@ const API = {
     },
 
     uploadConfig(sessionId, file) {
-        return this.upload(this.routes.config(sessionId), 'file', [file]);
+        return this.upload('/api/session/' + encodeURIComponent(sessionId) + '/config', 'file', [file]);
     },
 
     uploadInput(sessionId, file) {
-        return this.upload(this.routes.input(sessionId), 'file', [file]);
+        return this.upload('/api/session/' + encodeURIComponent(sessionId) + '/input', 'file', [file]);
     },
 
     uploadLibraries(sessionId, files) {
-        return this.upload(this.routes.libraries(sessionId), 'files', files);
+        return this.upload('/api/session/' + encodeURIComponent(sessionId) + '/libraries', 'files', files);
     },
 
     uploadAssets(sessionId, files) {
-        return this.upload(this.routes.assets(sessionId), 'files', files);
+        return this.upload('/api/session/' + encodeURIComponent(sessionId) + '/assets', 'files', files);
     },
 
     startObfuscation(sessionId) {
-        return this.post(this.routes.obfuscate(sessionId), {});
+        return this.post('/api/session/' + encodeURIComponent(sessionId) + '/obfuscate', {});
     },
 
     getStatus(sessionId) {
-        return this.get(this.routes.status(sessionId));
+        return this.get('/api/session/' + encodeURIComponent(sessionId) + '/status');
     },
 
     getLogs(sessionId) {
-        return this.get(this.routes.logs(sessionId));
+        return this.get('/api/session/' + encodeURIComponent(sessionId) + '/logs');
     },
 
     getDownloadUrl(sessionId) {
-        return this.base + this.routes.download(sessionId);
+        return this.base + '/api/session/' + encodeURIComponent(sessionId) + '/download';
     },
 
     getProjectMeta(sessionId, scope) {
-        return this.get(this.routes.projectMeta(sessionId, scope));
+        const sid = encodeURIComponent(sessionId);
+        const s = encodeURIComponent(scope || 'input');
+        return this.get('/api/session/' + sid + '/project/meta?scope=' + s);
     },
 
     getProjectTree(sessionId, scope) {
-        return this.get(this.routes.projectTree(sessionId, scope));
+        const sid = encodeURIComponent(sessionId);
+        const s = encodeURIComponent(scope || 'input');
+        return this.get('/api/session/' + sid + '/project/tree?scope=' + s);
     },
 
     getProjectSource(sessionId, scope, className) {
-        return this.get(this.routes.projectSource(sessionId, scope, className));
+        const sid = encodeURIComponent(sessionId);
+        const s = encodeURIComponent(scope || 'input');
+        const c = encodeURIComponent(className || '');
+        return this.get('/api/session/' + sid + '/project/source?scope=' + s + '&class=' + c);
     },
 
     connectConsole(sessionId, onMessage) {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(protocol + '//' + location.host + this.routes.consoleWs(sessionId));
+        const sid = encodeURIComponent(sessionId);
+        const ws = new WebSocket(protocol + '//' + location.host + '/ws/console?sessionId=' + sid);
         ws.onmessage = (event) => {
             try {
                 onMessage(JSON.parse(event.data));
@@ -153,7 +121,8 @@ const API = {
 
     connectProgress(sessionId, onProgress) {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(protocol + '//' + location.host + this.routes.progressWs(sessionId));
+        const sid = encodeURIComponent(sessionId);
+        const ws = new WebSocket(protocol + '//' + location.host + '/ws/progress?sessionId=' + sid);
         ws.onmessage = (event) => {
             try {
                 onProgress(JSON.parse(event.data));

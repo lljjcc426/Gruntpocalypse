@@ -33,7 +33,7 @@ data class ObfConfig(
     @SettingDesc("Use your specified random seed")
     val controllableRandom: Boolean = true,
     @SettingDesc("Base seed for controllable random")
-    val inputSeed: String = "I love XJP",
+    val inputSeed: String = "",
     @SettingDesc("Dump class/method/field mappings")
     val dumpMappings: Boolean = true,
     @SettingDesc("Enable pipeline multithreading")

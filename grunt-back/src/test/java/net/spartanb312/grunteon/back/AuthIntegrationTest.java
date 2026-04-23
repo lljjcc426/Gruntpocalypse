@@ -68,4 +68,40 @@ class AuthIntegrationTest {
             .jsonPath("$.role").isEqualTo("SUPER_ADMIN")
             .jsonPath("$.tier").isEqualTo("super-admin");
     }
+
+    @Test
+    void logoutInvalidatesSessionAndRequiresLoginAgain() {
+        EntityExchangeResult<byte[]> loginResult = webTestClient.post()
+            .uri("/api/auth/login")
+            .bodyValue(Map.of(
+                "username", "test-super-admin",
+                "password", "test-password",
+                "tier", "super-admin"
+            ))
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody()
+            .returnResult();
+
+        String sessionId = loginResult.getResponseCookies().getFirst("SESSION").getValue();
+        assertThat(sessionId).isNotBlank();
+
+        WebTestClient authenticatedClient = webTestClient.mutate()
+            .defaultCookie("SESSION", sessionId)
+            .build();
+
+        authenticatedClient.post()
+            .uri("/api/auth/logout")
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody()
+            .jsonPath("$.status").isEqualTo("ok");
+
+        authenticatedClient.get()
+            .uri("/api/auth/me")
+            .exchange()
+            .expectStatus().isUnauthorized()
+            .expectBody()
+            .jsonPath("$.message").isEqualTo("Authentication required");
+    }
 }
